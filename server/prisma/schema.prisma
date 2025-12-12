@@ -1,12 +1,12 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
+// Production Prisma schema with PostgreSQL support
+// Used for Railway deployment
 
 generator client {
   provider = "prisma-client-js"
 }
 
 datasource db {
-  provider = "sqlite"
+  provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 
@@ -33,7 +33,7 @@ model User {
 model Entity {
   id        String   @id // Using the existing string IDs (e.g., "ent_cmh1")
   name      String
-  data      String   // JSON string storing the complex nested structure (profiles, limits, etc.)
+  data      String   @db.Text // JSON string storing the complex nested structure (profiles, limits, etc.)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -55,7 +55,7 @@ model EntityAccess {
 
 model ProxyPartition {
   id        Int      @id @default(1) // Singleton pattern, always use ID 1
-  data      String   // JSON string storing ProcessedData
+  data      String   @db.Text // JSON string storing ProcessedData
   updatedAt DateTime @updatedAt
 }
 
@@ -68,9 +68,9 @@ model ChangeHistory {
   userId      Int      // User who made the change
   username    String   // Username for quick display
   userRole    String   // Role at time of change (ADMIN, MAILER, USER)
-  description String   // Human-readable description of the change
-  oldValue    String?  // JSON string of old value (optional)
-  newValue    String?  // JSON string of new value (optional)
+  description String   @db.Text // Human-readable description of the change
+  oldValue    String?  @db.Text // JSON string of old value (optional)
+  newValue    String?  @db.Text // JSON string of new value (optional)
   createdAt   DateTime @default(now())
   
   user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -83,7 +83,7 @@ model ProxyServer {
   id          String   @id @default(uuid())
   entityId    String
   serverName  String
-  ips         String   // JSON string storing string[]
+  ips         String   @db.Text // JSON string storing string[]
   status      String   @default("active") // "active" or "stopped"
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
@@ -149,7 +149,7 @@ model PlanningAssignment {
   dayOfWeek   Int      // 0=Monday, 1=Tuesday, ..., 6=Sunday
   taskCode    String   // e.g., "CMH3", "CMH12-CMH5-16", "congé", "HOTMAIL"
   taskColor   String?  // Color code for the task (green, yellow, orange, etc.)
-  notes       String?  // Optional notes
+  notes       String?  @db.Text // Optional notes
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
   createdBy   Int?     // User who created this assignment
@@ -243,7 +243,7 @@ model ManagerTeamLeaderLink {
 model DiagramTeam {
   id            String   @id @default(uuid())
   name          String
-  description   String?
+  description   String?  @db.Text
   color         String?  // Team color for visual distinction
   teamLeaderId  String
   order         Int      @default(0)
@@ -282,7 +282,7 @@ model DayPlan {
   entityId        String
   categoryId      String   // Category ID from entity.reporting.parentCategories
   date            DateTime // The date this plan is for
-  sessionData     String   // JSON: { [sessionIndex: number]: { step: number, start: number } }
+  sessionData     String   @db.Text // JSON: { [sessionIndex: number]: { step: number, start: number } }
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
   createdBy       Int?     // User who created
@@ -301,7 +301,7 @@ model DayPlan {
 model Script {
   id          String   @id @default(uuid())
   name        String   @unique // e.g., "CMH1_Warmup_Script_v2"
-  description String?  // Optional description
+  description String?  @db.Text // Optional description
   order       Int      @default(0) // For sorting in dropdown
   isActive    Boolean  @default(true)
   createdAt   DateTime @default(now())
@@ -318,7 +318,7 @@ model Scenario {
   id          String   @id @default(uuid())
   name        String   // e.g., "Standard_Rotation_A"
   scriptId    String   // Foreign key to Script
-  description String?  // Optional description
+  description String?  @db.Text // Optional description
   order       Int      @default(0) // For sorting in dropdown
   isActive    Boolean  @default(true)
   createdAt   DateTime @default(now())

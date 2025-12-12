@@ -127,13 +127,21 @@ router.post('/login', async (req, res) => {
       where: { username }
     });
 
+    console.log('🔍 Login attempt for username:', username);
+    console.log('🔍 User found:', user ? 'YES' : 'NO');
+    console.log('🔍 User has password:', user?.password ? 'YES' : 'NO');
+
     if (!user || !user.password) {
+      console.log('❌ Login failed: User not found or no password');
       return res.status(401).json({ error: 'Invalid credentials' });
     }
 
+    console.log('🔍 Comparing passwords...');
     const validPassword = await bcrypt.compare(password, user.password);
+    console.log('🔍 Password valid:', validPassword);
 
     if (!validPassword) {
+      console.log('❌ Login failed: Invalid password');
       return res.status(401).json({ error: 'Invalid credentials' });
     }
 
