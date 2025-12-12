@@ -108,6 +108,38 @@ import { initBackupService } from './services/backupService.js';
 // Initialize Backup Service
 initBackupService();
 
+// DEBUG ROUTE - To find where the files are
+app.get('/debug', async (req, res) => {
+  try {
+    const fs = await import('fs');
+    
+    const currentDir = __dirname;
+    const oneUp = path.resolve(__dirname, '..');
+    const twoUp = path.resolve(__dirname, '../..');
+    const threeUp = path.resolve(__dirname, '../../..');
+    
+    let distFiles = 'Not found';
+    const distPath = path.join(__dirname, '../../dist');
+    try {
+      distFiles = fs.readdirSync(distPath).join(', ');
+    } catch (e: any) {
+      distFiles = e.message;
+    }
+
+    res.json({
+      currentDir,
+      oneUp,
+      twoUp,
+      threeUp,
+      distPath,
+      distFiles,
+      env: process.env.NODE_ENV
+    });
+  } catch (err) {
+    res.status(500).json({ error: String(err) });
+  }
+});
+
 // Serve static files in production
 if (isProduction) {
   // Serve the built frontend from the dist folder (two levels up from server/dist)
