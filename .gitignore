@@ -38,3 +38,4 @@ server/backups/*.db
 # Keep dist for deployment (comment this out to include dist in git)
 dist
 server/dist
+dist-prod

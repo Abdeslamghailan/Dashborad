@@ -119,7 +119,7 @@ app.get('/debug', async (req, res) => {
     const threeUp = path.resolve(__dirname, '../../..');
     
     let distFiles = 'Not found';
-    const distPath = path.join(__dirname, '../../dist');
+    const distPath = path.join(__dirname, '../../dist-prod');
     let indexContent = 'File not found';
 
     try {
@@ -151,7 +151,7 @@ app.get('/debug', async (req, res) => {
 // Serve static files in production
 if (isProduction) {
   // Serve the built frontend from the dist folder (two levels up from server/dist)
-  const frontendPath = path.join(__dirname, '../../dist');
+  const frontendPath = path.join(__dirname, '../../dist-prod');
   console.log('Serving static files from:', frontendPath);
   
   app.use(express.static(frontendPath));
