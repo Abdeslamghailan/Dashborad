@@ -82,5 +82,29 @@ export const TelegramLoginButton: React.FC<TelegramLoginButtonProps> = ({
         };
     }, [botName, buttonSize, cornerRadius, requestAccess, onAuth]);
 
-    return <div ref={containerRef} className="flex justify-center" />;
+    return (
+        <div ref={containerRef} className="flex flex-col items-center gap-2">
+            {/* Debug button - remove after testing */}
+            <button
+                onClick={() => {
+                    console.log('DEBUG: Testing if onTelegramAuth exists on window');
+                    console.log('DEBUG: window.onTelegramAuth =', (window as any).onTelegramAuth);
+                    if ((window as any).onTelegramAuth) {
+                        console.log('DEBUG: Calling onTelegramAuth with test data...');
+                        (window as any).onTelegramAuth({
+                            id: 123456789,
+                            first_name: 'Test',
+                            last_name: 'User',
+                            username: 'testuser',
+                            auth_date: Math.floor(Date.now() / 1000),
+                            hash: 'test_hash_will_fail_validation'
+                        });
+                    }
+                }}
+                className="text-xs text-gray-400 underline mt-2"
+            >
+                [Debug: Test Callback]
+            </button>
+        </div>
+    );
 };
