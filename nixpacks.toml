@@ -10,6 +10,7 @@ cmds = [
 
 [phases.build]
 cmds = [
+    "rm -rf dist",
     "npm run build",
     "cd server && npm run build:prod"
 ]
