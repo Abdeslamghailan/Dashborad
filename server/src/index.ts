@@ -15,6 +15,7 @@ import planningRoutes from './routes/planning.js';
 import diagramRoutes from './routes/diagram.js';
 import dayplanRoutes from './routes/dayplan.js';
 import scriptsRoutes from './routes/scripts.js';
+import prisma from './db.js';
 
 dotenv.config();
 
@@ -143,6 +144,38 @@ app.get('/debug', async (req, res) => {
       indexContent,
       env: process.env.NODE_ENV
     });
+  } catch (err) {
+    res.status(500).json({ error: String(err) });
+  }
+});
+
+// TEMPORARY: Create admin user endpoint (remove after use)
+app.post('/create-admin-user', async (req, res) => {
+  try {
+    const bcrypt = await import('bcryptjs');
+    const password = 'admin123';
+    const hashedPassword = await bcrypt.default.hash(password, 10);
+
+    const user = await prisma.user.upsert({
+      where: { telegramId: 'admin_placeholder' },
+      update: {
+        password: hashedPassword,
+        role: 'ADMIN',
+        isApproved: true,
+        username: 'admin'
+      },
+      create: {
+        telegramId: 'admin_placeholder',
+        username: 'admin',
+        password: hashedPassword,
+        role: 'ADMIN',
+        isApproved: true,
+        firstName: 'Admin',
+        lastName: 'User'
+      },
+    });
+
+    res.json({ success: true, message: 'Admin user created', user: { id: user.id, username: user.username } });
   } catch (err) {
     res.status(500).json({ error: String(err) });
   }
