@@ -106,8 +106,8 @@ initBackupService();
 
 // Serve static files in production
 if (isProduction) {
-  // Serve the built frontend from the dist folder (one level up from server)
-  const frontendPath = path.join(__dirname, '../../..', 'dist');
+  // Serve the built frontend from the dist folder (two levels up from server/dist)
+  const frontendPath = path.join(__dirname, '../../dist');
   console.log('Serving static files from:', frontendPath);
   
   app.use(express.static(frontendPath));
