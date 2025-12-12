@@ -1,27 +1,18 @@
-import prisma from './src/db.js';
+import { PrismaClient } from '@prisma/client';
 
-async function listUsers() {
-  try {
-    const users = await prisma.user.findMany({
-      select: {
-        id: true,
-        telegramId: true,
-        username: true,
-        firstName: true,
-        lastName: true,
-        role: true,
-        isApproved: true,
-        createdAt: true
-      }
-    });
-    
-    console.log('Total users:', users.length);
-    console.log(JSON.stringify(users, null, 2));
-  } catch (error) {
-    console.error('Error:', error);
-  } finally {
-    await prisma.$disconnect();
-  }
+const prisma = new PrismaClient();
+
+async function main() {
+  console.log('Listing all users...');
+  const users = await prisma.user.findMany();
+  console.log(users);
 }
 
-listUsers();
+main()
+  .catch((e) => {
+    console.error(e);
+    process.exit(1);
+  })
+  .finally(async () => {
+    await prisma.$disconnect();
+  });

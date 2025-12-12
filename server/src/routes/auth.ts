@@ -141,7 +141,7 @@ router.post('/login', async (req, res) => {
     res.json({ token, user: { id: user.id, username: user.username, photoUrl: user.photoUrl, role: user.role, telegramId: user.telegramId } });
   } catch (error) {
     console.error('Login error:', error);
-    res.status(500).json({ error: 'Login failed' });
+    res.status(500).json({ error: 'Login failed', details: String(error) });
   }
 });
 
