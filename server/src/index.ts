@@ -40,10 +40,12 @@ app.use(helmet({
 }));
 
 // Rate Limiting - increased for production
+// Rate Limiting - increased for production
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
   max: isProduction ? 500 : 100, // Higher limit in production
-  message: 'Too many requests from this IP, please try again later.'
+  message: 'Too many requests from this IP, please try again later.',
+  validate: { xForwardedForHeader: false } // Disable strict validation to prevent crashes
 });
 app.use(limiter);
 
