@@ -21,7 +21,13 @@ router.post('/telegram', async (req, res) => {
     console.log('Telegram ID (converted to string):', telegramId);
     
     // Verify Telegram authentication
-    const isValid = verifyTelegramAuth(telegramData, process.env.TELEGRAM_BOT_TOKEN!);
+    const botToken = process.env.TELEGRAM_BOT_TOKEN;
+    if (!botToken) {
+      console.error('❌ FATAL: TELEGRAM_BOT_TOKEN is not defined in environment variables');
+      return res.status(500).json({ error: 'Server configuration error: Missing Bot Token' });
+    }
+
+    const isValid = verifyTelegramAuth(telegramData, botToken);
     console.log('Verification result:', isValid);
     
     if (!isValid) {
