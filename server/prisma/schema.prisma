@@ -1,0 +1,333 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id          Int      @id @default(autoincrement())
+  telegramId  String   @unique
+  username    String?
+  firstName   String?
+  lastName    String?
+  photoUrl    String?  // Telegram profile photo URL
+  password    String?  // For admin password login
+  role        String   @default("USER") // "ADMIN" or "USER"
+  isApproved  Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  // Relations
+  accessibleEntities EntityAccess[]
+  changeHistory      ChangeHistory[]
+  diagramManagers    DiagramManager[]
+  diagramTeamLeaders DiagramTeamLeader[]
+}
+
+model Entity {
+  id        String   @id // Using the existing string IDs (e.g., "ent_cmh1")
+  name      String
+  data      String   // JSON string storing the complex nested structure (profiles, limits, etc.)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  accessList EntityAccess[]
+  proxies    ProxyServer[]
+}
+
+model EntityAccess {
+  id        Int    @id @default(autoincrement())
+  userId    Int
+  entityId  String
+  
+  user      User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  entity    Entity @relation(fields: [entityId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, entityId])
+}
+
+model ProxyPartition {
+  id        Int      @id @default(1) // Singleton pattern, always use ID 1
+  data      String   // JSON string storing ProcessedData
+  updatedAt DateTime @updatedAt
+}
+
+model ChangeHistory {
+  id          Int      @id @default(autoincrement())
+  entityId    String?  // Entity ID if this is an entity change
+  entityType  String   // "entity", "proxy", "reporting", "limits", "notes", etc.
+  changeType  String   // "create", "update", "delete"
+  fieldChanged String? // Specific field that was changed (optional)
+  userId      Int      // User who made the change
+  username    String   // Username for quick display
+  userRole    String   // Role at time of change (ADMIN, MAILER, USER)
+  description String   // Human-readable description of the change
+  oldValue    String?  // JSON string of old value (optional)
+  newValue    String?  // JSON string of new value (optional)
+  createdAt   DateTime @default(now())
+  
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@index([entityId, createdAt])
+  @@index([entityType, createdAt])
+}
+
+model ProxyServer {
+  id          String   @id @default(uuid())
+  entityId    String
+  serverName  String
+  ips         String   // JSON string storing string[]
+  status      String   @default("active") // "active" or "stopped"
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  entity      Entity   @relation(fields: [entityId], references: [id], onDelete: Cascade)
+
+  @@index([entityId])
+}
+
+// Team Planning Management System Models
+model Team {
+  id          String   @id @default(uuid())
+  name        String   @unique // e.g., "DESKTOP", "Webautomat", "HOTMAIL", "Gmail"
+  displayName String   // Display name for UI
+  order       Int      @default(0) // For sorting teams in UI
+  color       String?  // Optional color code for UI
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  mailers     Mailer[]
+  
+  @@index([order])
+}
+
+model Mailer {
+  id          String   @id @default(uuid())
+  name        String   // e.g., "Khadija Hafid", "Hicham El Ouafir"
+  teamId      String
+  order       Int      @default(0) // For sorting within team
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  team        Team     @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  assignments PlanningAssignment[]
+  diagramAssignments DiagramMailerAssignment[]
+  
+  @@index([teamId, order])
+}
+
+model PlanningSchedule {
+  id          String   @id @default(uuid())
+  weekStart   DateTime // Monday of the week
+  weekEnd     DateTime // Sunday of the week
+  weekNumber  Int      // Week number in year
+  year        Int      // Year
+  isCurrent   Boolean  @default(false) // Is this the current week?
+  isNext      Boolean  @default(false) // Is this the next week?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  assignments PlanningAssignment[]
+  
+  @@unique([year, weekNumber])
+  @@index([weekStart])
+  @@index([isCurrent, isNext])
+}
+
+model PlanningAssignment {
+  id          String   @id @default(uuid())
+  scheduleId  String
+  mailerId    String
+  dayOfWeek   Int      // 0=Monday, 1=Tuesday, ..., 6=Sunday
+  taskCode    String   // e.g., "CMH3", "CMH12-CMH5-16", "congé", "HOTMAIL"
+  taskColor   String?  // Color code for the task (green, yellow, orange, etc.)
+  notes       String?  // Optional notes
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  createdBy   Int?     // User who created this assignment
+  updatedBy   Int?     // User who last updated this assignment
+  
+  schedule    PlanningSchedule @relation(fields: [scheduleId], references: [id], onDelete: Cascade)
+  mailer      Mailer   @relation(fields: [mailerId], references: [id], onDelete: Cascade)
+  
+  @@unique([scheduleId, mailerId, dayOfWeek])
+  @@index([scheduleId, dayOfWeek])
+  @@index([mailerId])
+}
+
+// Quick Assign Presets for Team Planning
+model PlanningPreset {
+  id          String   @id @default(uuid())
+  label       String   @unique // e.g., "CMH3-CMH9"
+  codes       String   // JSON array of codes, e.g., '["CMH3", "CMH9"]'
+  color       String   // Color code for the preset, e.g., "#90EE90"
+  order       Int      @default(0) // For sorting presets in UI
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  @@index([order])
+}
+
+// =====================
+// CMHW Team Diagram Models
+// =====================
+
+// Manager - Top level of the hierarchy
+model DiagramManager {
+  id          String   @id @default(uuid())
+  name        String   @unique
+  email       String?
+  phone       String?
+  avatarColor String?  // For visual distinction
+  order       Int      @default(0)
+  isActive    Boolean  @default(true)
+  portalId    String?
+  userId      Int?
+  user        User?    @relation(fields: [userId], references: [id])
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  // Many-to-many relationship with Team Leaders
+  teamLeaderLinks ManagerTeamLeaderLink[]
+  
+  @@index([order])
+}
+
+// Team Leader - Can report to multiple Managers, manages teams
+model DiagramTeamLeader {
+  id          String   @id @default(uuid())
+  name        String
+  email       String?
+  phone       String?
+  avatarColor String?
+  order       Int      @default(0)
+  isActive    Boolean  @default(true)
+  portalId    String?
+  userId      Int?
+  user        User?    @relation(fields: [userId], references: [id])
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  // Many-to-many relationship with Managers
+  managerLinks ManagerTeamLeaderLink[]
+  teams        DiagramTeam[]
+  
+  @@index([order])
+}
+
+// Junction table for Many-to-Many relationship between Managers and Team Leaders
+model ManagerTeamLeaderLink {
+  id            String   @id @default(uuid())
+  managerId     String
+  teamLeaderId  String
+  isPrimary     Boolean  @default(false) // Is this the primary manager for this team leader?
+  createdAt     DateTime @default(now())
+  
+  manager       DiagramManager     @relation(fields: [managerId], references: [id], onDelete: Cascade)
+  teamLeader    DiagramTeamLeader  @relation(fields: [teamLeaderId], references: [id], onDelete: Cascade)
+  
+  @@unique([managerId, teamLeaderId])
+  @@index([managerId])
+  @@index([teamLeaderId])
+}
+
+// DiagramTeam - A team managed by a Team Leader
+model DiagramTeam {
+  id            String   @id @default(uuid())
+  name          String
+  description   String?
+  color         String?  // Team color for visual distinction
+  teamLeaderId  String
+  order         Int      @default(0)
+  isActive      Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  
+  teamLeader    DiagramTeamLeader @relation(fields: [teamLeaderId], references: [id], onDelete: Cascade)
+  mailerAssignments DiagramMailerAssignment[]
+  
+  @@index([teamLeaderId, order])
+}
+
+// Mailer Assignment - Links mailers to teams (many-to-many)
+model DiagramMailerAssignment {
+  id          String   @id @default(uuid())
+  mailerId    String   // Reference to existing Mailer
+  teamId      String
+  role        String?  // Optional role within the team
+  isPrimary   Boolean  @default(false) // Is this their primary team?
+  joinedAt    DateTime @default(now())
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  mailer      Mailer      @relation(fields: [mailerId], references: [id], onDelete: Cascade)
+  team        DiagramTeam @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  
+  @@unique([mailerId, teamId])
+  @@index([teamId])
+  @@index([mailerId])
+}
+
+// Day Plan - Stores customized STEP and START values per session per category per date
+model DayPlan {
+  id              String   @id @default(uuid())
+  entityId        String
+  categoryId      String   // Category ID from entity.reporting.parentCategories
+  date            DateTime // The date this plan is for
+  sessionData     String   // JSON: { [sessionIndex: number]: { step: number, start: number } }
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  createdBy       Int?     // User who created
+  updatedBy       Int?     // User who last updated
+  
+  @@unique([entityId, categoryId, date])
+  @@index([entityId, date])
+  @@index([categoryId])
+}
+
+// =====================
+// Script & Scenario Models
+// =====================
+
+// Script - A script that can have multiple scenarios
+model Script {
+  id          String   @id @default(uuid())
+  name        String   @unique // e.g., "CMH1_Warmup_Script_v2"
+  description String?  // Optional description
+  order       Int      @default(0) // For sorting in dropdown
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  scenarios   Scenario[]
+  
+  @@index([order])
+  @@index([isActive])
+}
+
+// Scenario - Belongs to a Script
+model Scenario {
+  id          String   @id @default(uuid())
+  name        String   // e.g., "Standard_Rotation_A"
+  scriptId    String   // Foreign key to Script
+  description String?  // Optional description
+  order       Int      @default(0) // For sorting in dropdown
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  script      Script   @relation(fields: [scriptId], references: [id], onDelete: Cascade)
+  
+  @@unique([scriptId, name]) // Unique scenario name per script
+  @@index([scriptId])
+  @@index([order])
+  @@index([isActive])
+}

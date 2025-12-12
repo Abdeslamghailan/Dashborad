@@ -1,0 +1,15 @@
+node_modules
+
+# Keep environment variables out of version control
+.env
+
+# Prisma generated files (regenerated on build)
+/generated/prisma
+
+# SQLite database files (local development only)
+prisma/*.db
+prisma/*.db-journal
+backups/*.db
+
+# Keep dist for deployment
+# dist
