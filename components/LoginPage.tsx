@@ -14,6 +14,7 @@ export const LoginPage: React.FC = () => {
     const [error, setError] = useState('');
 
     const handleTelegramAuth = async (user: any) => {
+        console.log('LoginPage: handleTelegramAuth called with user:', user);
         try {
             await login(user);
             navigate('/');

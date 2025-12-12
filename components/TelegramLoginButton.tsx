@@ -36,11 +36,22 @@ export const TelegramLoginButton: React.FC<TelegramLoginButtonProps> = ({
     const containerRef = useRef<HTMLDivElement>(null);
 
     useEffect(() => {
-        if (!containerRef.current) return;
+        if (!containerRef.current) {
+            console.log('TelegramLoginButton: containerRef is null');
+            return;
+        }
+
+        console.log('TelegramLoginButton: Mounting widget for bot:', botName);
 
         // Define the global callback
+        console.log('TelegramLoginButton: Defining global callback window.onTelegramAuth');
         (window as any).onTelegramAuth = (user: TelegramUser) => {
-            onAuth(user);
+            console.log('TelegramLoginButton: 🟢 onTelegramAuth called by widget!', user);
+            try {
+                onAuth(user);
+            } catch (e) {
+                console.error('TelegramLoginButton: 🔴 Error in onAuth prop:', e);
+            }
         };
 
         // Create the script element
@@ -53,15 +64,21 @@ export const TelegramLoginButton: React.FC<TelegramLoginButtonProps> = ({
         script.setAttribute('data-onauth', 'onTelegramAuth(user)');
         script.async = true;
 
+        script.onload = () => {
+            console.log('TelegramLoginButton: Script loaded successfully');
+        };
+        script.onerror = (e) => {
+            console.error('TelegramLoginButton: Script load error:', e);
+        };
+
         // Clear previous content and append new script
+        console.log('TelegramLoginButton: Appending script to container');
         containerRef.current.innerHTML = '';
         containerRef.current.appendChild(script);
 
         // Cleanup
         return () => {
-            // We don't remove the script here to avoid flickering if re-rendered, 
-            // but in a strict cleanup we might. 
-            // For this widget, leaving it is usually safer unless unmounting.
+            console.log('TelegramLoginButton: Unmounting');
         };
     }, [botName, buttonSize, cornerRadius, requestAccess, onAuth]);
 
