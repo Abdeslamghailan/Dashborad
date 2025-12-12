@@ -1,0 +1,38 @@
+[
+  {
+    "id": "1894d936-2b3c-4fab-82d9-c9a981e88a15",
+    "name": "DESKTOP",
+    "displayName": "DESKTOP",
+    "order": 1,
+    "color": "#3ce25d",
+    "createdAt": "2025-12-12T14:13:57.142Z",
+    "updatedAt": "2025-12-12T14:13:57.142Z"
+  },
+  {
+    "id": "fc504a06-7221-4a69-a377-9e888da793e3",
+    "name": "WEBAUTOMATE",
+    "displayName": "WEBAUTOMATE",
+    "order": 2,
+    "color": "#6366f1",
+    "createdAt": "2025-12-12T14:14:09.769Z",
+    "updatedAt": "2025-12-12T14:14:09.769Z"
+  },
+  {
+    "id": "dda6691c-8e13-40d0-913f-5e2abd8b2fa4",
+    "name": "YAHOO",
+    "displayName": "YAHOO",
+    "order": 3,
+    "color": "#9b9cee",
+    "createdAt": "2025-12-12T14:14:21.234Z",
+    "updatedAt": "2025-12-12T14:14:21.234Z"
+  },
+  {
+    "id": "9e4f1295-6dcd-4adf-a3c8-3bf09f9daf98",
+    "name": "HOTMAIL",
+    "displayName": "HOTMAIL",
+    "order": 4,
+    "color": "#f2ed64",
+    "createdAt": "2025-12-12T14:14:34.096Z",
+    "updatedAt": "2025-12-12T14:14:34.096Z"
+  }
+]

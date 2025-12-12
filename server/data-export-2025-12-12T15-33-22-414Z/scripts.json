@@ -1,0 +1,83 @@
+[
+  {
+    "id": "2657202b-41f9-46e2-940b-f026302dbc6b",
+    "name": "spam_unread_repport.js",
+    "description": "1 action not spam and check if vide go to inbox + 10 actions ( show image - (star or important) =>> archive ) LOOP (spam/unread last 1h)+report",
+    "order": 0,
+    "isActive": true,
+    "createdAt": "2025-12-12T09:55:10.171Z",
+    "updatedAt": "2025-12-12T09:55:10.171Z"
+  },
+  {
+    "id": "95e50729-bc40-4d74-a31d-36c8a8d44995",
+    "name": "spam_unread_subject_repport_v2.js",
+    "description": "1 action not spam and check if vide go to unread open by subject + 25 actions ( show image - (star or important) =>> archive ) LOOP (spam/unread last 1h)+report+covirsation off",
+    "order": 1,
+    "isActive": true,
+    "createdAt": "2025-12-12T09:55:18.226Z",
+    "updatedAt": "2025-12-12T09:55:18.226Z"
+  },
+  {
+    "id": "78392b67-1bdd-4e31-93e3-96a15a9150e6",
+    "name": "spam_unread_subject_repport.js",
+    "description": "1 action not spam and check if vide go to unread open by subject + 25 actions ( show image - (star or important) =>> archive ) LOOP (spam/unread last 1h)+report+covirsation off",
+    "order": 2,
+    "isActive": true,
+    "createdAt": "2025-12-12T09:55:27.940Z",
+    "updatedAt": "2025-12-12T09:55:27.940Z"
+  },
+  {
+    "id": "bf1456bd-7db7-4f70-a444-c7bf065bdb62",
+    "name": "spam_unread_sub.js",
+    "description": "1 action not spam and check if vide go to unread+ 25 actions by subject ( show image - (star or important) =>> archive ) LOOP (spam/unread last 1h)+report+covirsation off",
+    "order": 3,
+    "isActive": true,
+    "createdAt": "2025-12-12T10:15:02.698Z",
+    "updatedAt": "2025-12-12T10:15:02.698Z"
+  },
+  {
+    "id": "de9a95e7-315d-4ce7-a147-d17bfb3376c9",
+    "name": "cmh3_ip_noReply.js",
+    "description": "cmh3_ip_noReply.js\tOpen 2 tabs (Spam & Inbox) → Disable categories & conversation view → Process 20 spam emails (≤60min old) as \"Not Spam\" → Do 20 inbox emails (≤60min old) with actions (show images → random action [star/important/click] → archive) → Repeat 1000 times.",
+    "order": 4,
+    "isActive": true,
+    "createdAt": "2025-12-12T10:15:10.131Z",
+    "updatedAt": "2025-12-12T10:15:10.131Z"
+  },
+  {
+    "id": "c50a06d1-d954-4189-9ff6-9c96d40f43dd",
+    "name": "CMH3_OFFER.js",
+    "description": "Open 2 tabs (Spam & Inbox) → mark 20 emails as \"Not Spam\" → perform 10 Inbox actions (open, show image, click, star/important/reply, archive) → repeat loop.",
+    "order": 5,
+    "isActive": true,
+    "createdAt": "2025-12-12T10:15:16.903Z",
+    "updatedAt": "2025-12-12T10:15:16.903Z"
+  },
+  {
+    "id": "890f9439-c40d-41ed-b121-1184509a2ebc",
+    "name": "spam_inbox_rep_sub_nav.js",
+    "description": "Open 2 tabs (Spam & Inbox) → Process 10 spam emails (≤60min old) as \"Not Spam\" → Do 10 inbox emails navige beetwen page older with actions (show images → random action [open/star/important] → archive) → Repeat 1000 times.",
+    "order": 6,
+    "isActive": true,
+    "createdAt": "2025-12-12T10:15:23.398Z",
+    "updatedAt": "2025-12-12T10:15:23.398Z"
+  },
+  {
+    "id": "5f84ba5e-05c5-4c42-88dd-6ad44bcdcda3",
+    "name": "cmh8_ip_new_version.js",
+    "description": "Open 2 tabs (Spam & Inbox) → Process 5 spam emails (≤60min old) as \"Not Spam\" by subject → Do 5 inbox emails (≤60min old) by subject with actions (open, show image, (star/important/click/reply(max 3/bt)), archive) → repeat loop.",
+    "order": 8,
+    "isActive": true,
+    "createdAt": "2025-12-12T10:15:38.213Z",
+    "updatedAt": "2025-12-12T10:15:38.213Z"
+  },
+  {
+    "id": "58ede1c3-369c-47b9-baa4-00823f22ba96",
+    "name": "cmh3_ip_test.js",
+    "description": null,
+    "order": 9,
+    "isActive": true,
+    "createdAt": "2025-12-12T10:32:58.119Z",
+    "updatedAt": "2025-12-12T10:32:58.119Z"
+  }
+]

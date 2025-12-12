@@ -1,0 +1,56 @@
+[
+  {
+    "id": "697ea81d-0173-4851-af0a-633ee7ad9512",
+    "label": "CMH12-CMH5-CMH16",
+    "codes": "[\"CMH12\",\"CMH5\",\"CMH16\"]",
+    "color": "#FFFFE0",
+    "order": 1,
+    "createdAt": "2025-12-12T13:32:09.503Z",
+    "updatedAt": "2025-12-12T13:32:09.503Z"
+  },
+  {
+    "id": "70884475-8073-4c4e-9007-56e9c18751bf",
+    "label": "congé",
+    "codes": "[\"congé\"]",
+    "color": "#FFB6C1",
+    "order": 5,
+    "createdAt": "2025-12-12T13:32:09.503Z",
+    "updatedAt": "2025-12-12T13:32:09.503Z"
+  },
+  {
+    "id": "a38bd205-5e7b-4deb-88e8-7bef2c5b606f",
+    "label": "Desktop-Webautomat",
+    "codes": "[\"Desktop\",\"Webautomat\"]",
+    "color": "#FFA500",
+    "order": 3,
+    "createdAt": "2025-12-12T13:32:09.503Z",
+    "updatedAt": "2025-12-12T13:32:09.503Z"
+  },
+  {
+    "id": "51fc1047-0a7e-425f-8da1-576c24596c54",
+    "label": "Night Desktop-Night tool it",
+    "codes": "[\"Night Desktop\",\"Night tool it\"]",
+    "color": "#FFA500",
+    "order": 4,
+    "createdAt": "2025-12-12T13:32:09.503Z",
+    "updatedAt": "2025-12-12T13:32:09.503Z"
+  },
+  {
+    "id": "f06b12a3-3b51-4d0b-8d6f-f01f18ce294e",
+    "label": "HOTMAIL-Gmail",
+    "codes": "[\"HOTMAIL\",\"Gmail\"]",
+    "color": "#FFD700",
+    "order": 2,
+    "createdAt": "2025-12-12T13:32:09.503Z",
+    "updatedAt": "2025-12-12T13:32:09.503Z"
+  },
+  {
+    "id": "794c6cb6-100e-47f2-b0b1-4d01cdd582db",
+    "label": "CMH3-CMH9",
+    "codes": "[\"CMH3\",\"CMH9\"]",
+    "color": "#90EE90",
+    "order": 0,
+    "createdAt": "2025-12-12T13:32:09.503Z",
+    "updatedAt": "2025-12-12T13:32:09.503Z"
+  }
+]

@@ -1,0 +1,41 @@
+[
+  {
+    "id": 1,
+    "telegramId": "admin_demo",
+    "username": "admin",
+    "firstName": "Admin",
+    "lastName": "User",
+    "photoUrl": null,
+    "password": "$2b$10$/WUj08rNXnA6/aPhR5GMA.jBfwOjA3JMPJBwxAf9m5TQEFlKYCHQa",
+    "role": "ADMIN",
+    "isApproved": true,
+    "createdAt": "2025-12-11T18:26:54.136Z",
+    "updatedAt": "2025-12-12T13:15:37.005Z"
+  },
+  {
+    "id": 2,
+    "telegramId": "655946124",
+    "username": "KhadijaHafid",
+    "firstName": "Khadija",
+    "lastName": "Hafid",
+    "photoUrl": "https://t.me/i/userpic/320/B_kgwgLOBGAgh0ZxKhvBkkN6FLjpM-z35m3z_Iov-W0.jpg",
+    "password": null,
+    "role": "MAILER",
+    "isApproved": true,
+    "createdAt": "2025-12-12T13:16:11.534Z",
+    "updatedAt": "2025-12-12T13:18:43.654Z"
+  },
+  {
+    "id": 3,
+    "telegramId": "692975069",
+    "username": "mohamedfertoul",
+    "firstName": "Mohamed Fertoul [CMHW]",
+    "lastName": null,
+    "photoUrl": "https://t.me/i/userpic/320/vN3c6vMy_RyvmWLQMM9fRj82Drd1SES_nFF8NcSJwIg.jpg",
+    "password": null,
+    "role": "MAILER",
+    "isApproved": true,
+    "createdAt": "2025-12-12T13:28:51.714Z",
+    "updatedAt": "2025-12-12T13:32:54.859Z"
+  }
+]

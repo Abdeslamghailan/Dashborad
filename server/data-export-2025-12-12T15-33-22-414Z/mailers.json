@@ -1,0 +1,146 @@
+[
+  {
+    "id": "d7fac6b9-53bd-4309-bc87-bc24b6290d8d",
+    "name": "Khadija HAFID",
+    "teamId": "1894d936-2b3c-4fab-82d9-c9a981e88a15",
+    "order": 0,
+    "isActive": true,
+    "createdAt": "2025-12-12T14:15:15.730Z",
+    "updatedAt": "2025-12-12T14:15:15.730Z"
+  },
+  {
+    "id": "a68a47ba-a2ca-4377-82dd-c59badc95676",
+    "name": "Hicham EL OUAFIR",
+    "teamId": "1894d936-2b3c-4fab-82d9-c9a981e88a15",
+    "order": 0,
+    "isActive": true,
+    "createdAt": "2025-12-12T14:15:22.640Z",
+    "updatedAt": "2025-12-12T14:15:22.640Z"
+  },
+  {
+    "id": "1ad8c633-8b97-4124-b376-34377cf94e07",
+    "name": "Mohamed fertoul",
+    "teamId": "1894d936-2b3c-4fab-82d9-c9a981e88a15",
+    "order": 0,
+    "isActive": true,
+    "createdAt": "2025-12-12T14:15:27.613Z",
+    "updatedAt": "2025-12-12T14:15:27.613Z"
+  },
+  {
+    "id": "93810bf7-4261-48ae-bac2-6692e387f3e0",
+    "name": "Yousra EL HAFYAN",
+    "teamId": "1894d936-2b3c-4fab-82d9-c9a981e88a15",
+    "order": 0,
+    "isActive": true,
+    "createdAt": "2025-12-12T14:15:33.242Z",
+    "updatedAt": "2025-12-12T14:15:33.242Z"
+  },
+  {
+    "id": "8d06c1ec-9305-4ae6-9a2b-9f8c6e90ce56",
+    "name": "Issam Hailoua",
+    "teamId": "1894d936-2b3c-4fab-82d9-c9a981e88a15",
+    "order": 0,
+    "isActive": true,
+    "createdAt": "2025-12-12T14:15:37.873Z",
+    "updatedAt": "2025-12-12T14:15:37.873Z"
+  },
+  {
+    "id": "94ef448c-cbd5-4f06-a5d6-e0e78e21b2d9",
+    "name": "Abdelali Ketlas",
+    "teamId": "1894d936-2b3c-4fab-82d9-c9a981e88a15",
+    "order": 0,
+    "isActive": true,
+    "createdAt": "2025-12-12T14:15:42.466Z",
+    "updatedAt": "2025-12-12T14:15:42.466Z"
+  },
+  {
+    "id": "7d676637-45d9-408f-a954-39d8faf3ccc2",
+    "name": "Younes Ahamdi",
+    "teamId": "1894d936-2b3c-4fab-82d9-c9a981e88a15",
+    "order": 0,
+    "isActive": true,
+    "createdAt": "2025-12-12T14:15:48.278Z",
+    "updatedAt": "2025-12-12T14:15:48.278Z"
+  },
+  {
+    "id": "a6f4eeb5-27a6-41eb-bd33-c81ba85e1340",
+    "name": "Yousra Hamdan",
+    "teamId": "1894d936-2b3c-4fab-82d9-c9a981e88a15",
+    "order": 0,
+    "isActive": true,
+    "createdAt": "2025-12-12T14:15:52.447Z",
+    "updatedAt": "2025-12-12T14:15:52.447Z"
+  },
+  {
+    "id": "eff27d3c-5b38-4fdc-bed1-b36fe5102abc",
+    "name": "Mohamed ELMHASSANI",
+    "teamId": "fc504a06-7221-4a69-a377-9e888da793e3",
+    "order": 0,
+    "isActive": true,
+    "createdAt": "2025-12-12T14:16:00.786Z",
+    "updatedAt": "2025-12-12T14:16:00.786Z"
+  },
+  {
+    "id": "9b175ade-494e-4fc5-9ba1-661c688f45ef",
+    "name": "Morad Oulhaj",
+    "teamId": "fc504a06-7221-4a69-a377-9e888da793e3",
+    "order": 0,
+    "isActive": true,
+    "createdAt": "2025-12-12T14:16:06.263Z",
+    "updatedAt": "2025-12-12T14:16:06.263Z"
+  },
+  {
+    "id": "805b3988-67d0-4d73-95fc-283c65a01d94",
+    "name": "Aya Bakali-Korami",
+    "teamId": "fc504a06-7221-4a69-a377-9e888da793e3",
+    "order": 0,
+    "isActive": true,
+    "createdAt": "2025-12-12T14:16:12.167Z",
+    "updatedAt": "2025-12-12T14:16:12.167Z"
+  },
+  {
+    "id": "0633f4df-3fa1-4253-9980-9d0c0dafa131",
+    "name": "Ayoub Aharmouch",
+    "teamId": "fc504a06-7221-4a69-a377-9e888da793e3",
+    "order": 0,
+    "isActive": true,
+    "createdAt": "2025-12-12T14:16:18.079Z",
+    "updatedAt": "2025-12-12T14:16:18.079Z"
+  },
+  {
+    "id": "72dd83aa-fb3e-49e4-80e8-316909fe57f6",
+    "name": "Ilyas Houari",
+    "teamId": "dda6691c-8e13-40d0-913f-5e2abd8b2fa4",
+    "order": 0,
+    "isActive": true,
+    "createdAt": "2025-12-12T14:16:23.705Z",
+    "updatedAt": "2025-12-12T14:16:55.196Z"
+  },
+  {
+    "id": "6c185fa7-1940-4df2-8881-2c9411a149a2",
+    "name": "Faiza El omari",
+    "teamId": "fc504a06-7221-4a69-a377-9e888da793e3",
+    "order": 0,
+    "isActive": true,
+    "createdAt": "2025-12-12T14:16:29.435Z",
+    "updatedAt": "2025-12-12T14:16:29.435Z"
+  },
+  {
+    "id": "60a02440-7187-46d7-b232-1ce8747429ef",
+    "name": "Oussama Rich",
+    "teamId": "9e4f1295-6dcd-4adf-a3c8-3bf09f9daf98",
+    "order": 0,
+    "isActive": true,
+    "createdAt": "2025-12-12T14:16:37.689Z",
+    "updatedAt": "2025-12-12T14:16:37.689Z"
+  },
+  {
+    "id": "eeacdb20-1a4a-484b-b828-9f02aa20c9fc",
+    "name": "Abdeljalil Boughnaim",
+    "teamId": "9e4f1295-6dcd-4adf-a3c8-3bf09f9daf98",
+    "order": 0,
+    "isActive": true,
+    "createdAt": "2025-12-12T14:16:43.572Z",
+    "updatedAt": "2025-12-12T14:16:43.572Z"
+  }
+]

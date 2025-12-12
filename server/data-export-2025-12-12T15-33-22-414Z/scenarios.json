@@ -1,0 +1,92 @@
+[
+  {
+    "id": "8dbac97e-3597-448b-ac26-736e2729e4c3",
+    "name": "1 action not spam and check if vide go to unread+ 25 actions by subject ( show image - (star or important) =>> archive ) LOOP (spam/unread last 1h)+report+covirsation off",
+    "scriptId": "bf1456bd-7db7-4f70-a444-c7bf065bdb62",
+    "description": "1 action not spam and check if vide go to unread+ 25 actions by subject ( show image - (star or important) =>> archive ) LOOP (spam/unread last 1h)+report+covirsation off",
+    "order": 0,
+    "isActive": true,
+    "createdAt": "2025-12-12T10:31:27.159Z",
+    "updatedAt": "2025-12-12T10:31:45.812Z"
+  },
+  {
+    "id": "df56f083-91db-4443-aa35-4b7381b1861e",
+    "name": "1 action not spam and check if vide go to inbox + 10 actions ( show image - (star or important) =>> archive ) LOOP (spam/unread last 1h)+report",
+    "scriptId": "2657202b-41f9-46e2-940b-f026302dbc6b",
+    "description": null,
+    "order": 0,
+    "isActive": true,
+    "createdAt": "2025-12-12T10:32:01.486Z",
+    "updatedAt": "2025-12-12T10:32:01.486Z"
+  },
+  {
+    "id": "d28305c9-5320-4352-ab4a-0357848e1e7f",
+    "name": "1 action not spam and check if vide go to unread open by subject + 25 actions ( show image - (star or important) =>> archive ) LOOP (spam/unread last 1h)+report+covirsation off",
+    "scriptId": "95e50729-bc40-4d74-a31d-36c8a8d44995",
+    "description": null,
+    "order": 0,
+    "isActive": true,
+    "createdAt": "2025-12-12T10:32:09.007Z",
+    "updatedAt": "2025-12-12T10:32:09.007Z"
+  },
+  {
+    "id": "7420b9c9-4d87-4b9d-a96f-3541a4c8dccc",
+    "name": "1 action not spam and check if vide go to unread open by subject + 25 actions ( show image - (star or important) =>> archive ) LOOP (spam/unread last 1h)+report+covirsation off",
+    "scriptId": "78392b67-1bdd-4e31-93e3-96a15a9150e6",
+    "description": null,
+    "order": 0,
+    "isActive": true,
+    "createdAt": "2025-12-12T10:32:15.247Z",
+    "updatedAt": "2025-12-12T10:32:15.247Z"
+  },
+  {
+    "id": "6e4f139e-865c-4158-95e5-0b4fe94faeb1",
+    "name": "Open 2 tabs (Spam & Inbox) → Disable categories & conversation view → Process 20 spam emails (≤60min old) as \"Not Spam\" → Do 20 inbox emails (≤60min old) with actions (show images → random action [star/important/click] → archive) → Repeat 1000 times.",
+    "scriptId": "de9a95e7-315d-4ce7-a147-d17bfb3376c9",
+    "description": null,
+    "order": 0,
+    "isActive": true,
+    "createdAt": "2025-12-12T10:32:22.464Z",
+    "updatedAt": "2025-12-12T10:32:22.464Z"
+  },
+  {
+    "id": "d03c709d-89e9-4d5a-b72a-3ba7811e7ecc",
+    "name": "Open 2 tabs (Spam & Inbox) → mark 20 emails as \"Not Spam\" → perform 10 Inbox actions (open, show image, click, star/important/reply, archive) → repeat loop.",
+    "scriptId": "c50a06d1-d954-4189-9ff6-9c96d40f43dd",
+    "description": null,
+    "order": 0,
+    "isActive": true,
+    "createdAt": "2025-12-12T10:32:28.953Z",
+    "updatedAt": "2025-12-12T10:32:28.953Z"
+  },
+  {
+    "id": "9a4c46fb-19ab-4db8-ac24-31bd518be662",
+    "name": "Open 2 tabs (Spam & Inbox) → Process 10 spam emails (≤60min old) as \"Not Spam\" → Do 10 inbox emails navige beetwen page older with actions (show images → random action [open/star/important] → archive) → Repeat 1000 times.",
+    "scriptId": "890f9439-c40d-41ed-b121-1184509a2ebc",
+    "description": null,
+    "order": 0,
+    "isActive": true,
+    "createdAt": "2025-12-12T10:32:35.212Z",
+    "updatedAt": "2025-12-12T10:32:35.212Z"
+  },
+  {
+    "id": "b442a12f-8466-4c8f-a3c1-a09f78644d34",
+    "name": "Open 2 tabs (Spam & Inbox) → Process 5 spam emails (≤60min old) as \"Not Spam\" by subject → Do 5 inbox emails (≤60min old) by subject with actions (open, show image, (star/important/click/reply(max 3/bt)), archive) → repeat loop.",
+    "scriptId": "5f84ba5e-05c5-4c42-88dd-6ad44bcdcda3",
+    "description": null,
+    "order": 0,
+    "isActive": true,
+    "createdAt": "2025-12-12T10:32:51.595Z",
+    "updatedAt": "2025-12-12T10:32:51.595Z"
+  },
+  {
+    "id": "ba9f7a22-5f9e-40c1-a288-33ac01c902f6",
+    "name": "Open 2 tabs (Spam & Inbox) → Process 20 spam emails (≤60min old) as \"Not Spam\" → Do 20 inbox emails (≤60min old) with actions (show images → random action [star/important/click/reply(max 3)] → archive) → Disable Gmail categories & conversations → Repeat 1000 times.",
+    "scriptId": "5f84ba5e-05c5-4c42-88dd-6ad44bcdcda3",
+    "description": null,
+    "order": 1,
+    "isActive": true,
+    "createdAt": "2025-12-12T10:33:03.217Z",
+    "updatedAt": "2025-12-12T10:33:03.217Z"
+  }
+]

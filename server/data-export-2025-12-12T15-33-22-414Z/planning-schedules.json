@@ -1,0 +1,24 @@
+[
+  {
+    "id": "9e9cffbc-5d65-488f-a0f4-2b9ba4fe0cad",
+    "weekStart": "2025-12-07T23:00:00.000Z",
+    "weekEnd": "2025-12-14T22:59:59.999Z",
+    "weekNumber": 50,
+    "year": 2025,
+    "isCurrent": true,
+    "isNext": false,
+    "createdAt": "2025-12-12T13:32:15.452Z",
+    "updatedAt": "2025-12-12T13:32:15.452Z"
+  },
+  {
+    "id": "9566693c-e28f-40ff-b29b-8d47987d43b8",
+    "weekStart": "2025-12-14T23:00:00.000Z",
+    "weekEnd": "2025-12-21T22:59:59.999Z",
+    "weekNumber": 51,
+    "year": 2025,
+    "isCurrent": false,
+    "isNext": true,
+    "createdAt": "2025-12-12T13:32:15.467Z",
+    "updatedAt": "2025-12-12T13:32:15.467Z"
+  }
+]

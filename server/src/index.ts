@@ -22,6 +22,9 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const app = express();
+// Trust the first proxy (Railway load balancer)
+app.set('trust proxy', 1);
+
 const PORT = process.env.PORT || 3002;
 const isProduction = process.env.NODE_ENV === 'production';
 
