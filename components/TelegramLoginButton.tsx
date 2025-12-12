@@ -18,97 +18,94 @@ interface TelegramLoginButtonProps {
     requestAccess?: boolean;
 }
 
-declare global {
-    interface Window {
-        TelegramLoginWidget: {
-            dataOnauth: (user: TelegramUser) => void;
-        };
-    }
-}
-
 export const TelegramLoginButton: React.FC<TelegramLoginButtonProps> = ({
     botName,
     onAuth,
     buttonSize = 'large',
     cornerRadius = 20,
-    requestAccess = true,
 }) => {
     const containerRef = useRef<HTMLDivElement>(null);
 
     useEffect(() => {
-        if (!containerRef.current) {
-            console.log('TelegramLoginButton: containerRef is null');
-            return;
-        }
+        if (!containerRef.current) return;
 
-        console.log('TelegramLoginButton: Mounting widget for bot:', botName);
+        console.log('TelegramLoginButton: Setting up widget for bot:', botName);
 
-        // Define the global callback
-        console.log('TelegramLoginButton: Defining global callback window.onTelegramAuth');
+        // Define the global callback (for widget mode)
         (window as any).onTelegramAuth = (user: TelegramUser) => {
-            console.log('TelegramLoginButton: 🟢 onTelegramAuth called by widget!', user);
-            try {
-                onAuth(user);
-            } catch (e) {
-                console.error('TelegramLoginButton: 🔴 Error in onAuth prop:', e);
-            }
+            console.log('TelegramLoginButton: 🟢 onTelegramAuth called!', user);
+            onAuth(user);
         };
 
-        // Create the script element
+        // Get the current page URL for redirect
+        const currentUrl = window.location.origin + window.location.pathname;
+
+        // Create an iframe-based widget with BOTH callback and redirect as fallback
         const script = document.createElement('script');
         script.src = 'https://telegram.org/js/telegram-widget.js?22';
         script.setAttribute('data-telegram-login', botName);
         script.setAttribute('data-size', buttonSize);
-        if (cornerRadius) script.setAttribute('data-radius', cornerRadius.toString());
-        // Temporarily disabled - may cause popup blocking issues
-        // if (requestAccess) script.setAttribute('data-request-access', 'write');
+        script.setAttribute('data-radius', cornerRadius.toString());
         script.setAttribute('data-onauth', 'onTelegramAuth(user)');
+        // Add auth-url as fallback redirect
+        script.setAttribute('data-auth-url', currentUrl + '?tg_auth=1');
         script.async = true;
 
         script.onload = () => {
-            console.log('TelegramLoginButton: Script loaded successfully');
-        };
-        script.onerror = (e) => {
-            console.error('TelegramLoginButton: Script load error:', e);
+            console.log('TelegramLoginButton: Widget script loaded');
         };
 
-        // Clear previous content and append new script
-        console.log('TelegramLoginButton: Appending script to container');
         containerRef.current.innerHTML = '';
         containerRef.current.appendChild(script);
 
-        // Cleanup
         return () => {
-            console.log('TelegramLoginButton: Unmounting');
+            console.log('TelegramLoginButton: Cleanup');
         };
-    }, [botName, buttonSize, cornerRadius, requestAccess, onAuth]);
+    }, [botName, buttonSize, cornerRadius, onAuth]);
+
+    // Check for auth data in URL on mount (for redirect flow)
+    useEffect(() => {
+        const urlParams = new URLSearchParams(window.location.search);
+
+        // Check if this is a Telegram auth redirect
+        if (urlParams.get('tg_auth') === '1') {
+            console.log('TelegramLoginButton: Detected Telegram auth redirect');
+
+            // Parse Telegram auth data from URL hash or query params
+            const hashParams = new URLSearchParams(window.location.hash.substring(1));
+
+            const id = urlParams.get('id') || hashParams.get('id');
+            const first_name = urlParams.get('first_name') || hashParams.get('first_name');
+            const last_name = urlParams.get('last_name') || hashParams.get('last_name');
+            const username = urlParams.get('username') || hashParams.get('username');
+            const photo_url = urlParams.get('photo_url') || hashParams.get('photo_url');
+            const auth_date = urlParams.get('auth_date') || hashParams.get('auth_date');
+            const hash = urlParams.get('hash') || hashParams.get('hash');
+
+            if (id && auth_date && hash) {
+                console.log('TelegramLoginButton: Auth data found in URL');
+                const userData: TelegramUser = {
+                    id: parseInt(id),
+                    first_name: first_name || '',
+                    last_name: last_name || undefined,
+                    username: username || undefined,
+                    photo_url: photo_url || undefined,
+                    auth_date: parseInt(auth_date),
+                    hash: hash,
+                };
+
+                // Clean up URL
+                window.history.replaceState({}, document.title, window.location.pathname);
+
+                // Call the auth handler
+                onAuth(userData);
+            }
+        }
+    }, [onAuth]);
 
     return (
         <div className="flex flex-col items-center gap-2">
-            {/* Container for Telegram widget */}
             <div ref={containerRef} className="flex justify-center" />
-
-            {/* Debug button - remove after testing */}
-            <button
-                onClick={() => {
-                    console.log('DEBUG: Testing if onTelegramAuth exists on window');
-                    console.log('DEBUG: window.onTelegramAuth =', (window as any).onTelegramAuth);
-                    if ((window as any).onTelegramAuth) {
-                        console.log('DEBUG: Calling onTelegramAuth with test data...');
-                        (window as any).onTelegramAuth({
-                            id: 123456789,
-                            first_name: 'Test',
-                            last_name: 'User',
-                            username: 'testuser',
-                            auth_date: Math.floor(Date.now() / 1000),
-                            hash: 'test_hash_will_fail_validation'
-                        });
-                    }
-                }}
-                className="text-xs text-gray-400 underline mt-2"
-            >
-                [Debug: Test Callback]
-            </button>
         </div>
     );
 };
