@@ -2,7 +2,7 @@ import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import helmet from 'helmet';
-import rateLimit from 'express-rate-limit';
+// import rateLimit from 'express-rate-limit';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import authRoutes from './routes/auth.js';
@@ -40,14 +40,16 @@ app.use(helmet({
 }));
 
 // Rate Limiting - increased for production
+/*
 // Rate Limiting - increased for production
-const limiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: isProduction ? 500 : 100, // Higher limit in production
-  message: 'Too many requests from this IP, please try again later.',
-  validate: { xForwardedForHeader: false } // Disable strict validation to prevent crashes
-});
-app.use(limiter);
+// const limiter = rateLimit({
+//   windowMs: 15 * 60 * 1000, // 15 minutes
+//   max: isProduction ? 500 : 100, // Higher limit in production
+//   message: 'Too many requests from this IP, please try again later.',
+//   validate: { xForwardedForHeader: false } // Disable strict validation to prevent crashes
+// });
+// app.use(limiter);
+*/
 
 // Dynamic CORS configuration
 const allowedOrigins = [
