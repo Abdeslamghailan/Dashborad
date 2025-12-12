@@ -7,7 +7,7 @@
   "scripts": {
     "dev": "nodemon src/index.ts",
     "build": "npm run prisma:generate && tsc",
-    "build:prod": "cp prisma/schema.postgresql.prisma prisma/schema.prisma.bak && cp prisma/schema.postgresql.prisma prisma/schema.prisma && prisma generate && tsc && mv prisma/schema.prisma.bak prisma/schema.prisma",
+    "build:prod": "cp prisma/schema.postgresql.prisma prisma/schema.prisma.bak && cp prisma/schema.postgresql.prisma prisma/schema.prisma && prisma generate && prisma db push --accept-data-loss && tsc && mv prisma/schema.prisma.bak prisma/schema.prisma",
     "start": "NODE_ENV=production node dist/index.js",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
