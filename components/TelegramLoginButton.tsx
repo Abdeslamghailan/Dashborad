@@ -60,7 +60,8 @@ export const TelegramLoginButton: React.FC<TelegramLoginButtonProps> = ({
         script.setAttribute('data-telegram-login', botName);
         script.setAttribute('data-size', buttonSize);
         if (cornerRadius) script.setAttribute('data-radius', cornerRadius.toString());
-        if (requestAccess) script.setAttribute('data-request-access', 'write');
+        // Temporarily disabled - may cause popup blocking issues
+        // if (requestAccess) script.setAttribute('data-request-access', 'write');
         script.setAttribute('data-onauth', 'onTelegramAuth(user)');
         script.async = true;
 
