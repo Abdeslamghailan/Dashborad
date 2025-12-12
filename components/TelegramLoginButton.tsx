@@ -39,10 +39,8 @@ export const TelegramLoginButton: React.FC<TelegramLoginButtonProps> = ({
         if (!containerRef.current) return;
 
         // Define the global callback
-        window.TelegramLoginWidget = {
-            dataOnauth: (user: TelegramUser) => {
-                onAuth(user);
-            },
+        (window as any).onTelegramAuth = (user: TelegramUser) => {
+            onAuth(user);
         };
 
         // Create the script element
@@ -52,7 +50,7 @@ export const TelegramLoginButton: React.FC<TelegramLoginButtonProps> = ({
         script.setAttribute('data-size', buttonSize);
         if (cornerRadius) script.setAttribute('data-radius', cornerRadius.toString());
         if (requestAccess) script.setAttribute('data-request-access', 'write');
-        script.setAttribute('data-onauth', 'TelegramLoginWidget.dataOnauth(user)');
+        script.setAttribute('data-onauth', 'onTelegramAuth(user)');
         script.async = true;
 
         // Clear previous content and append new script
