@@ -120,8 +120,15 @@ app.get('/debug', async (req, res) => {
     
     let distFiles = 'Not found';
     const distPath = path.join(__dirname, '../../dist');
+    let indexContent = 'File not found';
+
     try {
       distFiles = fs.readdirSync(distPath).join(', ');
+      try {
+          indexContent = fs.readFileSync(path.join(distPath, 'index.html'), 'utf-8').substring(0, 500);
+      } catch (e) {
+          indexContent = 'Error reading file: ' + e;
+      }
     } catch (e: any) {
       distFiles = e.message;
     }
@@ -133,6 +140,7 @@ app.get('/debug', async (req, res) => {
       threeUp,
       distPath,
       distFiles,
+      indexContent,
       env: process.env.NODE_ENV
     });
   } catch (err) {
