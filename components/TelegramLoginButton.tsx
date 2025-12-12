@@ -83,7 +83,10 @@ export const TelegramLoginButton: React.FC<TelegramLoginButtonProps> = ({
     }, [botName, buttonSize, cornerRadius, requestAccess, onAuth]);
 
     return (
-        <div ref={containerRef} className="flex flex-col items-center gap-2">
+        <div className="flex flex-col items-center gap-2">
+            {/* Container for Telegram widget */}
+            <div ref={containerRef} className="flex justify-center" />
+
             {/* Debug button - remove after testing */}
             <button
                 onClick={() => {
