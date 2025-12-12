@@ -11,7 +11,7 @@ cmds = [
 [phases.build]
 cmds = [
     "npm run build",
-    "cd server && npm run prisma:generate && npm run build"
+    "cd server && npm run build:prod"
 ]
 
 [start]
