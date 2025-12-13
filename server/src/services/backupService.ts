@@ -2,13 +2,15 @@ import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+// const __filename = fileURLToPath(import.meta.url);
+// const __dirname = path.dirname(__filename);
+const __dirname = process.cwd();
 
-// Path to the database file (relative to this file: ../../prisma/dev.db)
-const DB_PATH = path.join(__dirname, '../../prisma/dev.db');
-// Path to the backups directory (relative to this file: ../../backups)
-const BACKUP_DIR = path.join(__dirname, '../../backups');
+// Path to the database file
+// In dev: server/prisma/dev.db
+const DB_PATH = path.join(__dirname, 'server/prisma/dev.db');
+// Path to the backups directory
+const BACKUP_DIR = path.join(__dirname, 'server/backups');
 
 // Configuration
 const MAX_BACKUPS = 30; // Keep last 30 backups
