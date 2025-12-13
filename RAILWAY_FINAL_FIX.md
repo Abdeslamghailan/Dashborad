@@ -67,11 +67,9 @@ Then call it before starting the server:
 await ensureAdminUser();
 ```
 
-### Step 2: Fix Telegram Login - Use Auth URL Instead of Callback
-
-**File**: `components/TelegramLoginButton.tsx`
-
-Replace the component with this simpler, redirect-based approach:
+### Step 2: Fix Telegram Login - Use Pure Redirect Flow
+- **Problem**: JS callback was unreliable.
+- **Solution**: Switched to `data-auth-url` only. This forces Telegram to redirect back to the app with the auth data in the URL, which is then parsed by the frontend.
 
 ```typescript
 export const TelegramLoginButton: React.FC<TelegramLoginButtonProps> = ({

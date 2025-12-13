@@ -29,26 +29,22 @@ export const TelegramLoginButton: React.FC<TelegramLoginButtonProps> = ({
     useEffect(() => {
         if (!containerRef.current) return;
 
-        console.log('TelegramLoginButton: Setting up widget for bot:', botName);
-
-        // Define the global callback (for widget mode)
-        (window as any).onTelegramAuth = (user: TelegramUser) => {
-            console.log('TelegramLoginButton: 🟢 onTelegramAuth called!', user);
-            onAuth(user);
-        };
-
         // Get the current page URL for redirect
         const currentUrl = window.location.origin + window.location.pathname;
+        console.log('TelegramLoginButton: Setting up widget with redirect URL:', currentUrl);
 
-        // Create an iframe-based widget with BOTH callback and redirect as fallback
+        // Create an iframe-based widget with ONLY redirect
         const script = document.createElement('script');
         script.src = 'https://telegram.org/js/telegram-widget.js?22';
         script.setAttribute('data-telegram-login', botName);
         script.setAttribute('data-size', buttonSize);
         script.setAttribute('data-radius', cornerRadius.toString());
-        script.setAttribute('data-onauth', 'onTelegramAuth(user)');
-        // Add auth-url as fallback redirect
+        // script.setAttribute('data-request-access', 'write'); // Keep disabled
+
+        // IMPORTANT: Use data-auth-url for redirect flow. 
+        // We append ?tg_auth=1 so we know it's a callback when we return.
         script.setAttribute('data-auth-url', currentUrl + '?tg_auth=1');
+
         script.async = true;
 
         script.onload = () => {
@@ -57,11 +53,7 @@ export const TelegramLoginButton: React.FC<TelegramLoginButtonProps> = ({
 
         containerRef.current.innerHTML = '';
         containerRef.current.appendChild(script);
-
-        return () => {
-            console.log('TelegramLoginButton: Cleanup');
-        };
-    }, [botName, buttonSize, cornerRadius, onAuth]);
+    }, [botName, buttonSize, cornerRadius]);
 
     // Check for auth data in URL on mount (for redirect flow)
     useEffect(() => {
