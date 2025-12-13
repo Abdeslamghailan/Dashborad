@@ -83,6 +83,12 @@ app.use(cors({
 
 app.use(express.json());
 
+// Debug logging
+app.use((req, res, next) => {
+  console.log(`[${req.method}] ${req.path}`);
+  next();
+});
+
 // Routes
 // Prefix with /api for Netlify Functions redirection usually, but here we keep it standard.
 // The Netlify rewrite will handle /api/* -> function
@@ -98,7 +104,7 @@ app.use('/api/dayplan', dayplanRoutes);
 app.use('/api/scripts', scriptsRoutes);
 
 // Health check
-app.get('/health', (req, res) => {
+app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', env: process.env.NODE_ENV });
 });
 
