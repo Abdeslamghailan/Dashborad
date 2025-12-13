@@ -149,37 +149,7 @@ app.get('/debug', async (req, res) => {
   }
 });
 
-// TEMPORARY: Create admin user endpoint (remove after use)
-app.post('/create-admin-user', async (req, res) => {
-  try {
-    const bcrypt = await import('bcryptjs');
-    const password = 'admin123';
-    const hashedPassword = await bcrypt.default.hash(password, 10);
 
-    const user = await prisma.user.upsert({
-      where: { telegramId: 'admin_placeholder' },
-      update: {
-        password: hashedPassword,
-        role: 'ADMIN',
-        isApproved: true,
-        username: 'admin'
-      },
-      create: {
-        telegramId: 'admin_placeholder',
-        username: 'admin',
-        password: hashedPassword,
-        role: 'ADMIN',
-        isApproved: true,
-        firstName: 'Admin',
-        lastName: 'User'
-      },
-    });
-
-    res.json({ success: true, message: 'Admin user created', user: { id: user.id, username: user.username } });
-  } catch (err) {
-    res.status(500).json({ error: String(err) });
-  }
-});
 
 // Serve static files in production
 if (isProduction) {
@@ -199,7 +169,47 @@ if (isProduction) {
   });
 }
 
-app.listen(PORT, () => {
-  console.log(`Server running on http://localhost:${PORT}`);
-  console.log(`Environment: ${isProduction ? 'production' : 'development'}`);
-});
+// Function to ensure admin user exists
+async function ensureAdminUser() {
+  try {
+    const bcrypt = await import('bcryptjs');
+    const existingAdmin = await prisma.user.findFirst({
+      where: { username: 'admin' }
+    });
+
+    if (!existingAdmin) {
+      console.log('🔧 No admin user found, creating one...');
+      const hashedPassword = await bcrypt.default.hash('admin123', 10);
+      
+      await prisma.user.create({
+        data: {
+          telegramId: 'admin_placeholder_' + Date.now(),
+          username: 'admin',
+          password: hashedPassword,
+          role: 'ADMIN',
+          isApproved: true,
+          firstName: 'Admin',
+          lastName: 'User'
+        }
+      });
+      console.log('✅ Admin user created successfully');
+    } else {
+      console.log('✅ Admin user already exists');
+    }
+  } catch (error) {
+    console.error('❌ Failed to ensure admin user:', error);
+  }
+}
+
+// Start server
+const startServer = async () => {
+  // Ensure admin user exists before starting
+  await ensureAdminUser();
+
+  app.listen(PORT, () => {
+    console.log(`Server running on http://localhost:${PORT}`);
+    console.log(`Environment: ${isProduction ? 'production' : 'development'}`);
+  });
+};
+
+startServer();
