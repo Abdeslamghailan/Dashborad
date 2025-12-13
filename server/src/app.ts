@@ -104,8 +104,25 @@ app.use('/api/dayplan', dayplanRoutes);
 app.use('/api/scripts', scriptsRoutes);
 
 // Health check
-app.get('/api/health', (req, res) => {
-  res.json({ status: 'ok', env: process.env.NODE_ENV });
+app.get('/api/health', async (req, res) => {
+  try {
+    // Simple query to check DB connection
+    const userCount = await prisma.user.count();
+    res.json({ 
+      status: 'ok', 
+      env: process.env.NODE_ENV,
+      db: 'connected',
+      userCount
+    });
+  } catch (error) {
+    console.error('Health check DB error:', error);
+    res.status(500).json({ 
+      status: 'error', 
+      env: process.env.NODE_ENV,
+      db: 'disconnected',
+      error: String(error)
+    });
+  }
 });
 
 // Initialize Backup Service ONLY if explicitly enabled (disabled on Netlify)

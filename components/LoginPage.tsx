@@ -23,7 +23,7 @@ export const LoginPage: React.FC = () => {
             if (error.message === 'Registration pending approval' || error.message === 'Account pending approval') {
                 alert('Your account is pending approval from an administrator. Please contact support.');
             } else {
-                alert('Login failed. Please try again.');
+                alert(`Login failed: ${error.message || 'Unknown error'}`);
             }
         }
     };
@@ -35,7 +35,8 @@ export const LoginPage: React.FC = () => {
             await loginWithPassword(username, password);
             navigate('/');
         } catch (err: any) {
-            setError(err.message || 'Login failed');
+            console.error('Password login error:', err);
+            setError(err.message || 'Login failed. Please check your credentials.');
         }
     };
 
