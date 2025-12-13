@@ -16,7 +16,7 @@ export default defineConfig(({ mode }) => {
         ],
         proxy: {
           '/api': {
-            target: 'http://localhost:3003',
+            target: 'http://localhost:3002',
             changeOrigin: true,
             secure: false
           }
@@ -33,7 +33,7 @@ export default defineConfig(({ mode }) => {
         }
       },
       build: {
-        outDir: 'dist-prod'
+        outDir: 'dist'
       }
     };
 });
