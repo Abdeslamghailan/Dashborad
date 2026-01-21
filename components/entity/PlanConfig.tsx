@@ -9,6 +9,7 @@ interface Props {
   entity: Entity;
   category: ParentCategory;
   onUpdate: () => void;
+  onSave?: (newConfig: PlanConfiguration) => Promise<void>;
 }
 
 // Helper: Parse string ranges into array of [start, end]
@@ -93,7 +94,7 @@ const calculateIntervalComplement = (totalRange: string, excludedIntervals: stri
 
 import { useAuth } from '../../contexts/AuthContext';
 
-export const PlanConfig: React.FC<Props> = ({ entity, category, onUpdate }) => {
+export const PlanConfig: React.FC<Props> = ({ entity, category, onUpdate, onSave }) => {
   const { user } = useAuth();
   // User, Admin, and Mailer can all edit the reporting plan
   const canEdit = true;
@@ -101,6 +102,9 @@ export const PlanConfig: React.FC<Props> = ({ entity, category, onUpdate }) => {
   const [saving, setSaving] = useState(false);
   const [numDropsInput, setNumDropsInput] = useState<number>(category.planConfiguration.drops.length);
   const [bulkSeedValue, setBulkSeedValue] = useState<string>('');
+
+  // Custom step values per session (profileName -> step value)
+  const [customStepValues, setCustomStepValues] = useState<Record<string, number>>({});
 
   // Script & Scenario state
   const [scripts, setScripts] = useState<Script[]>([]);
@@ -126,12 +130,16 @@ export const PlanConfig: React.FC<Props> = ({ entity, category, onUpdate }) => {
 
   // Sync state if category changes
   useEffect(() => {
+    console.log('[PlanConfig] Syncing from category:', category.name, 'Status:', category.planConfiguration.status);
     setConfig({
       ...category.planConfiguration,
-      status: category.planConfiguration.status || 'active',
-      mode: category.planConfiguration.mode || 'auto'
+      // Preserve the actual status value, don't default to 'active'
+      status: category.planConfiguration.status ?? 'active',
+      mode: category.planConfiguration.mode ?? 'auto'
     });
     setNumDropsInput(category.planConfiguration.drops.length);
+    // Load saved custom step values
+    setCustomStepValues(category.planConfiguration.customStepValues || {});
   }, [category]);
 
   // Load scripts on mount
@@ -431,16 +439,48 @@ export const PlanConfig: React.FC<Props> = ({ entity, category, onUpdate }) => {
     setConfig(prev => ({ ...prev, mode: newMode }));
   };
 
+  const handleDropTimeChange = (id: string, newTime: string) => {
+    setConfig(prev => ({
+      ...prev,
+      drops: prev.drops.map(d => d.id === id ? { ...d, time: newTime } : d)
+    }));
+  };
+
   const handleSave = async () => {
     setSaving(true);
-    // Deep copy entity to update nested category
-    const updatedEntity = JSON.parse(JSON.stringify(entity)) as Entity;
-    const catIndex = updatedEntity.reporting.parentCategories.findIndex(c => c.id === category.id);
+    console.log('[PlanConfig] Saving config with status:', config.status);
+    console.log('[PlanConfig] Saving customStepValues:', customStepValues);
 
-    if (catIndex >= 0) {
-      updatedEntity.reporting.parentCategories[catIndex].planConfiguration = config;
-      await service.saveEntity(updatedEntity);
-      window.dispatchEvent(new Event('entity-updated'));
+    if (onSave) {
+      await onSave({
+        ...config,
+        customStepValues: customStepValues
+      });
+    } else {
+      // Deep copy entity to update nested category
+      const updatedEntity = JSON.parse(JSON.stringify(entity)) as Entity;
+      const catIndex = updatedEntity.reporting.parentCategories.findIndex(c => c.id === category.id);
+
+      if (catIndex >= 0) {
+        // Include customStepValues in the config
+        updatedEntity.reporting.parentCategories[catIndex].planConfiguration = {
+          ...config,
+          customStepValues: customStepValues
+        };
+        console.log('[PlanConfig] Updated category config:', updatedEntity.reporting.parentCategories[catIndex].planConfiguration);
+        await service.saveEntity(updatedEntity);
+
+        // Delete the day plan for today to reset overrides and ensure consistency
+        const today = new Date().toISOString().split('T')[0];
+        try {
+          await service.deleteDayPlan(entity.id, category.id, today);
+        } catch (e) {
+          // Ignore error if plan doesn't exist
+          console.warn("Failed to delete day plan (might not exist)", e);
+        }
+
+        window.dispatchEvent(new Event('entity-updated'));
+      }
     }
 
     setSaving(false);
@@ -524,15 +564,24 @@ export const PlanConfig: React.FC<Props> = ({ entity, category, onUpdate }) => {
             <div className="border border-gray-300 rounded-lg overflow-hidden">
               <div className="max-h-[600px] overflow-y-auto bg-white">
                 <div className="grid grid-cols-3 bg-slate-100 text-xs font-bold text-gray-500 uppercase border-b border-gray-300 sticky top-0 z-10">
-                  <div className="py-3 px-4 border-r border-gray-300 bg-slate-100">N° Drop</div>
-                  <div className="py-3 px-4 border-r border-gray-300 bg-slate-100">Time</div>
-                  <div className="py-3 px-4 bg-slate-100">Seeds in drop</div>
+                  <div className="py-3 px-4 border-r border-gray-300 bg-slate-100">N° DROP</div>
+                  <div className="py-3 px-4 border-r border-gray-300 bg-slate-100">TIME</div>
+                  <div className="py-3 px-4 bg-slate-100">SEEDS IN DROP</div>
                 </div>
                 {config.drops.map((drop, index) => (
                   <div key={drop.id} className="grid grid-cols-3 border-b border-gray-300 last:border-0 hover:bg-gray-50 transition-colors">
-                    <div className="text-sm font-medium text-gray-700 border-r border-gray-300 py-1 px-4 flex items-center">drop {index + 1}</div>
+                    <div className="text-sm font-medium text-gray-700 border-r border-gray-300 py-1 px-4 flex items-center">DROP {index + 1}</div>
                     <div className="text-sm text-gray-500 border-r border-gray-300 py-1 px-4 flex items-center">
-                      {config.mode === 'request' && category.name.toLowerCase().includes('offer') ? 'REQUEST' : calculateDropTime(config.timeConfig.startTime, index)}
+                      {config.mode === 'request' && category.name.toLowerCase().includes('offer') ? (
+                        'REQUEST'
+                      ) : (
+                        <input
+                          type="time"
+                          value={drop.time || calculateDropTime(config.timeConfig.startTime, index)}
+                          onChange={(e) => handleDropTimeChange(drop.id, e.target.value)}
+                          className="w-full bg-transparent border border-transparent hover:border-gray-300 rounded px-1 py-0.5 text-sm text-gray-600 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none transition-all"
+                        />
+                      )}
                     </div>
                     <div className="py-1 px-4">
                       <input
@@ -603,7 +652,7 @@ export const PlanConfig: React.FC<Props> = ({ entity, category, onUpdate }) => {
                       : 'text-gray-500 hover:text-gray-700 hover:bg-gray-200/50'
                       }`}
                   >
-                    STOPED
+                    STOP
                   </button>
                 </div>
               </div>
@@ -618,18 +667,20 @@ export const PlanConfig: React.FC<Props> = ({ entity, category, onUpdate }) => {
                 />
               </div>
 
-              <div>
-                <label className="block text-sm text-gray-600 mb-1.5">Start Time</label>
-                <div className="relative">
-                  <input
-                    type="time"
-                    value={config.timeConfig.startTime}
-                    onChange={(e) => handleTimeChange(e.target.value)}
-                    className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:border-blue-500 outline-none pr-8"
-                  />
-                  <Clock className="absolute right-3 top-2.5 text-gray-400" size={16} />
+              {config.mode !== 'request' && (
+                <div>
+                  <label className="block text-sm text-gray-600 mb-1.5">Start Time</label>
+                  <div className="relative">
+                    <input
+                      type="time"
+                      value={config.timeConfig.startTime}
+                      onChange={(e) => handleTimeChange(e.target.value)}
+                      className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:border-blue-500 outline-none pr-8"
+                    />
+                    <Clock className="absolute right-3 top-2.5 text-gray-400" size={16} />
+                  </div>
                 </div>
-              </div>
+              )}
 
               <div>
                 <label className="block text-sm text-gray-600 mb-1.5">Seeds in drop</label>
@@ -744,7 +795,7 @@ export const PlanConfig: React.FC<Props> = ({ entity, category, onUpdate }) => {
                         if (script) openScriptModal(script);
                       }}
                       className="p-2 text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors"
-                      title="Edit Script"
+                      title="EDIT SCRIPT"
                     >
                       <Edit2 size={14} />
                     </button>
@@ -783,7 +834,7 @@ export const PlanConfig: React.FC<Props> = ({ entity, category, onUpdate }) => {
             <div className="bg-white rounded-xl shadow-xl w-full max-w-md mx-4">
               <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
                 <h3 className="text-lg font-semibold text-gray-800">
-                  {editingScript ? 'Edit Script' : 'Add New Script'}
+                  {editingScript ? 'EDIT SCRIPT' : 'ADD NEW SCRIPT'}
                 </h3>
                 <button
                   onClick={() => setShowScriptModal(false)}
@@ -837,7 +888,7 @@ export const PlanConfig: React.FC<Props> = ({ entity, category, onUpdate }) => {
             <div className="bg-white rounded-xl shadow-xl w-full max-w-md mx-4">
               <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
                 <h3 className="text-lg font-semibold text-gray-800">
-                  {editingScenario ? 'Edit Scenario' : 'Add New Scenario'}
+                  {editingScenario ? 'EDIT SCENARIO' : 'ADD NEW SCENARIO'}
                 </h3>
                 <button
                   onClick={() => setShowScenarioModal(false)}
@@ -1000,12 +1051,58 @@ export const PlanConfig: React.FC<Props> = ({ entity, category, onUpdate }) => {
                   }
                 }
 
+                // 3. Calculate Step/Session with Largest Remainder Method to ensure exact total
+                // The target step total should equal the seeds per drop value
+                const targetTotalStep = config.drops.length > 0 && config.drops[0].value ? config.drops[0].value : 0;
+
+                // Calculate raw step values for each profile
+                const stepCalculatedData = calculatedData.map(p => {
+                  const rawStep = totalActiveInRepo > 0
+                    ? (p.activeInRepoCount * targetTotalStep) / totalActiveInRepo
+                    : 0;
+                  return {
+                    ...p,
+                    floorStep: Math.floor(rawStep),
+                    stepFraction: rawStep - Math.floor(rawStep)
+                  };
+                });
+
+                // Distribute step remainder
+                if (totalActiveInRepo > 0 && targetTotalStep > 0) {
+                  const currentStepSum = stepCalculatedData.reduce((sum, p) => sum + p.floorStep, 0);
+                  const stepRemainder = targetTotalStep - currentStepSum;
+
+                  // Sort indices by step fraction descending
+                  const sortedStepIndices = stepCalculatedData.map((_, i) => i)
+                    .sort((a, b) => stepCalculatedData[b].stepFraction - stepCalculatedData[a].stepFraction);
+
+                  // Add 1 to the top 'stepRemainder' items
+                  for (let i = 0; i < stepRemainder; i++) {
+                    if (sortedStepIndices[i] !== undefined) {
+                      stepCalculatedData[sortedStepIndices[i]].floorStep += 1;
+                    }
+                  }
+                }
+
                 let totalStepPerSession = 0;
                 let totalConsommation = 0;
 
-                const rows = calculatedData.map((data) => {
+                // Handler for step value change
+                const handleStepChange = (profileName: string, value: string) => {
+                  const numValue = parseInt(value) || 0;
+                  setCustomStepValues(prev => ({
+                    ...prev,
+                    [profileName]: numValue
+                  }));
+                };
+
+                const rows = stepCalculatedData.map((data) => {
                   const consommation = data.floorConsommation;
-                  const stepPerSession = numDrops > 0 ? Math.round(consommation / numDrops) : 0;
+                  // Use custom value if set, otherwise use the calculated step from Largest Remainder Method
+                  const calculatedStep = data.floorStep;
+                  const stepPerSession = customStepValues[data.profile.profileName] !== undefined
+                    ? customStepValues[data.profile.profileName]
+                    : calculatedStep;
 
                   totalStepPerSession += stepPerSession;
                   totalConsommation += consommation;
@@ -1018,10 +1115,15 @@ export const PlanConfig: React.FC<Props> = ({ entity, category, onUpdate }) => {
                       <td className="py-3 px-6 text-center text-gray-700 font-mono border border-gray-300">
                         {data.activeInRepoCount}
                       </td>
-                      <td className="py-3 px-6 text-center border border-gray-300">
-                        <span className="font-mono font-bold text-indigo-700 bg-indigo-100 px-3 py-1 rounded-lg text-sm">
-                          {stepPerSession}
-                        </span>
+                      <td className="py-2 px-4 text-center border border-gray-300">
+                        <input
+                          type="number"
+                          value={customStepValues[data.profile.profileName] !== undefined
+                            ? customStepValues[data.profile.profileName]
+                            : calculatedStep}
+                          onChange={(e) => handleStepChange(data.profile.profileName, e.target.value)}
+                          className="w-20 text-center font-mono font-bold text-indigo-700 bg-indigo-50 border border-indigo-200 rounded-lg px-2 py-1 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
+                        />
                       </td>
                       <td className="py-3 px-6 text-center border border-gray-300">
                         <span className="font-mono font-bold text-green-700 bg-green-100 px-3 py-1 rounded-lg text-sm">

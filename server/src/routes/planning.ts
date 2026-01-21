@@ -349,18 +349,16 @@ router.post('/assignments/bulk', authenticateToken, async (req: AuthRequest, res
           }
 
 
-        // Verify existence of related records
-        const scheduleExists = await prisma.planningSchedule.findUnique({ where: { id: scheduleId } });
-        const mailerExists = await prisma.mailer.findUnique({ where: { id: mailerId } });
-        
-        if (!scheduleExists) {
-            console.error(`Schedule not found: ${scheduleId}`);
-            return { status: 'error', error: `Schedule not found: ${scheduleId}` };
-        }
-        if (!mailerExists) {
-            console.error(`Mailer not found: ${mailerId}`);
-            return { status: 'error', error: `Mailer not found: ${mailerId}` };
-        }
+        // Fetch old assignment for history
+        const oldAssignment = await prisma.planningAssignment.findUnique({
+          where: {
+            scheduleId_mailerId_dayOfWeek: {
+              scheduleId,
+              mailerId,
+              dayOfWeek
+            }
+          }
+        });
 
         const result = await prisma.planningAssignment.upsert({
           where: {
@@ -393,6 +391,7 @@ router.post('/assignments/bulk', authenticateToken, async (req: AuthRequest, res
              entityId: result.id,
              changeType: 'update',
              description: `Assignment updated for mailer ${mailerId} on schedule ${scheduleId}`,
+             oldValue: oldAssignment,
              newValue: result
         });
         

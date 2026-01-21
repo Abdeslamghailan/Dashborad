@@ -48,27 +48,44 @@ export const dataService: DataService = {
     }
   },
 
-  saveEntity: async (entity: Entity) => {
+  saveEntity: async (entity: Entity, options?: { skipEvent?: boolean }) => {
     try {
-      const { id, name, reporting, limitsConfiguration, notes } = entity;
+      const { id, name, status, reporting, limitsConfiguration, notes, noteCards, enabledMethods, methodsData } = entity;
+      
+      // Log what we're about to send
+      console.log('[dataService] Saving entity:', id);
+      console.log('[dataService] Enabled methods:', enabledMethods);
+      console.log('[dataService] Methods data keys:', methodsData ? Object.keys(methodsData) : 'none');
+      console.log('[dataService] Reporting categories:', reporting.parentCategories.map(c => ({
+        name: c.name,
+        status: c.planConfiguration.status
+      })));
       
       const response = await fetch(`${API_URL}/api/entities/${id}`, {
         method: 'PUT',
         headers: getAuthHeaders(),
         body: JSON.stringify({
           name,
+          status,
           reporting,
           limitsConfiguration,
-          notes
+          notes,
+          noteCards,
+          enabledMethods,
+          methodsData
         })
       });
 
       if (!response.ok) {
-        throw new Error('Failed to save entity');
+        const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
+        console.error('[dataService] Save failed:', errorData);
+        throw new Error(errorData.error || 'Failed to save entity');
       }
 
-      // Dispatch event to notify other components
-      window.dispatchEvent(new Event('entity-updated'));
+      // Dispatch event to notify other components (unless skipped)
+      if (!options?.skipEvent) {
+        window.dispatchEvent(new Event('entity-updated'));
+      }
     } catch (error) {
       console.error('Save entity error:', error);
       throw error;
@@ -157,6 +174,9 @@ export const dataService: DataService = {
     entityType?: string;
     username?: string;
     changeType?: string;
+    methodId?: string;
+    categoryId?: string;
+    fieldChanged?: string;
     startDate?: string;
     endDate?: string;
     limit?: number;
@@ -167,6 +187,9 @@ export const dataService: DataService = {
       if (filters.entityType) queryParams.append('entityType', filters.entityType);
       if (filters.username) queryParams.append('username', filters.username);
       if (filters.changeType) queryParams.append('changeType', filters.changeType);
+      if (filters.methodId) queryParams.append('methodId', filters.methodId);
+      if (filters.categoryId) queryParams.append('categoryId', filters.categoryId);
+      if (filters.fieldChanged) queryParams.append('fieldChanged', filters.fieldChanged);
       if (filters.startDate) queryParams.append('startDate', filters.startDate);
       if (filters.endDate) queryParams.append('endDate', filters.endDate);
       if (filters.limit) queryParams.append('limit', filters.limit.toString());
@@ -217,7 +240,7 @@ export const dataService: DataService = {
   },
 
   // Day Plan methods
-  getDayPlan: async (entityId: string, date: string): Promise<Record<string, Record<number, { step: number; start: number }>>> => {
+  getDayPlan: async (entityId: string, date: string): Promise<Record<string, Record<number, { step: string | number; start: string | number }>>> => {
     try {
       const response = await fetch(`${API_URL}/api/dayplan/${entityId}/${date}`, {
         headers: getAuthHeaders()
@@ -232,7 +255,7 @@ export const dataService: DataService = {
     }
   },
 
-  saveDayPlan: async (entityId: string, date: string, categoryId: string, sessionData: Record<number, { step: number; start: number }>): Promise<void> => {
+  saveDayPlan: async (entityId: string, date: string, categoryId: string, sessionData: Record<number, { step: string | number; start: string | number }>): Promise<void> => {
     try {
       const response = await fetch(`${API_URL}/api/dayplan/${entityId}`, {
         method: 'POST',
@@ -248,7 +271,7 @@ export const dataService: DataService = {
     }
   },
 
-  saveDayPlanBulk: async (entityId: string, date: string, plans: Record<string, Record<number, { step: number; start: number }>>): Promise<void> => {
+  saveDayPlanBulk: async (entityId: string, date: string, plans: Record<string, Record<number, { step: string | number; start: string | number }>>): Promise<void> => {
     try {
       const response = await fetch(`${API_URL}/api/dayplan/${entityId}/bulk`, {
         method: 'POST',
@@ -260,6 +283,21 @@ export const dataService: DataService = {
       }
     } catch (error) {
       console.error('Save day plans error:', error);
+      throw error;
+    }
+  },
+
+  deleteDayPlan: async (entityId: string, categoryId: string, date: string): Promise<void> => {
+    try {
+      const response = await fetch(`${API_URL}/api/dayplan/${entityId}/${categoryId}/${date}`, {
+        method: 'DELETE',
+        headers: getAuthHeaders()
+      });
+      if (!response.ok) {
+        throw new Error('Failed to delete day plan');
+      }
+    } catch (error) {
+      console.error('Delete day plan error:', error);
       throw error;
     }
   }

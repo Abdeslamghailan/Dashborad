@@ -21,6 +21,7 @@ export interface Profile {
 export interface Drop {
   id: string;
   value: number;
+  time?: string;
 }
 
 export interface TimeConfig {
@@ -36,6 +37,7 @@ export interface PlanConfiguration {
   scenario: string;
   status: 'active' | 'stopped';
   mode?: 'auto' | 'request';
+  customStepValues?: Record<string, number>; // profileName -> step value
 }
 
 export interface ParentCategory {
@@ -59,6 +61,22 @@ export interface LimitConfig {
   totalPaused: number;
 }
 
+export interface NoteCard {
+  id: string;
+  title: string;
+  content: string;
+}
+
+// Method types available in the system
+export type MethodType = 'desktop' | 'webautomate' | 'mobile' | 'api';
+
+// Data stored for each method (fully independent)
+export interface MethodData {
+  parentCategories: ParentCategory[];
+  limitsConfiguration: LimitConfig[];
+  noteCards?: NoteCard[];
+}
+
 export interface Entity {
   id: string;
   name: string;
@@ -66,6 +84,12 @@ export interface Entity {
   contactPerson?: string;
   email?: string;
   notes?: string;
+  noteCards?: NoteCard[]; // Global notes (shared)
+  // Methods assigned to this entity (e.g., ['desktop', 'webautomate'])
+  enabledMethods?: MethodType[];
+  // Method-specific data - FULLY SEPARATED
+  methodsData?: Partial<Record<MethodType, MethodData>>;
+  // Legacy: kept for backward compatibility (will be migrated to methodsData.desktop)
   reporting: {
     parentCategories: ParentCategory[];
   };
@@ -75,7 +99,7 @@ export interface Entity {
 export interface DataService {
   getEntities: () => Promise<Entity[]>;
   getEntity: (id: string) => Promise<Entity | undefined>;
-  saveEntity: (entity: Entity) => Promise<void>;
+  saveEntity: (entity: Entity, options?: { skipEvent?: boolean }) => Promise<void>;
   deleteEntity: (id: string) => Promise<void>;
   resetDatabase: () => Promise<void>;
   getEntityHistory: (entityId: string, limit?: number) => Promise<any[]>;
@@ -86,6 +110,9 @@ export interface DataService {
     entityType?: string;
     username?: string;
     changeType?: string;
+    methodId?: string;
+    categoryId?: string;
+    fieldChanged?: string;
     startDate?: string;
     endDate?: string;
     limit?: number;
@@ -93,7 +120,8 @@ export interface DataService {
   deleteHistoryEntry: (id: number) => Promise<void>;
   deleteAllHistory: () => Promise<void>;
   // Day Plan methods
-  getDayPlan: (entityId: string, date: string) => Promise<Record<string, Record<number, { step: number; start: number }>>>;
-  saveDayPlan: (entityId: string, date: string, categoryId: string, sessionData: Record<number, { step: number; start: number }>) => Promise<void>;
-  saveDayPlanBulk: (entityId: string, date: string, plans: Record<string, Record<number, { step: number; start: number }>>) => Promise<void>;
+  getDayPlan: (entityId: string, date: string) => Promise<Record<string, Record<number, { step: string | number; start: string | number }>>>;
+  saveDayPlan: (entityId: string, date: string, categoryId: string, sessionData: Record<number, { step: string | number; start: string | number }>) => Promise<void>;
+  saveDayPlanBulk: (entityId: string, date: string, plans: Record<string, Record<number, { step: string | number; start: string | number }>>) => Promise<void>;
+  deleteDayPlan: (entityId: string, categoryId: string, date: string) => Promise<void>;
 }

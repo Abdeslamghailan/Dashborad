@@ -11,6 +11,12 @@ export interface ChangeHistoryEntry {
     entityType: string;
     changeType: string;
     fieldChanged: string | null;
+    methodId: string | null;
+    categoryId: string | null;
+    categoryName: string | null;
+    profileId: string | null;
+    profileName: string | null;
+    batchId: string | null;
     userId: number;
     username: string;
     userRole: string;
@@ -30,7 +36,7 @@ interface ChangeHistoryProps {
 export const ChangeHistory: React.FC<ChangeHistoryProps> = ({
     entityId,
     entityType,
-    limit = 5,
+    limit = 50,
     showExpanded = false
 }) => {
     const { user } = useAuth();

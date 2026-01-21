@@ -3,13 +3,16 @@ import { useAuth } from '../contexts/AuthContext';
 import {
     Shield, Check, X, Trash2, Edit, User as UserIcon, Database, Plus,
     LayoutGrid, Search, Filter, MoreVertical, Activity, Users, Box,
-    TrendingUp, Clock, CheckCircle, XCircle, AlertCircle, ChevronDown
+    TrendingUp, Clock, CheckCircle, XCircle, AlertCircle, ChevronDown,
+    Monitor, Bot, Smartphone, Globe, Cpu, Zap, RefreshCw, Terminal,
+    MousePointer2, Laptop, Tablet, AppWindow
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { API_URL } from '../config';
 import { EntityFormModal } from './EntityFormModal';
 import { Button } from './ui/Button';
-import { Entity } from '../types';
+import { Entity, MethodType } from '../types';
+import { AVAILABLE_METHODS, getMethodConfig } from '../config/methods';
 
 interface User {
     id: number;
@@ -29,6 +32,17 @@ interface User {
     }[];
 }
 
+interface ReportingMethod {
+    id: string;
+    name: string;
+    description: string | null;
+    icon: string;
+    color: string;
+    gradient: string;
+    order: number;
+    isActive: boolean;
+}
+
 interface Toast {
     id: number;
     type: 'success' | 'error' | 'info';
@@ -45,7 +59,20 @@ export const AdminPanel: React.FC = () => {
     const [roleFilter, setRoleFilter] = useState<string>('all');
     const [statusFilter, setStatusFilter] = useState<string>('all');
     const [toasts, setToasts] = useState<Toast[]>([]);
-    const [activeTab, setActiveTab] = useState<'overview' | 'entities' | 'users'>('overview');
+    const [activeTab, setActiveTab] = useState<'overview' | 'entities' | 'users' | 'methods'>('overview');
+    const [methods, setMethods] = useState<ReportingMethod[]>([]);
+    const [isMethodModalOpen, setIsMethodModalOpen] = useState(false);
+    const [editingMethod, setEditingMethod] = useState<ReportingMethod | null>(null);
+    const [methodForm, setMethodForm] = useState<Partial<ReportingMethod>>({
+        id: '',
+        name: '',
+        description: '',
+        icon: 'Box',
+        color: '#6366F1',
+        gradient: 'from-indigo-500 to-purple-600',
+        order: 0,
+        isActive: true
+    });
 
     // Entity Modal State
     const [isEntityModalOpen, setIsEntityModalOpen] = useState(false);
@@ -59,6 +86,7 @@ export const AdminPanel: React.FC = () => {
     useEffect(() => {
         fetchUsers();
         fetchEntities();
+        fetchMethods();
     }, []);
 
     const showToast = (type: Toast['type'], message: string) => {
@@ -102,6 +130,82 @@ export const AdminPanel: React.FC = () => {
         } catch (error) {
             console.error('Failed to fetch entities:', error);
             showToast('error', 'Failed to load entities');
+        }
+    };
+
+    const fetchMethods = async () => {
+        try {
+            const response = await fetch(`${API_URL}/api/methods`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            if (response.ok) {
+                const data = await response.json();
+                setMethods(data);
+            }
+        } catch (error) {
+            console.error('Failed to fetch methods:', error);
+        }
+    };
+
+    const handleSaveMethod = async () => {
+        try {
+            const url = editingMethod
+                ? `${API_URL}/api/methods/${editingMethod.id}`
+                : `${API_URL}/api/methods`;
+
+            const response = await fetch(url, {
+                method: editingMethod ? 'PUT' : 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify(methodForm)
+            });
+
+            if (response.ok) {
+                fetchMethods();
+                setIsMethodModalOpen(false);
+                setEditingMethod(null);
+                showToast('success', `Method ${editingMethod ? 'updated' : 'created'} successfully`);
+            } else {
+                const error = await response.json();
+                showToast('error', error.error || 'Failed to save method');
+            }
+        } catch (error) {
+            console.error('Failed to save method:', error);
+            showToast('error', 'Failed to save method');
+        }
+    };
+
+    const handleDeleteMethod = async (id: string) => {
+        if (!confirm('Are you sure you want to delete this reporting method? This may affect entities using it.')) return;
+        try {
+            const response = await fetch(`${API_URL}/api/methods/${id}`, {
+                method: 'DELETE',
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            if (response.ok) {
+                fetchMethods();
+                showToast('success', 'Method deleted successfully');
+            }
+        } catch (error) {
+            console.error('Failed to delete method:', error);
+            showToast('error', 'Failed to delete method');
+        }
+    };
+
+    const handleSeedMethods = async () => {
+        try {
+            const response = await fetch(`${API_URL}/api/methods/seed`, {
+                method: 'POST',
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            if (response.ok) {
+                fetchMethods();
+                showToast('success', 'Methods seeded successfully');
+            }
+        } catch (error) {
+            console.error('Failed to seed methods:', error);
         }
     };
 
@@ -372,7 +476,7 @@ export const AdminPanel: React.FC = () => {
                     transition={{ delay: 0.2 }}
                     className="bg-white p-1.5 rounded-full border border-gray-200 shadow-sm inline-flex"
                 >
-                    {(['overview', 'entities', 'users'] as const).map((tab) => (
+                    {(['overview', 'entities', 'users', 'methods'] as const).map((tab) => (
                         <button
                             key={tab}
                             onClick={() => setActiveTab(tab)}
@@ -396,6 +500,7 @@ export const AdminPanel: React.FC = () => {
                         <EntitiesTab
                             key="entities"
                             entities={entities}
+                            methods={methods}
                             onAdd={openAddEntityModal}
                             onEdit={openEditEntityModal}
                             onDelete={handleDeleteEntity}
@@ -417,6 +522,34 @@ export const AdminPanel: React.FC = () => {
                             onDelete={handleDeleteUser}
                             onRoleUpdate={handleRoleUpdate}
                             onManageAccess={setSelectedUser}
+                        />
+                    )}
+
+                    {activeTab === 'methods' && (
+                        <MethodsTab
+                            key="methods"
+                            methods={methods}
+                            onAdd={() => {
+                                setEditingMethod(null);
+                                setMethodForm({
+                                    id: '',
+                                    name: '',
+                                    description: '',
+                                    icon: 'Box',
+                                    color: '#6366F1',
+                                    gradient: 'from-indigo-500 to-purple-600',
+                                    order: methods.length,
+                                    isActive: true
+                                });
+                                setIsMethodModalOpen(true);
+                            }}
+                            onEdit={(method) => {
+                                setEditingMethod(method);
+                                setMethodForm(method);
+                                setIsMethodModalOpen(true);
+                            }}
+                            onDelete={handleDeleteMethod}
+                            onSeed={handleSeedMethods}
                         />
                     )}
                 </AnimatePresence>
@@ -555,6 +688,167 @@ export const AdminPanel: React.FC = () => {
                 initialEntity={editingEntity}
             />
 
+            {/* Method Form Modal */}
+            <AnimatePresence>
+                {isMethodModalOpen && (
+                    <motion.div
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4"
+                        onClick={() => setIsMethodModalOpen(false)}
+                    >
+                        <motion.div
+                            initial={{ scale: 0.95, opacity: 0 }}
+                            animate={{ scale: 1, opacity: 1 }}
+                            exit={{ scale: 0.95, opacity: 0 }}
+                            onClick={(e) => e.stopPropagation()}
+                            className="bg-white rounded-2xl shadow-2xl max-w-lg w-full overflow-hidden"
+                        >
+                            <div className="px-6 py-5 border-b border-gray-100 flex items-center justify-between bg-gradient-to-r from-gray-50 to-white">
+                                <h3 className="font-semibold text-gray-900 text-lg">
+                                    {editingMethod ? 'Edit Reporting Method' : 'Add New Method'}
+                                </h3>
+                                <button
+                                    onClick={() => setIsMethodModalOpen(false)}
+                                    className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+                                >
+                                    <X size={20} />
+                                </button>
+                            </div>
+
+                            <div className="p-6 space-y-4">
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div className="space-y-1.5">
+                                        <label className="text-xs font-bold text-gray-500 uppercase tracking-wider">Method ID</label>
+                                        <input
+                                            type="text"
+                                            value={methodForm.id}
+                                            onChange={(e) => setMethodForm({ ...methodForm, id: e.target.value.toLowerCase().replace(/\s+/g, '') })}
+                                            disabled={!!editingMethod}
+                                            placeholder="e.g. desktop"
+                                            className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition-all disabled:opacity-50"
+                                        />
+                                    </div>
+                                    <div className="space-y-1.5">
+                                        <label className="text-xs font-bold text-gray-500 uppercase tracking-wider">Display Name</label>
+                                        <input
+                                            type="text"
+                                            value={methodForm.name}
+                                            onChange={(e) => setMethodForm({ ...methodForm, name: e.target.value })}
+                                            placeholder="e.g. Desktop"
+                                            className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition-all"
+                                        />
+                                    </div>
+                                </div>
+
+                                <div className="space-y-1.5">
+                                    <label className="text-xs font-bold text-gray-500 uppercase tracking-wider">Description</label>
+                                    <textarea
+                                        value={methodForm.description || ''}
+                                        onChange={(e) => setMethodForm({ ...methodForm, description: e.target.value })}
+                                        placeholder="What is this method used for?"
+                                        rows={2}
+                                        className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition-all resize-none"
+                                    />
+                                </div>
+
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div className="space-y-1.5">
+                                        <label className="text-xs font-bold text-gray-500 uppercase tracking-wider">Color</label>
+                                        <div className="flex gap-2">
+                                            <input
+                                                type="color"
+                                                value={methodForm.color}
+                                                onChange={(e) => setMethodForm({ ...methodForm, color: e.target.value })}
+                                                className="w-10 h-10 p-1 bg-white border border-gray-200 rounded-lg cursor-pointer"
+                                            />
+                                            <input
+                                                type="text"
+                                                value={methodForm.color}
+                                                onChange={(e) => setMethodForm({ ...methodForm, color: e.target.value })}
+                                                className="flex-1 px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm font-mono"
+                                            />
+                                        </div>
+                                    </div>
+                                    <div className="space-y-1.5">
+                                        <label className="text-xs font-bold text-gray-500 uppercase tracking-wider">Order</label>
+                                        <input
+                                            type="number"
+                                            value={methodForm.order}
+                                            onChange={(e) => setMethodForm({ ...methodForm, order: parseInt(e.target.value) || 0 })}
+                                            className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition-all"
+                                        />
+                                    </div>
+                                </div>
+
+                                <div className="space-y-1.5">
+                                    <label className="text-xs font-bold text-gray-500 uppercase tracking-wider">Gradient Class (Tailwind)</label>
+                                    <input
+                                        type="text"
+                                        value={methodForm.gradient}
+                                        onChange={(e) => setMethodForm({ ...methodForm, gradient: e.target.value })}
+                                        placeholder="from-indigo-500 to-purple-600"
+                                        className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl font-mono text-sm focus:ring-2 focus:ring-blue-500 outline-none transition-all"
+                                    />
+                                </div>
+
+                                <div className="space-y-1.5">
+                                    <label className="text-xs font-bold text-gray-500 uppercase tracking-wider">Icon</label>
+                                    <div className="grid grid-cols-6 gap-2 p-3 bg-gray-50 rounded-xl border border-gray-200">
+                                        {[
+                                            { id: 'Monitor', icon: Monitor },
+                                            { id: 'Bot', icon: Bot },
+                                            { id: 'Smartphone', icon: Smartphone },
+                                            { id: 'Globe', icon: Globe },
+                                            { id: 'Cpu', icon: Cpu },
+                                            { id: 'Zap', icon: Zap },
+                                            { id: 'Terminal', icon: Terminal },
+                                            { id: 'MousePointer2', icon: MousePointer2 },
+                                            { id: 'Laptop', icon: Laptop },
+                                            { id: 'Tablet', icon: Tablet },
+                                            { id: 'AppWindow', icon: AppWindow },
+                                            { id: 'Box', icon: Box },
+                                            { id: 'Activity', icon: Activity },
+                                            { id: 'LayoutGrid', icon: LayoutGrid },
+                                            { id: 'RefreshCw', icon: RefreshCw }
+                                        ].map((item) => (
+                                            <button
+                                                key={item.id}
+                                                type="button"
+                                                onClick={() => setMethodForm({ ...methodForm, icon: item.id })}
+                                                className={`p-2 rounded-lg flex items-center justify-center transition-all ${methodForm.icon === item.id
+                                                        ? 'bg-blue-500 text-white shadow-md'
+                                                        : 'bg-white text-gray-400 hover:text-gray-600 hover:bg-gray-100'
+                                                    }`}
+                                                title={item.id}
+                                            >
+                                                <item.icon size={20} />
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="px-6 py-4 bg-gray-50 border-t border-gray-100 flex justify-end gap-3">
+                                <Button
+                                    variant="outline"
+                                    onClick={() => setIsMethodModalOpen(false)}
+                                >
+                                    Cancel
+                                </Button>
+                                <Button
+                                    onClick={handleSaveMethod}
+                                    className="bg-blue-600 hover:bg-blue-700 text-white"
+                                >
+                                    {editingMethod ? 'Update Method' : 'Create Method'}
+                                </Button>
+                            </div>
+                        </motion.div>
+                    </motion.div>
+                )}
+            </AnimatePresence>
+
         </div>
     );
 };
@@ -662,10 +956,11 @@ const OverviewTab: React.FC<{ users: User[]; entities: Entity[] }> = ({ users, e
 // Entities Tab
 const EntitiesTab: React.FC<{
     entities: Entity[];
+    methods: ReportingMethod[];
     onAdd: () => void;
     onEdit: (entity: Entity) => void;
     onDelete: (id: string) => void;
-}> = ({ entities, onAdd, onEdit, onDelete }) => (
+}> = ({ entities, methods, onAdd, onEdit, onDelete }) => (
     <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -739,6 +1034,27 @@ const EntitiesTab: React.FC<{
                                 {entity.reporting?.parentCategories?.reduce((total, cat) =>
                                     total + (cat.profiles?.length || 0), 0) || 0}
                             </div>
+                        </div>
+                    </div>
+
+                    {/* Methods */}
+                    <div className="mb-4">
+                        <div className="text-xs text-gray-500 mb-2 font-medium">Methods</div>
+                        <div className="flex flex-wrap gap-1.5">
+                            {(entity.enabledMethods || ['desktop']).map((methodId: string) => {
+                                const methodConfig = methods.find(m => m.id === methodId) || AVAILABLE_METHODS.find(m => m.id === methodId);
+                                if (!methodConfig) return null;
+                                const Icon = (methodConfig as any).icon && typeof (methodConfig as any).icon !== 'string' ? (methodConfig as any).icon : Box;
+                                return (
+                                    <span
+                                        key={methodId}
+                                        className={`inline-flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-medium text-white bg-gradient-to-r ${methodConfig.gradient}`}
+                                    >
+                                        <Icon size={12} />
+                                        {methodConfig.name}
+                                    </span>
+                                );
+                            })}
                         </div>
                     </div>
 
@@ -987,3 +1303,106 @@ const UsersTab: React.FC<{
             )}
         </motion.div>
     );
+
+const MethodsTab: React.FC<{
+    methods: ReportingMethod[];
+    onAdd: () => void;
+    onEdit: (method: ReportingMethod) => void;
+    onDelete: (id: string) => void;
+    onSeed: () => void;
+}> = ({ methods, onAdd, onEdit, onDelete, onSeed }) => {
+    return (
+        <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -20 }}
+            className="space-y-6"
+        >
+            <div className="flex items-center justify-between">
+                <div>
+                    <h2 className="text-2xl font-bold text-gray-900">Reporting Methods</h2>
+                    <p className="text-gray-500">Manage the available reporting methods for entities</p>
+                </div>
+                <div className="flex items-center gap-3">
+                    {methods.length === 0 && (
+                        <Button onClick={onSeed} variant="outline" className="gap-2">
+                            <Database size={18} />
+                            Seed Initial Methods
+                        </Button>
+                    )}
+                    <Button onClick={onAdd} className="gap-2 bg-[#6FC5E8] hover:bg-[#5FB8E5] text-white">
+                        <Plus size={18} />
+                        Add Method
+                    </Button>
+                </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {methods.map((method) => (
+                    <motion.div
+                        key={method.id}
+                        layoutId={method.id}
+                        className="bg-white rounded-2xl border border-gray-200/50 p-6 shadow-sm hover:shadow-md transition-all group"
+                    >
+                        <div className="flex items-start justify-between mb-4">
+                            <div className={`p-3 rounded-xl bg-gradient-to-br ${method.gradient} text-white shadow-lg`}>
+                                {(() => {
+                                    const IconMap: Record<string, any> = {
+                                        Monitor, Bot, Smartphone, Globe, Cpu, Zap, Terminal,
+                                        MousePointer2, Laptop, Tablet, AppWindow, Box, Activity,
+                                        LayoutGrid, RefreshCw
+                                    };
+                                    const Icon = IconMap[method.icon] || Box;
+                                    return <Icon size={24} />;
+                                })()}
+                            </div>
+                            <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                <button
+                                    onClick={() => onEdit(method)}
+                                    className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                                >
+                                    <Edit size={18} />
+                                </button>
+                                <button
+                                    onClick={() => onDelete(method.id)}
+                                    className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                                >
+                                    <Trash2 size={18} />
+                                </button>
+                            </div>
+                        </div>
+
+                        <div className="space-y-2">
+                            <div className="flex items-center gap-2">
+                                <h3 className="text-lg font-bold text-gray-900">{method.name}</h3>
+                                {!method.isActive && (
+                                    <span className="px-2 py-0.5 bg-gray-100 text-gray-500 text-[10px] font-bold rounded-full uppercase">Inactive</span>
+                                )}
+                            </div>
+                            <p className="text-sm text-gray-500 line-clamp-2">{method.description || 'No description provided'}</p>
+                        </div>
+
+                        <div className="mt-6 pt-6 border-t border-gray-50 flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                                <div className="w-3 h-3 rounded-full" style={{ backgroundColor: method.color }}></div>
+                                <span className="text-xs font-mono text-gray-400 uppercase">{method.id}</span>
+                            </div>
+                            <div className="text-xs font-bold text-gray-400">Order: {method.order}</div>
+                        </div>
+                    </motion.div>
+                ))}
+            </div>
+
+            {methods.length === 0 && (
+                <div className="text-center py-20 bg-white rounded-2xl border border-dashed border-gray-300">
+                    <Box className="mx-auto text-gray-300 mb-4" size={64} />
+                    <h3 className="text-xl font-bold text-gray-900 mb-2">No Reporting Methods</h3>
+                    <p className="text-gray-500 mb-8">Get started by adding your first reporting method or seeding the defaults.</p>
+                    <Button onClick={onAdd} className="bg-[#6FC5E8] hover:bg-[#5FB8E5] text-white">
+                        Add First Method
+                    </Button>
+                </div>
+            )}
+        </motion.div>
+    );
+};

@@ -4,38 +4,39 @@ import bcrypt from 'bcryptjs';
 import prisma from '../db.js';
 import { verifyTelegramAuth } from '../telegramAuth.js';
 import { authenticateToken, AuthRequest } from '../middleware/auth.js';
-
 import { logChange } from '../services/historyService.js';
+import { logger } from '../utils/logger.js';
+import { authLimiter } from '../middleware/rateLimiter.js';
 
 const router = Router();
+
+// Apply rate limiting to all auth routes
+router.use(authLimiter);
 
 // Telegram login endpoint
 router.post('/telegram', async (req, res) => {
   try {
     const telegramData = req.body;
-    console.log('=== TELEGRAM AUTH REQUEST ===');
-    // Sensitive data logging removed
+    logger.debug('Telegram authentication request received');
     
     // Convert id to string (Telegram sends it as number)
     const telegramId = String(telegramData.id);
-    console.log('Telegram ID (converted to string):', telegramId);
     
     // Verify Telegram authentication
     const botToken = process.env.TELEGRAM_BOT_TOKEN;
     if (!botToken) {
-      console.error('❌ FATAL: TELEGRAM_BOT_TOKEN is not defined in environment variables');
-      return res.status(500).json({ error: 'Server configuration error: Missing Bot Token' });
+      logger.error('TELEGRAM_BOT_TOKEN is not defined in environment variables');
+      return res.status(500).json({ error: 'Server configuration error' });
     }
 
     const isValid = verifyTelegramAuth(telegramData, botToken);
-    console.log('Verification result:', isValid);
     
     if (!isValid) {
-      console.log('❌ Authentication failed - invalid hash');
+      logger.security('Invalid Telegram authentication attempt', { telegramId });
       return res.status(401).json({ error: 'Invalid Telegram authentication' });
     }
 
-    console.log('✅ Telegram authentication verified');
+    logger.debug('Telegram authentication verified');
 
     // Find or create user
     let user = await prisma.user.findUnique({
@@ -43,7 +44,7 @@ router.post('/telegram', async (req, res) => {
     });
 
     if (!user) {
-      console.log('📝 Creating new user with telegramId:', telegramId);
+      logger.info('Creating new user', { telegramId });
       user = await prisma.user.create({
         data: {
           telegramId: telegramId,
@@ -52,7 +53,7 @@ router.post('/telegram', async (req, res) => {
           lastName: telegramData.last_name,
           photoUrl: telegramData.photo_url,
           role: 'USER',
-          isApproved: false // Explicitly set to false
+          isApproved: false
         }
       });
       
@@ -64,20 +65,19 @@ router.post('/telegram', async (req, res) => {
         newValue: user
       }, { id: user.id, username: user.username || 'Unknown', role: user.role });
 
-      console.log('✅ User created successfully:', { id: user.id, username: user.username, isApproved: user.isApproved });
+      logger.info('User created successfully', { userId: user.id, username: user.username });
       return res.status(403).json({ error: 'Registration pending approval', code: 'PENDING_APPROVAL' });
     }
 
-    console.log('👤 Existing user found:', { id: user.id, username: user.username, isApproved: user.isApproved });
+    logger.debug('Existing user found', { userId: user.id, username: user.username });
 
     // Check approval status
     if (!user.isApproved && user.role !== 'ADMIN') {
-      console.log('⏳ User not approved yet');
+      logger.info('User not approved yet', { userId: user.id });
       return res.status(403).json({ error: 'Account pending approval', code: 'PENDING_APPROVAL' });
     }
 
     // Update user info if needed
-    console.log('📸 Photo URL from Telegram:', telegramData.photo_url);
     user = await prisma.user.update({
       where: { telegramId: telegramId },
       data: {
@@ -96,8 +96,6 @@ router.post('/telegram', async (req, res) => {
       newValue: user
     }, { id: user.id, username: user.username || 'Unknown', role: user.role });
 
-    console.log('📸 Photo URL after update:', user.photoUrl);
-
     // Generate JWT
     const token = jwt.sign(
       { id: user.id, telegramId: user.telegramId, role: user.role },
@@ -105,11 +103,10 @@ router.post('/telegram', async (req, res) => {
       { expiresIn: '7d' }
     );
 
-    console.log('✅ Login successful for user:', user.username);
+    logger.info('Login successful', { userId: user.id, username: user.username });
     res.json({ token, user: { id: user.id, username: user.username, photoUrl: user.photoUrl, role: user.role, telegramId: user.telegramId } });
   } catch (error) {
-    console.error('❌ Auth error:', error);
-    // Stack trace logging removed
+    logger.error('Authentication failed', error);
     res.status(500).json({ error: 'Authentication failed' });
   }
 });
@@ -123,25 +120,32 @@ router.post('/login', async (req, res) => {
       return res.status(400).json({ error: 'Username and password are required' });
     }
 
+    // Validate username format
+    if (typeof username !== 'string' || username.length > 100) {
+      logger.security('Invalid username format in login attempt', { username });
+      return res.status(400).json({ error: 'Invalid username format' });
+    }
+
+    if (typeof password !== 'string' || password.length > 128) {
+      logger.security('Invalid password format in login attempt', { username });
+      return res.status(400).json({ error: 'Invalid password format' });
+    }
+
     const user = await prisma.user.findFirst({
       where: { username }
     });
 
-    console.log('🔍 Login attempt for username:', username);
-    console.log('🔍 User found:', user ? 'YES' : 'NO');
-    console.log('🔍 User has password:', user?.password ? 'YES' : 'NO');
+    logger.debug('Login attempt', { username });
 
     if (!user || !user.password) {
-      console.log('❌ Login failed: User not found or no password');
+      logger.security('Login failed: Invalid credentials', { username });
       return res.status(401).json({ error: 'Invalid credentials' });
     }
 
-    console.log('🔍 Comparing passwords...');
     const validPassword = await bcrypt.compare(password, user.password);
-    console.log('🔍 Password valid:', validPassword);
 
     if (!validPassword) {
-      console.log('❌ Login failed: Invalid password');
+      logger.security('Login failed: Invalid password', { username });
       return res.status(401).json({ error: 'Invalid credentials' });
     }
 
@@ -152,10 +156,11 @@ router.post('/login', async (req, res) => {
       { expiresIn: '7d' }
     );
 
+    logger.info('Password login successful', { userId: user.id, username: user.username });
     res.json({ token, user: { id: user.id, username: user.username, photoUrl: user.photoUrl, role: user.role, telegramId: user.telegramId } });
   } catch (error) {
-    console.error('Login error:', error);
-    res.status(500).json({ error: 'Login failed', details: String(error) });
+    logger.error('Login failed', error);
+    res.status(500).json({ error: 'Login failed' });
   }
 });
 
@@ -181,9 +186,10 @@ router.get('/me', authenticateToken, async (req: AuthRequest, res) => {
 
     res.json(user);
   } catch (error) {
-    console.error('Get user error:', error);
+    logger.error('Failed to get user', error);
     res.status(500).json({ error: 'Failed to get user' });
   }
 });
 
 export default router;
+

@@ -1,21 +1,32 @@
-import React, { useState } from 'react';
-import { Entity, ParentCategory, Profile } from '../../types';
+import React, { useState, useEffect } from 'react';
+import { Entity, ParentCategory, Profile, MethodType } from '../../types';
 import { X, Save, Plus, Trash2, Upload } from 'lucide-react';
 import { parseReportingData } from '../../utils/reportingParser';
 import { Button } from '../ui/Button';
+import { getMethodConfig } from '../../config/methods';
 
 interface Props {
     isOpen: boolean;
     onClose: () => void;
     entity: Entity;
     onSave: (updatedEntity: Entity) => Promise<void>;
+    currentMethod?: MethodType;
 }
 
-export const ReportingEditor: React.FC<Props> = ({ isOpen, onClose, entity, onSave }) => {
+export const ReportingEditor: React.FC<Props> = ({ isOpen, onClose, entity, onSave, currentMethod = 'desktop' }) => {
     const [categories, setCategories] = useState<ParentCategory[]>(entity.reporting.parentCategories);
     const [activeTab, setActiveTab] = useState<'editor' | 'import'>('editor');
     const [rawData, setRawData] = useState('');
     const [isSaving, setIsSaving] = useState(false);
+    const [deleteConfirmation, setDeleteConfirmation] = useState<string | null>(null);
+
+    const methodConfig = getMethodConfig(currentMethod as MethodType);
+
+    useEffect(() => {
+        if (isOpen) {
+            setCategories(entity.reporting.parentCategories);
+        }
+    }, [isOpen, entity]);
 
     if (!isOpen) return null;
 
@@ -57,9 +68,14 @@ export const ReportingEditor: React.FC<Props> = ({ isOpen, onClose, entity, onSa
     };
 
     const removeCategory = (id: string) => {
-        if (confirm('Delete this category and all its sessions?')) {
-            setCategories(prev => prev.filter(c => c.id !== id));
-        }
+        setDeleteConfirmation(id);
+    };
+
+    const confirmDelete = () => {
+        if (!deleteConfirmation) return;
+        const newCategories = categories.filter(c => c.id !== deleteConfirmation);
+        setCategories(newCategories);
+        setDeleteConfirmation(null);
     };
 
     const updateSession = (catId: string, sessionId: string, field: keyof Profile, value: any) => {
@@ -244,9 +260,20 @@ export const ReportingEditor: React.FC<Props> = ({ isOpen, onClose, entity, onSa
 
                 {/* Header */}
                 <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between bg-gray-50">
-                    <div>
-                        <h3 className="text-lg font-bold text-gray-900">Reporting Metrics Editor</h3>
-                        <p className="text-sm text-gray-500">Manage categories, sessions, and import raw data</p>
+                    <div className="flex items-center gap-3">
+                        {methodConfig && (
+                            <div
+                                className={`p-2 rounded-lg bg-gradient-to-br ${methodConfig.gradient} text-white shadow-sm`}
+                            >
+                                <methodConfig.icon size={20} />
+                            </div>
+                        )}
+                        <div>
+                            <h3 className="text-lg font-bold text-gray-900">
+                                {methodConfig?.name || 'Reporting'} Metrics Editor
+                            </h3>
+                            <p className="text-sm text-gray-500">Manage categories, sessions, and import raw data for this method</p>
+                        </div>
                     </div>
                     <div className="flex items-center gap-3">
                         <div className="flex bg-gray-200/50 p-1 rounded-xl">
@@ -307,7 +334,11 @@ export const ReportingEditor: React.FC<Props> = ({ isOpen, onClose, entity, onSa
                                             className="bg-transparent border-none font-bold text-gray-900 text-lg focus:ring-0 px-0 w-1/2"
                                         />
                                         <div className="flex items-center gap-2">
-                                            <button onClick={() => removeCategory(cat.id)} className="text-red-500 hover:bg-red-50 p-2 rounded">
+                                            <button
+                                                type="button"
+                                                onClick={() => removeCategory(cat.id)}
+                                                className="text-red-500 hover:bg-red-50 p-2 rounded"
+                                            >
                                                 <Trash2 size={16} />
                                             </button>
                                         </div>
@@ -388,8 +419,8 @@ export const ReportingEditor: React.FC<Props> = ({ isOpen, onClose, entity, onSa
                                                                                 key={c.id}
                                                                                 onClick={() => toggleSessionInCategory(session, c.id, cat.id)}
                                                                                 className={`px-2 py-0.5 rounded text-xs font-medium transition-all ${isInCategory
-                                                                                        ? 'bg-indigo-100 text-indigo-700 border border-indigo-300'
-                                                                                        : 'bg-gray-100 text-gray-500 border border-gray-200 hover:bg-gray-200'
+                                                                                    ? 'bg-indigo-100 text-indigo-700 border border-indigo-300'
+                                                                                    : 'bg-gray-100 text-gray-500 border border-gray-200 hover:bg-gray-200'
                                                                                     } ${isCurrentCategory ? 'ring-1 ring-indigo-400' : ''}`}
                                                                                 title={isInCategory ? `Remove from ${c.name}` : `Add to ${c.name}`}
                                                                             >
@@ -448,6 +479,32 @@ export const ReportingEditor: React.FC<Props> = ({ isOpen, onClose, entity, onSa
                 </div>
 
             </div>
+
+            {/* Custom Confirmation Modal */}
+            {deleteConfirmation && (
+                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[60] backdrop-blur-sm">
+                    <div className="bg-white rounded-xl shadow-2xl p-6 max-w-md w-full mx-4 animate-in fade-in zoom-in duration-200">
+                        <h3 className="text-lg font-bold text-gray-900 mb-2">Delete Category?</h3>
+                        <p className="text-gray-600 mb-6">
+                            Are you sure you want to delete this category? This action will remove the category and all its sessions from the view.
+                            <br /><br />
+                            <span className="text-sm text-gray-500">Note: Changes will be permanent only after clicking "Save Changes".</span>
+                        </p>
+                        <div className="flex justify-end gap-3">
+                            <Button variant="ghost" onClick={() => setDeleteConfirmation(null)}>
+                                Cancel
+                            </Button>
+                            <Button
+                                variant="primary"
+                                className="bg-red-600 hover:bg-red-700 text-white"
+                                onClick={confirmDelete}
+                            >
+                                Delete Category
+                            </Button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div >
     );
 };

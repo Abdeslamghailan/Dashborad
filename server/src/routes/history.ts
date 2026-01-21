@@ -55,6 +55,9 @@ router.get('/', authenticateToken, requireAdminOrMailer, async (req: AuthRequest
       changeType,
       startDate,
       endDate,
+      methodId,
+      categoryId,
+      fieldChanged,
       limit = '100'
     } = req.query;
 
@@ -65,6 +68,9 @@ router.get('/', authenticateToken, requireAdminOrMailer, async (req: AuthRequest
     if (entityType) where.entityType = entityType as string;
     if (username) where.username = { contains: username as string };
     if (changeType) where.changeType = changeType as string;
+    if (methodId) where.methodId = methodId as string;
+    if (categoryId) where.categoryId = categoryId as string;
+    if (fieldChanged) where.fieldChanged = { contains: fieldChanged as string };
     
     // Date range filter (default to last 3 months)
     const threeMonthsAgo = new Date();

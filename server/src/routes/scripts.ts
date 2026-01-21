@@ -142,6 +142,8 @@ router.put('/scripts/:id', authenticateToken, async (req, res) => {
     const { id } = req.params;
     const { name, description, order, isActive } = req.body;
 
+    const oldScript = await prisma.script.findUnique({ where: { id } });
+
     const script = await prisma.script.update({
       where: { id },
       data: {
@@ -160,6 +162,7 @@ router.put('/scripts/:id', authenticateToken, async (req, res) => {
       entityId: script.id,
       changeType: 'update',
       description: `Updated script "${name}"`,
+      oldValue: oldScript,
       newValue: script
     });
 
@@ -366,6 +369,8 @@ router.put('/scenarios/:id', authenticateToken, async (req, res) => {
       }
     }
 
+    const oldScenario = await prisma.scenario.findUnique({ where: { id } });
+
     const scenario = await prisma.scenario.update({
       where: { id },
       data: {
@@ -385,6 +390,7 @@ router.put('/scenarios/:id', authenticateToken, async (req, res) => {
       entityId: scenario.id,
       changeType: 'update',
       description: `Updated scenario "${name}"`,
+      oldValue: oldScenario,
       newValue: scenario
     });
 

@@ -1,23 +1,26 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Clock, User, Edit3, Plus, Trash2, Filter, Search, X } from 'lucide-react';
+import { Clock, Filter, Search, X, Trash2 } from 'lucide-react';
 import { service } from '../services';
 import { useAuth } from '../contexts/AuthContext';
 import { ChangeHistoryEntry } from './history/ChangeHistory';
-import { generateEntityChangeSummary } from '../utils/smartDiff';
+import { HistoryTable } from './history/HistoryTable';
 
 export const HistoryPage: React.FC = () => {
     const { user } = useAuth();
     const navigate = useNavigate();
     const [history, setHistory] = useState<ChangeHistoryEntry[]>([]);
     const [loading, setLoading] = useState(true);
-    const [showFilters, setShowFilters] = useState(false);
+    const [showFilters, setShowFilters] = useState(true);
 
     // Filter states
     const [entityIdFilter, setEntityIdFilter] = useState('');
     const [entityTypeFilter, setEntityTypeFilter] = useState('');
     const [usernameFilter, setUsernameFilter] = useState('');
     const [changeTypeFilter, setChangeTypeFilter] = useState('');
+    const [methodIdFilter, setMethodIdFilter] = useState('');
+    const [categoryIdFilter, setCategoryIdFilter] = useState('');
+    const [fieldChangedFilter, setFieldChangedFilter] = useState('');
     const [startDateFilter, setStartDateFilter] = useState('');
     const [endDateFilter, setEndDateFilter] = useState('');
 
@@ -40,6 +43,9 @@ export const HistoryPage: React.FC = () => {
                 entityType: entityTypeFilter || undefined,
                 username: usernameFilter || undefined,
                 changeType: changeTypeFilter || undefined,
+                methodId: methodIdFilter || undefined,
+                categoryId: categoryIdFilter || undefined,
+                fieldChanged: fieldChangedFilter || undefined,
                 startDate: startDateFilter || undefined,
                 endDate: endDateFilter || undefined,
                 limit: 500
@@ -93,134 +99,46 @@ export const HistoryPage: React.FC = () => {
         setEntityTypeFilter('');
         setUsernameFilter('');
         setChangeTypeFilter('');
+        setMethodIdFilter('');
+        setCategoryIdFilter('');
+        setFieldChangedFilter('');
         setStartDateFilter('');
         setEndDateFilter('');
     };
 
-    const getChangeIcon = (changeType: string) => {
-        switch (changeType) {
-            case 'create':
-                return <Plus size={16} className="text-green-600" />;
-            case 'update':
-                return <Edit3 size={16} className="text-blue-600" />;
-            case 'delete':
-                return <Trash2 size={16} className="text-red-600" />;
-            default:
-                return <Edit3 size={16} className="text-gray-600" />;
-        }
-    };
-
-    const getRoleBadgeColor = (role: string) => {
-        switch (role) {
-            case 'ADMIN':
-                return 'bg-purple-100 text-purple-700 border-purple-200';
-            case 'MAILER':
-                return 'bg-blue-100 text-blue-700 border-blue-200';
-            case 'USER':
-                return 'bg-gray-100 text-gray-700 border-gray-200';
-            default:
-                return 'bg-gray-100 text-gray-700 border-gray-200';
-        }
-    };
-
-    const formatTimestamp = (timestamp: string) => {
-        const date = new Date(timestamp);
-        return date.toLocaleString('en-US', {
-            month: 'short',
-            day: 'numeric',
-            year: 'numeric',
-            hour: '2-digit',
-            minute: '2-digit'
-        });
-    };
-
-    // Get entity name from description
-    const getEntityName = (description: string): string => {
-        const match = description.match(/for "([^"]+)"/);
-        return match ? match[1] : 'Entity';
-    };
-
-    const renderChangeDetails = (entry: ChangeHistoryEntry) => {
-        if (entry.changeType === 'delete') {
-            return (
-                <div className="mt-3 p-3 bg-red-50 border border-red-200 rounded-lg">
-                    <div className="flex items-center gap-2 text-red-700 font-medium text-sm">
-                        <Trash2 size={14} />
-                        <strong>Deleted:</strong> {getEntityName(entry.description)}
-                    </div>
-                </div>
-            );
-        }
-
-        if (entry.changeType === 'create') {
-            return (
-                <div className="mt-3 p-3 bg-green-50 border border-green-200 rounded-lg">
-                    <div className="flex items-center gap-2 text-green-700 font-medium text-sm">
-                        <Plus size={14} />
-                        <strong>Created:</strong> {getEntityName(entry.description)}
-                    </div>
-                </div>
-            );
-        }
-
-        // For updates, use smart diff
-        if (entry.oldValue && entry.newValue) {
-            const entityName = getEntityName(entry.description);
-            const changes = generateEntityChangeSummary(
-                entityName,
-                entry.fieldChanged,
-                entry.oldValue,
-                entry.newValue
-            );
-
-            if (changes.length > 0) {
-                return (
-                    <div className="mt-3 space-y-2">
-                        {changes.map((change, idx) => (
-                            <div key={idx} className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
-                                <div className="text-sm text-gray-800 font-medium">
-                                    {change}
-                                </div>
-                            </div>
-                        ))}
-                    </div>
-                );
-            }
-        }
-
-        return null;
-    };
-
-    if (user?.role !== 'ADMIN') {
+    if (user?.role !== 'ADMIN' && user?.role !== 'MAILER') {
         return null;
     }
 
     return (
-        <div className="max-w-7xl mx-auto space-y-6 pb-20">
-            {/* Header */}
-            <div className="flex items-center justify-between">
+        <div className="max-w-[1600px] mx-auto space-y-6 pb-20 px-4">
+            {/* Header Section */}
+            <div className="flex items-center justify-between pt-6 border-b border-gray-100 pb-6">
                 <div>
                     <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
-                        <Clock size={28} />
-                        Change History
+                        <Clock size={24} className="text-gray-400" />
+                        Audit Log & History
                     </h1>
                     <p className="text-sm text-gray-500 mt-1">
-                        View all changes from the last 3 months (Admin Only)
+                        Track all system changes and user actions
                     </p>
                 </div>
-                <div className="flex gap-3">
+                <div className="flex gap-2">
                     {user?.role === 'ADMIN' && (
                         <button
                             onClick={handleDeleteAllClick}
-                            className="flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
+                            className="flex items-center gap-2 px-4 py-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors text-sm font-medium border border-transparent hover:border-red-100"
                         >
                             <Trash2 size={18} />
-                            Delete All
+                            Clear History
                         </button>
                     )}
                     <button
                         onClick={() => setShowFilters(!showFilters)}
-                        className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
+                        className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-all text-sm font-medium border ${showFilters
+                                ? 'bg-gray-100 text-gray-700 border-gray-200'
+                                : 'bg-indigo-600 text-white border-indigo-600 hover:bg-indigo-700'
+                            }`}
                     >
                         <Filter size={18} />
                         {showFilters ? 'Hide Filters' : 'Show Filters'}
@@ -228,62 +146,27 @@ export const HistoryPage: React.FC = () => {
                 </div>
             </div>
 
-            {/* Filters */}
+            {/* Filters Section */}
             {showFilters && (
-                <div className="bg-white rounded-lg border border-gray-200 p-6">
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">
-                                Entity ID
-                            </label>
+                <div className="bg-white rounded-xl border border-gray-200 p-5 shadow-sm">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                        <div className="space-y-1">
+                            <label className="text-[11px] font-semibold text-gray-500 uppercase">Entity ID</label>
                             <input
                                 type="text"
                                 value={entityIdFilter}
                                 onChange={(e) => setEntityIdFilter(e.target.value)}
-                                placeholder="e.g., ent_example"
-                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                                placeholder="e.g., ent_cmh1"
+                                className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all outline-none text-sm"
                             />
                         </div>
 
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">
-                                Table/Type
-                            </label>
-                            <select
-                                value={entityTypeFilter}
-                                onChange={(e) => setEntityTypeFilter(e.target.value)}
-                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                            >
-                                <option value="">All Types</option>
-                                <option value="entity">Entity</option>
-                                <option value="proxy">Proxy</option>
-                                <option value="reporting">Reporting</option>
-                                <option value="limits">Limits</option>
-                                <option value="notes">Notes</option>
-                            </select>
-                        </div>
-
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">
-                                Username
-                            </label>
-                            <input
-                                type="text"
-                                value={usernameFilter}
-                                onChange={(e) => setUsernameFilter(e.target.value)}
-                                placeholder="Search by username"
-                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                            />
-                        </div>
-
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">
-                                Change Type
-                            </label>
+                        <div className="space-y-1">
+                            <label className="text-[11px] font-semibold text-gray-500 uppercase">Change Type</label>
                             <select
                                 value={changeTypeFilter}
                                 onChange={(e) => setChangeTypeFilter(e.target.value)}
-                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                                className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all outline-none text-sm"
                             >
                                 <option value="">All Changes</option>
                                 <option value="create">Create</option>
@@ -292,35 +175,82 @@ export const HistoryPage: React.FC = () => {
                             </select>
                         </div>
 
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">
-                                Start Date
-                            </label>
+                        <div className="space-y-1">
+                            <label className="text-[11px] font-semibold text-gray-500 uppercase">Username</label>
                             <input
-                                type="date"
-                                value={startDateFilter}
-                                onChange={(e) => setStartDateFilter(e.target.value)}
-                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                                type="text"
+                                value={usernameFilter}
+                                onChange={(e) => setUsernameFilter(e.target.value)}
+                                placeholder="Search user..."
+                                className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all outline-none text-sm"
                             />
                         </div>
 
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">
-                                End Date
-                            </label>
+                        <div className="space-y-1">
+                            <label className="text-[11px] font-semibold text-gray-500 uppercase">Entity Type</label>
+                            <select
+                                value={entityTypeFilter}
+                                onChange={(e) => setEntityTypeFilter(e.target.value)}
+                                className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all outline-none text-sm"
+                            >
+                                <option value="">All Types</option>
+                                <option value="DayPlan">Day Plan</option>
+                                <option value="PlanningAssignment">Planning</option>
+                                <option value="Entity">Entity Config</option>
+                                <option value="ProxyServer">Proxy</option>
+                                <option value="Mailer">Mailer</option>
+                                <option value="Team">Team</option>
+                            </select>
+                        </div>
+
+                        <div className="space-y-1">
+                            <label className="text-[11px] font-semibold text-gray-500 uppercase">Method ID</label>
                             <input
-                                type="date"
-                                value={endDateFilter}
-                                onChange={(e) => setEndDateFilter(e.target.value)}
-                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                                type="text"
+                                value={methodIdFilter}
+                                onChange={(e) => setMethodIdFilter(e.target.value)}
+                                placeholder="e.g., desktop"
+                                className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all outline-none text-sm"
                             />
+                        </div>
+
+                        <div className="space-y-1">
+                            <label className="text-[11px] font-semibold text-gray-500 uppercase">Field Changed</label>
+                            <input
+                                type="text"
+                                value={fieldChangedFilter}
+                                onChange={(e) => setFieldChangedFilter(e.target.value)}
+                                placeholder="e.g., step, start"
+                                className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all outline-none text-sm"
+                            />
+                        </div>
+
+                        <div className="lg:col-span-2 grid grid-cols-2 gap-3">
+                            <div className="space-y-1">
+                                <label className="text-[11px] font-semibold text-gray-500 uppercase">Start Date</label>
+                                <input
+                                    type="date"
+                                    value={startDateFilter}
+                                    onChange={(e) => setStartDateFilter(e.target.value)}
+                                    className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all outline-none text-sm"
+                                />
+                            </div>
+                            <div className="space-y-1">
+                                <label className="text-[11px] font-semibold text-gray-500 uppercase">End Date</label>
+                                <input
+                                    type="date"
+                                    value={endDateFilter}
+                                    onChange={(e) => setEndDateFilter(e.target.value)}
+                                    className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all outline-none text-sm"
+                                />
+                            </div>
                         </div>
                     </div>
 
-                    <div className="flex items-center gap-3 mt-4">
+                    <div className="flex items-center gap-3 mt-5 pt-4 border-t border-gray-100">
                         <button
                             onClick={fetchHistory}
-                            className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
+                            className="flex items-center gap-2 px-5 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-all text-sm font-semibold shadow-sm"
                         >
                             <Search size={16} />
                             Apply Filters
@@ -330,134 +260,70 @@ export const HistoryPage: React.FC = () => {
                                 clearFilters();
                                 setTimeout(fetchHistory, 100);
                             }}
-                            className="flex items-center gap-2 px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors"
+                            className="flex items-center gap-2 px-5 py-2 bg-gray-100 text-gray-600 rounded-lg hover:bg-gray-200 transition-all text-sm font-semibold"
                         >
                             <X size={16} />
-                            Clear Filters
+                            Reset
                         </button>
                     </div>
                 </div>
             )}
 
-            {/* Stats */}
-            <div className="bg-white rounded-lg border border-gray-200 p-4">
-                <div className="flex items-center justify-between">
-                    <div className="text-sm text-gray-600">
-                        Showing <span className="font-semibold text-gray-900">{history.length}</span> changes
-                    </div>
+            {/* Content Section */}
+            <div className="space-y-4">
+                <div className="text-sm text-gray-500 px-1">
+                    Showing <span className="font-semibold text-gray-900">{history.length}</span> entries
                 </div>
+
+                {loading ? (
+                    <div className="bg-white rounded-xl border border-gray-200 p-16 text-center shadow-sm">
+                        <div className="w-10 h-10 border-4 border-indigo-100 border-t-indigo-600 rounded-full animate-spin mx-auto mb-4"></div>
+                        <p className="text-gray-500 font-medium">Loading audit logs...</p>
+                    </div>
+                ) : history.length === 0 ? (
+                    <div className="bg-white rounded-xl border border-gray-200 p-16 text-center shadow-sm">
+                        <Clock size={40} className="mx-auto text-gray-200 mb-4" />
+                        <h3 className="text-lg font-semibold text-gray-900 mb-1">No history found</h3>
+                        <p className="text-gray-500 text-sm">Try adjusting your filters to find what you're looking for.</p>
+                    </div>
+                ) : (
+                    <HistoryTable
+                        history={history}
+                        onDelete={user?.role === 'ADMIN' ? handleDeleteClick : undefined}
+                        isAdmin={user?.role === 'ADMIN'}
+                    />
+                )}
             </div>
 
-            {/* History List */}
-            {loading ? (
-                <div className="bg-white rounded-lg border border-gray-200 p-12 text-center">
-                    <Clock size={32} className="mx-auto text-gray-400 animate-spin mb-4" />
-                    <p className="text-gray-500">Loading history...</p>
-                </div>
-            ) : history.length === 0 ? (
-                <div className="bg-white rounded-lg border border-gray-200 p-12 text-center">
-                    <Clock size={32} className="mx-auto text-gray-400 mb-4" />
-                    <p className="text-gray-500">No history found matching your filters</p>
-                </div>
-            ) : (
-                <div className="bg-white rounded-lg border border-gray-200 divide-y divide-gray-100">
-                    {history.map((entry) => (
-                        <div key={entry.id} className="p-6 hover:bg-gray-50 transition-colors">
-                            <div className="flex items-start gap-4">
-                                {/* Icon */}
-                                <div className="mt-1 flex-shrink-0">
-                                    {getChangeIcon(entry.changeType)}
-                                </div>
-
-                                {/* Content */}
-                                <div className="flex-1 min-w-0">
-                                    <div className="flex items-start justify-between gap-4 mb-2">
-                                        <div>
-                                            <p className="text-base font-semibold text-gray-900">
-                                                {entry.description}
-                                            </p>
-                                        </div>
-                                        <div className="flex items-center gap-3">
-                                            <span className="text-sm text-gray-500 whitespace-nowrap">
-                                                {formatTimestamp(entry.createdAt)}
-                                            </span>
-                                            {user?.role === 'ADMIN' && (
-                                                <button
-                                                    onClick={() => handleDeleteClick(entry.id)}
-                                                    className="text-gray-400 hover:text-red-600 transition-colors p-1"
-                                                    title="Delete entry"
-                                                >
-                                                    <Trash2 size={16} />
-                                                </button>
-                                            )}
-                                        </div>
-                                    </div>
-
-                                    {/* Metadata */}
-                                    <div className="flex items-center gap-4 text-sm mb-3">
-                                        <div className="flex items-center gap-1.5 text-gray-600">
-                                            <User size={14} />
-                                            <span className="font-medium">{entry.username}</span>
-                                        </div>
-                                        <span
-                                            className={`px-2 py-0.5 rounded border text-xs ${getRoleBadgeColor(entry.userRole)}`}
-                                        >
-                                            {entry.userRole}
-                                        </span>
-                                        {entry.entityId && (
-                                            <span className="text-xs text-gray-500 bg-gray-100 px-2 py-0.5 rounded">
-                                                {entry.entityId}
-                                            </span>
-                                        )}
-                                        <span className="text-xs text-gray-500 bg-gray-100 px-2 py-0.5 rounded">
-                                            {entry.entityType}
-                                        </span>
-                                    </div>
-
-                                    {/* Change Details */}
-                                    {renderChangeDetails(entry)}
-                                </div>
-                            </div>
-                        </div>
-                    ))}
-                </div>
-            )}
             {/* Delete Confirmation Modal */}
             {showDeleteConfirm && (
-                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-                    <div className="bg-white rounded-lg max-w-md w-full p-6 space-y-4">
-                        <h3 className="text-lg font-bold text-gray-900">
-                            {deleteId === -1 ? 'Delete All History?' : 'Delete History Entry?'}
+                <div className="fixed inset-0 bg-black/40 backdrop-blur-[2px] flex items-center justify-center z-[100] p-4">
+                    <div className="bg-white rounded-xl max-w-md w-full p-6 shadow-2xl animate-in zoom-in-95 duration-200">
+                        <h3 className="text-xl font-bold text-gray-900 mb-2">
+                            {deleteId === -1 ? 'Clear All History?' : 'Delete Entry?'}
                         </h3>
-                        <p className="text-gray-600">
+                        <p className="text-gray-500 text-sm leading-relaxed mb-6">
                             {deleteId === -1
-                                ? 'Are you sure you want to delete ALL history entries? This action cannot be undone.'
-                                : 'Are you sure you want to delete this history entry? This action cannot be undone.'}
+                                ? 'This will permanently erase all audit logs. This action cannot be undone.'
+                                : 'Are you sure you want to delete this specific audit log? This action cannot be undone.'}
                         </p>
-                        <div className="flex justify-end gap-3 pt-2">
+                        <div className="flex justify-end gap-3">
                             <button
                                 onClick={() => {
                                     setShowDeleteConfirm(false);
                                     setDeleteId(null);
                                 }}
-                                className="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
+                                className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-all font-medium text-sm"
                                 disabled={isDeleting}
                             >
                                 Cancel
                             </button>
                             <button
                                 onClick={confirmDelete}
-                                className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors flex items-center gap-2"
+                                className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-all font-bold text-sm flex items-center gap-2"
                                 disabled={isDeleting}
                             >
-                                {isDeleting ? (
-                                    <>
-                                        <Clock size={16} className="animate-spin" />
-                                        Deleting...
-                                    </>
-                                ) : (
-                                    'Delete'
-                                )}
+                                {isDeleting ? 'Deleting...' : 'Confirm Delete'}
                             </button>
                         </div>
                     </div>

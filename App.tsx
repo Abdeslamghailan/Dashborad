@@ -10,7 +10,10 @@ import { AdminPanel } from './components/AdminPanel';
 import { ProxyPartitionPage } from './components/ProxyPartitionPage';
 import { HistoryPage } from './components/HistoryPage';
 import { TeamPlanning } from './components/TeamPlanning';
-import { CMHWTeamDiagram } from './components/CMHWTeamDiagram';
+import { SimulationExcel } from './components/SimulationExcel';
+import { DashboardReporting } from './components/DashboardReporting';
+
+
 
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { user, isLoading } = useAuth();
@@ -122,15 +125,27 @@ const AppRoutes: React.FC = () => {
         }
       />
       <Route
-        path="/cmhw-diagram"
+        path="/simulation-excel"
+        element={
+          <ProtectedRoute>
+            <Layout>
+              <SimulationExcel />
+            </Layout>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/dashboard-reporting"
         element={
           <MailerOrAdminRoute>
             <Layout>
-              <CMHWTeamDiagram />
+              <DashboardReporting />
             </Layout>
           </MailerOrAdminRoute>
         }
       />
+
+
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );

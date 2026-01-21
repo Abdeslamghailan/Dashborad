@@ -54,6 +54,17 @@ router.post('/:entityId', authenticateToken, async (req: AuthRequest, res) => {
     const dateObj = new Date(date);
     dateObj.setHours(0, 0, 0, 0);
     
+    // Fetch old plan for history
+    const oldDayPlan = await prisma.dayPlan.findUnique({
+      where: {
+        entityId_categoryId_date: {
+          entityId,
+          categoryId,
+          date: dateObj
+        }
+      }
+    });
+
     // Upsert the day plan
     const dayPlan = await prisma.dayPlan.upsert({
       where: {
@@ -80,13 +91,21 @@ router.post('/:entityId', authenticateToken, async (req: AuthRequest, res) => {
     
 
     
-    await logChange(req, {
-      entityType: 'DayPlan',
-      entityId: dayPlan.id.toString(),
-      changeType: 'update',
-      description: `Updated day plan for entity ${entityId}, category ${categoryId}, date ${date}`,
-      newValue: dayPlan
-    });
+    // Only log if data changed or it's a new record
+    const oldSessionDataStr = oldDayPlan?.sessionData || '';
+    const newSessionDataStr = JSON.stringify(sessionData);
+
+    if (!oldDayPlan || oldSessionDataStr !== newSessionDataStr) {
+      await logChange(req, {
+        entityType: 'DayPlan',
+        entityId: entityId,
+        changeType: 'update',
+        fieldChanged: 'Day Plan',
+        description: `Updated day plan for entity ${entityId}, category ${categoryId}, date ${date}`,
+        oldValue: oldDayPlan,
+        newValue: dayPlan
+      });
+    }
 
     res.json(dayPlan);
   } catch (error) {
@@ -119,6 +138,17 @@ router.post('/:entityId/bulk', authenticateToken, async (req: AuthRequest, res) 
     const results = [];
     
     for (const [categoryId, sessionData] of Object.entries(plans)) {
+      // Fetch old plan for history
+      const oldDayPlan = await prisma.dayPlan.findUnique({
+        where: {
+          entityId_categoryId_date: {
+            entityId,
+            categoryId,
+            date: dateObj
+          }
+        }
+      });
+
       const dayPlan = await prisma.dayPlan.upsert({
         where: {
           entityId_categoryId_date: {
@@ -142,13 +172,21 @@ router.post('/:entityId/bulk', authenticateToken, async (req: AuthRequest, res) 
         }
       });
       
-      await logChange(req, {
-        entityType: 'DayPlan',
-        entityId: dayPlan.id.toString(),
-        changeType: 'update',
-        description: `Updated day plan for entity ${entityId}, category ${categoryId}, date ${date}`,
-        newValue: dayPlan
-      });
+      // Only log if data changed or it's a new record
+      const oldSessionDataStr = oldDayPlan?.sessionData || '';
+      const newSessionDataStr = JSON.stringify(sessionData);
+
+      if (!oldDayPlan || oldSessionDataStr !== newSessionDataStr) {
+        await logChange(req, {
+          entityType: 'DayPlan',
+          entityId: entityId,
+          changeType: 'update',
+          fieldChanged: 'Day Plan',
+          description: `Updated day plan for entity ${entityId}, category ${categoryId}, date ${date}`,
+          oldValue: oldDayPlan,
+          newValue: dayPlan
+        });
+      }
 
       results.push(dayPlan);
     }
@@ -174,6 +212,17 @@ router.delete('/:entityId/:categoryId/:date', authenticateToken, async (req: Aut
     const dateObj = new Date(date);
     dateObj.setHours(0, 0, 0, 0);
     
+    // Fetch old plan for history
+    const oldDayPlan = await prisma.dayPlan.findUnique({
+      where: {
+        entityId_categoryId_date: {
+          entityId,
+          categoryId,
+          date: dateObj
+        }
+      }
+    });
+
     await prisma.dayPlan.delete({
       where: {
         entityId_categoryId_date: {
@@ -188,9 +237,10 @@ router.delete('/:entityId/:categoryId/:date', authenticateToken, async (req: Aut
     
     await logChange(req, {
       entityType: 'DayPlan',
-      entityId: `${entityId}_${categoryId}_${date}`,
+      entityId: entityId,
       changeType: 'delete',
-      description: `Deleted day plan for entity ${entityId}, category ${categoryId}, date ${date}`
+      description: `Deleted day plan for entity ${entityId}, category ${categoryId}, date ${date}`,
+      oldValue: oldDayPlan
     });
 
     res.json({ success: true });

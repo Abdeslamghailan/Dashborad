@@ -160,6 +160,8 @@ router.put('/:entityId/:proxyId', authenticateToken, async (req: AuthRequest, re
         }
         if (status) updateData.status = status;
         
+        const oldProxy = await prisma.proxyServer.findUnique({ where: { id: proxyId } });
+        
         const updatedProxy = await prisma.proxyServer.update({
             where: { id: proxyId },
             data: updateData
@@ -170,6 +172,7 @@ router.put('/:entityId/:proxyId', authenticateToken, async (req: AuthRequest, re
             entityType: 'proxy',
             changeType: 'update',
             description: `Updated proxy server "${updatedProxy.serverName}"`,
+            oldValue: oldProxy ? { ...oldProxy, ips: JSON.parse(oldProxy.ips) } : null,
             newValue: { ...updatedProxy, ips: JSON.parse(updatedProxy.ips) }
         });
         

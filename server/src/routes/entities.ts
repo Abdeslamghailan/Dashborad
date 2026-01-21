@@ -3,6 +3,10 @@ import prisma from '../db.js';
 import { authenticateToken, requireAdmin, AuthRequest } from '../middleware/auth.js';
 import { logChange } from '../services/historyService.js';
 
+function generateBatchId() {
+  return Date.now().toString(36) + Math.random().toString(36).substr(2);
+}
+
 const router = Router();
 
 // Get all entities (filtered by user permissions)
@@ -91,6 +95,12 @@ router.get('/:id', authenticateToken, async (req: AuthRequest, res) => {
       ...JSON.parse(entity.data)
     };
 
+    // Log the status values being returned
+    console.log('[Backend GET] Entity categories status:', entityWithData.reporting?.parentCategories?.map((c: any) => ({
+      name: c.name,
+      status: c.planConfiguration?.status
+    })));
+
     res.json(entityWithData);
   } catch (error) {
     console.error('Get entity error:', error);
@@ -101,7 +111,7 @@ router.get('/:id', authenticateToken, async (req: AuthRequest, res) => {
 // Create entity (Admin only)
 router.post('/', authenticateToken, requireAdmin, async (req: AuthRequest, res) => {
   try {
-    const { name, status, reporting, limitsConfiguration, notes } = req.body;
+    const { name, status, reporting, limitsConfiguration, notes, noteCards, enabledMethods, methodsData } = req.body;
 
     // Enforce ID format: ent_{name} (lowercase, spaces replaced by underscores)
     const id = `ent_${name.toLowerCase().trim().replace(/\s+/g, '_')}`;
@@ -119,7 +129,10 @@ router.post('/', authenticateToken, requireAdmin, async (req: AuthRequest, res) 
       status: status || 'active',
       reporting,
       limitsConfiguration,
-      notes: notes || ''
+      notes: notes || '',
+      noteCards: noteCards || [],
+      enabledMethods: enabledMethods || ['desktop'],
+      methodsData: methodsData || {}
     };
 
     const entity = await prisma.entity.create({
@@ -155,7 +168,14 @@ router.put('/:id', authenticateToken, async (req: AuthRequest, res) => {
     const { id } = req.params;
     const userId = req.user!.id;
     const userRole = req.user!.role;
-    const { name, status, reporting, limitsConfiguration, notes } = req.body;
+    const { name, status, reporting, limitsConfiguration, notes, noteCards, enabledMethods, methodsData } = req.body;
+    
+    // DEBUG LOGGING
+    if (reporting && reporting.parentCategories) {
+      reporting.parentCategories.forEach((cat: any) => {
+        console.log(`[UPDATE] Category ${cat.name} Status:`, cat.planConfiguration?.status);
+      });
+    }
 
     // Check permissions
     if (userRole === 'USER') {
@@ -220,11 +240,19 @@ router.put('/:id', authenticateToken, async (req: AuthRequest, res) => {
     const existingEntity = await prisma.entity.findUnique({ where: { id } });
     const existingData = existingEntity ? JSON.parse(existingEntity.data) : {};
     
+    console.log('[Backend] Received reporting data:', JSON.stringify(reporting.parentCategories.map((c: any) => ({
+      name: c.name,
+      status: c.planConfiguration?.status
+    })), null, 2));
+    
     const entityData = {
       status: status || 'active',
       reporting,
       limitsConfiguration,
-      notes: notes !== undefined ? notes : ''
+      notes: notes !== undefined ? notes : '',
+      noteCards: noteCards !== undefined ? noteCards : existingData.noteCards || [],
+      enabledMethods: enabledMethods !== undefined ? enabledMethods : existingData.enabledMethods || ['desktop'],
+      methodsData: methodsData !== undefined ? methodsData : existingData.methodsData || {}
     };
 
     const entity = await prisma.entity.update({
@@ -234,25 +262,289 @@ router.put('/:id', authenticateToken, async (req: AuthRequest, res) => {
         data: JSON.stringify(entityData)
       }
     });
+    
+    console.log('[Backend] Saved entity data:', JSON.stringify(JSON.parse(entity.data).reporting.parentCategories.map((c: any) => ({
+      name: c.name,
+      status: c.planConfiguration?.status
+    })), null, 2));
 
     // Determine what changed
-    let changedFields = [];
-    if (JSON.stringify(existingData.reporting) !== JSON.stringify(reporting)) changedFields.push('reporting');
-    if (JSON.stringify(existingData.limitsConfiguration) !== JSON.stringify(limitsConfiguration)) changedFields.push('limits');
-    if (existingData.notes !== notes) changedFields.push('notes');
-    if (existingData.status !== status) changedFields.push('status');
-    if (existingEntity?.name !== name) changedFields.push('name');
+    // Determine what changed and log granularly
+    const batchId = generateBatchId();
+    
+    // 1. Check Reporting (Default Method)
+    if (reporting && existingData.reporting && reporting.parentCategories) {
+      const oldCats = existingData.reporting.parentCategories || [];
+      const newCats = reporting.parentCategories || [];
 
-    // Log the update
-    await logChange(req, {
-      entityId: id,
-      entityType: 'entity',
-      changeType: 'update',
-      fieldChanged: changedFields.join(', '),
-      description: `Updated ${changedFields.join(', ')} for "${name}"`,
-      oldValue: existingData,
-      newValue: entityData
-    });
+      for (const newCat of newCats) {
+        const oldCat = oldCats.find((c: any) => c.id === newCat.id);
+        if (oldCat) {
+          // Compare planConfiguration
+          const newPlan = newCat.planConfiguration;
+          const oldPlan = oldCat.planConfiguration;
+          
+          if (newPlan && oldPlan) {
+            // 1. Check simple fields
+            const simpleFields = ['status', 'mode', 'scriptName', 'scenario'];
+            for (const field of simpleFields) {
+              if (newPlan[field] !== oldPlan[field]) {
+                await logChange(req, {
+                  entityId: id,
+                  entityType: 'reporting',
+                  changeType: 'update',
+                  fieldChanged: field,
+                  categoryId: newCat.id,
+                  categoryName: newCat.name,
+                  methodId: 'desktop',
+                  description: `Changed ${field} for "${newCat.name}" (Desktop)`,
+                  oldValue: oldPlan[field],
+                  newValue: newPlan[field],
+                  batchId
+                });
+              }
+            }
+
+            // 2. Check Drops (Granular)
+            if (newPlan.drops && oldPlan.drops) {
+              // Assuming drops are ordered or can be matched by ID
+              const maxDrops = Math.max(newPlan.drops.length, oldPlan.drops.length);
+              for (let i = 0; i < maxDrops; i++) {
+                const newDrop = newPlan.drops[i];
+                const oldDrop = oldPlan.drops[i];
+
+                if (!oldDrop && newDrop) {
+                   await logChange(req, {
+                    entityId: id,
+                    entityType: 'reporting',
+                    changeType: 'create',
+                    fieldChanged: `drop[${i}]`,
+                    categoryId: newCat.id,
+                    categoryName: newCat.name,
+                    methodId: 'desktop',
+                    description: `Added Drop ${i+1} for "${newCat.name}"`,
+                    newValue: newDrop,
+                    batchId
+                  });
+                } else if (oldDrop && !newDrop) {
+                   await logChange(req, {
+                    entityId: id,
+                    entityType: 'reporting',
+                    changeType: 'delete',
+                    fieldChanged: `drop[${i}]`,
+                    categoryId: newCat.id,
+                    categoryName: newCat.name,
+                    methodId: 'desktop',
+                    description: `Removed Drop ${i+1} for "${newCat.name}"`,
+                    oldValue: oldDrop,
+                    batchId
+                  });
+                } else if (oldDrop && newDrop) {
+                  if (oldDrop.value !== newDrop.value) {
+                    await logChange(req, {
+                      entityId: id,
+                      entityType: 'reporting',
+                      changeType: 'update',
+                      fieldChanged: `drop[${i}].value`,
+                      categoryId: newCat.id,
+                      categoryName: newCat.name,
+                      methodId: 'desktop',
+                      description: `Changed Drop ${i+1} value for "${newCat.name}"`,
+                      oldValue: oldDrop.value,
+                      newValue: newDrop.value,
+                      batchId
+                    });
+                  }
+                  if (oldDrop.time !== newDrop.time) {
+                    await logChange(req, {
+                      entityId: id,
+                      entityType: 'reporting',
+                      changeType: 'update',
+                      fieldChanged: `drop[${i}].time`,
+                      categoryId: newCat.id,
+                      categoryName: newCat.name,
+                      methodId: 'desktop',
+                      description: `Changed Drop ${i+1} time for "${newCat.name}"`,
+                      oldValue: oldDrop.time,
+                      newValue: newDrop.time,
+                      batchId
+                    });
+                  }
+                }
+              }
+            }
+
+            // 3. Check TimeConfig
+            if (newPlan.timeConfig && oldPlan.timeConfig) {
+               if (newPlan.timeConfig.startTime !== oldPlan.timeConfig.startTime) {
+                  await logChange(req, {
+                    entityId: id,
+                    entityType: 'reporting',
+                    changeType: 'update',
+                    fieldChanged: 'startTime',
+                    categoryId: newCat.id,
+                    categoryName: newCat.name,
+                    methodId: 'desktop',
+                    description: `Changed Start Time for "${newCat.name}"`,
+                    oldValue: oldPlan.timeConfig.startTime,
+                    newValue: newPlan.timeConfig.startTime,
+                    batchId
+                  });
+               }
+            }
+          }
+        }
+      }
+    }
+
+    // 2. Check Methods Data
+    if (methodsData && existingData.methodsData) {
+      for (const [methodId, methodData] of Object.entries(methodsData)) {
+        const oldMethodData = existingData.methodsData[methodId];
+        if (!oldMethodData) continue;
+
+        // @ts-ignore
+        const newCats = methodData.parentCategories || [];
+        // @ts-ignore
+        const oldCats = oldMethodData.parentCategories || [];
+
+        for (const newCat of newCats) {
+          const oldCat = oldCats.find((c: any) => c.id === newCat.id);
+          if (oldCat) {
+             const newPlan = newCat.planConfiguration;
+             const oldPlan = oldCat.planConfiguration;
+             
+             if (newPlan && oldPlan) {
+               // 1. Check simple fields
+               const simpleFields = ['status', 'mode', 'scriptName', 'scenario'];
+               for (const field of simpleFields) {
+                 if (newPlan[field] !== oldPlan[field]) {
+                   await logChange(req, {
+                     entityId: id,
+                     entityType: 'reporting',
+                     changeType: 'update',
+                     fieldChanged: field,
+                     categoryId: newCat.id,
+                     categoryName: newCat.name,
+                     methodId: methodId,
+                     description: `Changed ${field} for "${newCat.name}" (${methodId})`,
+                     oldValue: oldPlan[field],
+                     newValue: newPlan[field],
+                     batchId
+                   });
+                 }
+               }
+
+               // 2. Check Drops (Granular)
+               if (newPlan.drops && oldPlan.drops) {
+                 const maxDrops = Math.max(newPlan.drops.length, oldPlan.drops.length);
+                 for (let i = 0; i < maxDrops; i++) {
+                   const newDrop = newPlan.drops[i];
+                   const oldDrop = oldPlan.drops[i];
+
+                   if (!oldDrop && newDrop) {
+                      await logChange(req, {
+                       entityId: id,
+                       entityType: 'reporting',
+                       changeType: 'create',
+                       fieldChanged: `drop[${i}]`,
+                       categoryId: newCat.id,
+                       categoryName: newCat.name,
+                       methodId: methodId,
+                       description: `Added Drop ${i+1} for "${newCat.name}" (${methodId})`,
+                       newValue: newDrop,
+                       batchId
+                     });
+                   } else if (oldDrop && !newDrop) {
+                      await logChange(req, {
+                       entityId: id,
+                       entityType: 'reporting',
+                       changeType: 'delete',
+                       fieldChanged: `drop[${i}]`,
+                       categoryId: newCat.id,
+                       categoryName: newCat.name,
+                       methodId: methodId,
+                       description: `Removed Drop ${i+1} for "${newCat.name}" (${methodId})`,
+                       oldValue: oldDrop,
+                       batchId
+                     });
+                   } else if (oldDrop && newDrop) {
+                     if (oldDrop.value !== newDrop.value) {
+                       await logChange(req, {
+                         entityId: id,
+                         entityType: 'reporting',
+                         changeType: 'update',
+                         fieldChanged: `drop[${i}].value`,
+                         categoryId: newCat.id,
+                         categoryName: newCat.name,
+                         methodId: methodId,
+                         description: `Changed Drop ${i+1} value for "${newCat.name}" (${methodId})`,
+                         oldValue: oldDrop.value,
+                         newValue: newDrop.value,
+                         batchId
+                       });
+                     }
+                     if (oldDrop.time !== newDrop.time) {
+                       await logChange(req, {
+                         entityId: id,
+                         entityType: 'reporting',
+                         changeType: 'update',
+                         fieldChanged: `drop[${i}].time`,
+                         categoryId: newCat.id,
+                         categoryName: newCat.name,
+                         methodId: methodId,
+                         description: `Changed Drop ${i+1} time for "${newCat.name}" (${methodId})`,
+                         oldValue: oldDrop.time,
+                         newValue: newDrop.time,
+                         batchId
+                       });
+                     }
+                   }
+                 }
+               }
+
+               // 3. Check TimeConfig
+               if (newPlan.timeConfig && oldPlan.timeConfig) {
+                  if (newPlan.timeConfig.startTime !== oldPlan.timeConfig.startTime) {
+                     await logChange(req, {
+                       entityId: id,
+                       entityType: 'reporting',
+                       changeType: 'update',
+                       fieldChanged: 'startTime',
+                       categoryId: newCat.id,
+                       categoryName: newCat.name,
+                       methodId: methodId,
+                       description: `Changed Start Time for "${newCat.name}" (${methodId})`,
+                       oldValue: oldPlan.timeConfig.startTime,
+                       newValue: newPlan.timeConfig.startTime,
+                       batchId
+                     });
+                  }
+               }
+             }
+          }
+        }
+      }
+    }
+
+    // 3. Check Top Level Fields
+    let topLevelChanges = [];
+    if (existingData.notes !== notes) topLevelChanges.push('notes');
+    if (existingData.status !== status) topLevelChanges.push('status');
+    if (existingEntity?.name !== name) topLevelChanges.push('name');
+
+    if (topLevelChanges.length > 0) {
+       await logChange(req, {
+        entityId: id,
+        entityType: 'entity',
+        changeType: 'update',
+        fieldChanged: topLevelChanges.join(', '),
+        description: `Updated ${topLevelChanges.join(', ')} for "${name}"`,
+        oldValue: existingData, // Keep full object for top level for now
+        newValue: entityData,
+        batchId
+      });
+    }
 
     res.json({
       ...entity,

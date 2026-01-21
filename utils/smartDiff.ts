@@ -122,7 +122,9 @@ export function generateEntityChangeSummary(
     const newData = JSON.parse(newValue);
 
     // Handle different types of changes based on fieldChanged
-    if (fieldChanged?.includes('reporting')) {
+    if (fieldChanged?.includes('Day Plan')) {
+      changes.push(...generateDayPlanChanges(entityName, oldData, newData));
+    } else if (fieldChanged?.includes('reporting')) {
       changes.push(...generateReportingChanges(entityName, oldData, newData));
     } else if (fieldChanged?.includes('limits')) {
       changes.push(...generateLimitsChanges(entityName, oldData, newData));
@@ -440,6 +442,11 @@ function generateGenericChanges(entityName: string, oldData: any, newData: any):
   const allKeys = new Set([...Object.keys(oldData), ...Object.keys(newData)]);
   
   for (const key of allKeys) {
+    // Skip internal fields
+    if (['updatedAt', 'createdAt', 'updatedBy', 'createdBy', 'id'].includes(key)) {
+      continue;
+    }
+
     const oldVal = oldData[key];
     const newVal = newData[key];
     
@@ -466,5 +473,43 @@ function generateGenericChanges(entityName: string, oldData: any, newData: any):
     }
   }
   
+  return changes;
+}
+
+/**
+ * Generate changes for Day Plan configuration
+ */
+function generateDayPlanChanges(entityName: string, oldData: any, newData: any): string[] {
+  const changes: string[] = [];
+  
+  // Parse sessionData if it's a string
+  const oldSessionData = typeof oldData.sessionData === 'string' ? JSON.parse(oldData.sessionData) : oldData.sessionData || {};
+  const newSessionData = typeof newData.sessionData === 'string' ? JSON.parse(newData.sessionData) : newData.sessionData || {};
+
+  const allSessionIndices = new Set([...Object.keys(oldSessionData), ...Object.keys(newSessionData)]);
+  
+  let hasChanges = false;
+
+  for (const idx of allSessionIndices) {
+    const oldSession = oldSessionData[idx] || {};
+    const newSession = newSessionData[idx] || {};
+    
+    // Check Step
+    if (oldSession.step !== newSession.step) {
+      changes.push(`${entityName} — Session #${parseInt(idx) + 1}: Step changed from ${oldSession.step || 0} to ${newSession.step}`);
+      hasChanges = true;
+    }
+    
+    // Check Start
+    if (oldSession.start !== newSession.start) {
+      changes.push(`${entityName} — Session #${parseInt(idx) + 1}: Start changed from ${oldSession.start || 0} to ${newSession.start}`);
+      hasChanges = true;
+    }
+  }
+
+  if (hasChanges) {
+    changes.push(`${entityName} — Plan applied`);
+  }
+
   return changes;
 }

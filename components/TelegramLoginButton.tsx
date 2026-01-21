@@ -1,4 +1,5 @@
 import React, { useEffect, useRef } from 'react';
+import { logger } from '../utils/logger';
 
 interface TelegramUser {
     id: number;
@@ -31,7 +32,7 @@ export const TelegramLoginButton: React.FC<TelegramLoginButtonProps> = ({
 
         // Get the current page URL for redirect
         const currentUrl = window.location.origin + window.location.pathname;
-        console.log('TelegramLoginButton: Setting up widget with redirect URL:', currentUrl);
+        logger.debug('Setting up Telegram widget');
 
         // Create an iframe-based widget with ONLY redirect
         const script = document.createElement('script');
@@ -39,19 +40,17 @@ export const TelegramLoginButton: React.FC<TelegramLoginButtonProps> = ({
         script.setAttribute('data-telegram-login', botName);
         script.setAttribute('data-size', buttonSize);
         script.setAttribute('data-radius', cornerRadius.toString());
-        // script.setAttribute('data-request-access', 'write'); // Keep disabled
-
-        // IMPORTANT: Use data-auth-url for redirect flow. 
-        // We append ?tg_auth=1 so we know it's a callback when we return.
         script.setAttribute('data-auth-url', currentUrl + '?tg_auth=1');
-
         script.async = true;
 
         script.onload = () => {
-            console.log('TelegramLoginButton: Widget script loaded');
+            logger.debug('Telegram widget script loaded');
         };
 
-        containerRef.current.innerHTML = '';
+        // Clear container using DOM methods instead of innerHTML
+        while (containerRef.current.firstChild) {
+            containerRef.current.removeChild(containerRef.current.firstChild);
+        }
         containerRef.current.appendChild(script);
     }, [botName, buttonSize, cornerRadius]);
 
@@ -61,7 +60,7 @@ export const TelegramLoginButton: React.FC<TelegramLoginButtonProps> = ({
 
         // Check if this is a Telegram auth redirect
         if (urlParams.get('tg_auth') === '1') {
-            console.log('TelegramLoginButton: Detected Telegram auth redirect');
+            logger.debug('Detected Telegram auth redirect');
 
             // Parse Telegram auth data from URL hash or query params
             const hashParams = new URLSearchParams(window.location.hash.substring(1));
@@ -75,7 +74,7 @@ export const TelegramLoginButton: React.FC<TelegramLoginButtonProps> = ({
             const hash = urlParams.get('hash') || hashParams.get('hash');
 
             if (id && auth_date && hash) {
-                console.log('TelegramLoginButton: Auth data found in URL');
+                logger.debug('Auth data found in URL');
                 const userData: TelegramUser = {
                     id: parseInt(id),
                     first_name: first_name || '',

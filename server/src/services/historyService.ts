@@ -7,6 +7,12 @@ export interface ChangeHistoryEntry {
   entityType: string;
   changeType: string;
   fieldChanged: string | null;
+  methodId: string | null;
+  categoryId: string | null;
+  categoryName: string | null;
+  profileId: string | null;
+  profileName: string | null;
+  batchId: string | null;
   userId: number;
   username: string;
   userRole: string;
@@ -21,6 +27,12 @@ export interface CreateHistoryParams {
   entityType: string;
   changeType: 'create' | 'update' | 'delete';
   fieldChanged?: string;
+  methodId?: string;
+  categoryId?: string;
+  categoryName?: string;
+  profileId?: string;
+  profileName?: string;
+  batchId?: string;
   description: string;
   oldValue?: any;
   newValue?: any;
@@ -86,12 +98,18 @@ export async function logChange(
         entityType: params.entityType,
         changeType: params.changeType,
         fieldChanged: params.fieldChanged || null,
+        methodId: params.methodId || null,
+        categoryId: params.categoryId || null,
+        categoryName: params.categoryName || null,
+        profileId: params.profileId || null,
+        profileName: params.profileName || null,
+        batchId: params.batchId || null,
         userId: actorId,
         username: actorUsername,
         userRole: actorRole,
         description: params.description,
-        oldValue: params.oldValue ? JSON.stringify(params.oldValue) : null,
-        newValue: params.newValue ? JSON.stringify(params.newValue) : null,
+        oldValue: params.oldValue ? (typeof params.oldValue === 'string' ? params.oldValue : JSON.stringify(params.oldValue)) : null,
+        newValue: params.newValue ? (typeof params.newValue === 'string' ? params.newValue : JSON.stringify(params.newValue)) : null,
       },
     });
   } catch (error) {

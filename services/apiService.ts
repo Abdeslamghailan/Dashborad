@@ -34,5 +34,24 @@ export const apiService: DataService = {
   getAllHistory: async (filters?: any) => {
     console.log('API: getAllHistory called', filters);
     return [];
+  },
+  deleteHistoryEntry: async (id: number) => {
+    console.log(`API: deleteHistoryEntry ${id} called`);
+  },
+  deleteAllHistory: async () => {
+    console.log('API: deleteAllHistory called');
+  },
+  getDayPlan: async (entityId: string, date: string) => {
+    console.log(`API: getDayPlan ${entityId} ${date} called`);
+    return {};
+  },
+  saveDayPlan: async (entityId: string, date: string, categoryId: string, sessionData: any) => {
+    console.log(`API: saveDayPlan ${entityId} ${date} called`);
+  },
+  saveDayPlanBulk: async (entityId: string, date: string, plans: any) => {
+    console.log(`API: saveDayPlanBulk ${entityId} ${date} called`);
+  },
+  deleteDayPlan: async (entityId: string, categoryId: string, date: string) => {
+    console.log(`API: deleteDayPlan ${entityId} ${categoryId} ${date} called`);
   }
 };

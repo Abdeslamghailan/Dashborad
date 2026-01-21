@@ -11,11 +11,14 @@ import proxyRoutes from './routes/proxies';
 import proxyPartitionRoutes from './routes/proxyPartition';
 import historyRoutes from './routes/history';
 import planningRoutes from './routes/planning';
-import diagramRoutes from './routes/diagram';
+
 import dayplanRoutes from './routes/dayplan';
 import scriptsRoutes from './routes/scripts';
+import methodsRoutes from './routes/methods';
+import dashboardRoutes from './routes/dashboard';
 import prisma from './db';
 import { initBackupService } from './services/backupService';
+import { logger } from './utils/logger.js';
 
 dotenv.config();
 
@@ -31,63 +34,91 @@ app.set('trust proxy', 1);
 const isProduction = process.env.NODE_ENV === 'production';
 
 if (!process.env.JWT_SECRET) {
-  console.error('FATAL ERROR: JWT_SECRET is not defined.');
-  // Don't exit here in lambda, just log error. 
-  // process.exit(1); 
+  logger.error('FATAL ERROR: JWT_SECRET is not defined');
+  if (isProduction) {
+    process.exit(1);
+  }
 }
 
-// Security Middleware
+// Security Middleware - Properly configured Helmet
 app.use(helmet({
-  contentSecurityPolicy: isProduction ? false : undefined,
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      scriptSrc: ["'self'", "'unsafe-inline'", "https://cdn.tailwindcss.com", "https://telegram.org"],
+      styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
+      fontSrc: ["'self'", "https://fonts.gstatic.com"],
+      imgSrc: ["'self'", "data:", "https:", "blob:"],
+      connectSrc: ["'self'", "https://dns.google"],
+      frameSrc: ["'none'"],
+      objectSrc: ["'none'"],
+      upgradeInsecureRequests: isProduction ? [] : null
+    }
+  },
   crossOriginEmbedderPolicy: false,
-  // Netlify might need this
-  hsts: isProduction
+  hsts: {
+    maxAge: 31536000,
+    includeSubDomains: true,
+    preload: true
+  },
+  frameguard: {
+    action: 'deny'
+  },
+  noSniff: true,
+  xssFilter: true,
+  referrerPolicy: {
+    policy: 'strict-origin-when-cross-origin'
+  }
 }));
 
-// Dynamic CORS configuration
+// Strict CORS configuration
 const allowedOrigins = [
   'http://localhost:5173',
   'http://localhost:3002',
-  'https://sharan-unsuspendible-milagros.ngrok-free.dev',
+  'https://cmhw.netlify.app',
 ];
 
 // Add Railway/Netlify URL if available
 if (process.env.RAILWAY_PUBLIC_DOMAIN) {
   allowedOrigins.push(`https://${process.env.RAILWAY_PUBLIC_DOMAIN}`);
 }
-if (process.env.URL) { // Netlify
+if (process.env.URL) {
   allowedOrigins.push(process.env.URL);
+}
+
+// Development-only ngrok support
+if (!isProduction && process.env.NGROK_URL) {
+  allowedOrigins.push(process.env.NGROK_URL);
 }
 
 // Middleware
 app.use(cors({
   origin: (origin, callback) => {
+    // Allow requests with no origin (mobile apps, Postman, etc.)
     if (!origin) return callback(null, true);
     
     const isAllowed = allowedOrigins.includes(origin) || 
-      /\.ngrok-free\.dev$/.test(origin) ||
-      /\.railway\.app$/.test(origin) ||
-      /\.up\.railway\.app$/.test(origin) ||
-      /\.netlify\.app$/.test(origin); // Allow all netlify subdomains
+      (!isProduction && /\.ngrok-free\.dev$/.test(origin));
     
     if (isAllowed) {
       callback(null, true);
     } else {
-      // In production, we might want to be stricter, but for now allow to avoid issues
-      console.log('CORS allowed (relaxed):', origin);
-      callback(null, true); 
+      logger.security('CORS blocked request from unauthorized origin', { origin });
+      callback(new Error('Not allowed by CORS'));
     }
   },
   credentials: true
 }));
 
-app.use(express.json());
+app.use(express.json({ limit: '10mb' }));
 
-// Debug logging
-app.use((req, res, next) => {
-  console.log(`[${req.method}] ${req.path}`);
-  next();
-});
+// Request logging (development only)
+if (!isProduction) {
+  app.use((req, res, next) => {
+    logger.debug(`${req.method} ${req.path}`);
+    next();
+  });
+}
 
 // Routes
 // Prefix with /api for Netlify Functions redirection usually, but here we keep it standard.
@@ -99,9 +130,11 @@ app.use('/api/proxies', proxyRoutes);
 app.use('/api/proxy-partition', proxyPartitionRoutes);
 app.use('/api/history', historyRoutes);
 app.use('/api/planning', planningRoutes);
-app.use('/api/diagram', diagramRoutes);
+
 app.use('/api/dayplan', dayplanRoutes);
 app.use('/api/scripts', scriptsRoutes);
+app.use('/api/methods', methodsRoutes);
+app.use('/api/dashboard', dashboardRoutes);
 
 // Health check
 app.get('/api/health', async (req, res) => {
@@ -115,12 +148,11 @@ app.get('/api/health', async (req, res) => {
       userCount
     });
   } catch (error) {
-    console.error('Health check DB error:', error);
+    logger.error('Health check DB error', error);
     res.status(500).json({ 
       status: 'error', 
       env: process.env.NODE_ENV,
-      db: 'disconnected',
-      error: String(error)
+      db: 'disconnected'
     });
   }
 });
@@ -130,34 +162,7 @@ if (process.env.ENABLE_LOCAL_BACKUPS === 'true') {
   initBackupService();
 }
 
-// DEBUG ROUTE
-app.get('/debug', async (req, res) => {
-  try {
-    const fs = await import('fs');
-    const distPath = path.join(__dirname, '../../dist');
-    let distFiles = 'Not found';
-    try {
-      if (fs.existsSync(distPath)) {
-        distFiles = fs.readdirSync(distPath).join(', ');
-      }
-    } catch (e: any) {
-      distFiles = e.message;
-    }
-
-    res.json({
-      currentDir: __dirname,
-      distPath,
-      distFiles,
-      env: process.env.NODE_ENV
-    });
-  } catch (err) {
-    res.status(500).json({ error: String(err) });
-  }
-});
-
-// Serve static files in production (ONLY if not running as a lambda, but Express doesn't know)
-// On Netlify, static files are served by CDN, not Express.
-// But if we run this locally or on Railway, we might want it.
+// Serve static files in production (ONLY if not running as a lambda)
 if (isProduction && !process.env.NETLIFY) {
   const frontendPath = path.join(__dirname, '../../dist');
   if (process.env.ENABLE_STATIC_SERVE === 'true') {
@@ -180,7 +185,7 @@ export async function ensureAdminUser() {
     });
 
     if (!existingAdmin) {
-      console.log('🔧 No admin user found, creating one...');
+      logger.info('No admin user found, creating one');
       const hashedPassword = await bcrypt.default.hash('admin123', 10);
       
       await prisma.user.create({
@@ -194,11 +199,11 @@ export async function ensureAdminUser() {
           lastName: 'User'
         }
       });
-      console.log('✅ Admin user created successfully');
+      logger.info('Admin user created successfully');
     } else {
-      console.log('✅ Admin user already exists');
+      logger.debug('Admin user already exists');
     }
   } catch (error) {
-    console.error('❌ Failed to ensure admin user:', error);
+    logger.error('Failed to ensure admin user', error);
   }
 }

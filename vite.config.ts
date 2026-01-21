@@ -23,9 +23,10 @@ export default defineConfig(({ mode }) => {
         }
       },
       plugins: [react()],
+      // SECURITY: Do NOT expose API keys to client
+      // API calls should be proxied through backend
       define: {
-        'process.env.API_KEY': JSON.stringify(env.GEMINI_API_KEY),
-        'process.env.GEMINI_API_KEY': JSON.stringify(env.GEMINI_API_KEY)
+        // Only define non-sensitive environment variables here
       },
       resolve: {
         alias: {
@@ -33,7 +34,15 @@ export default defineConfig(({ mode }) => {
         }
       },
       build: {
-        outDir: 'dist'
+        outDir: 'dist',
+        sourcemap: false, // Disable source maps in production
+        minify: 'terser',
+        terserOptions: {
+          compress: {
+            drop_console: true, // Remove console.* in production
+            drop_debugger: true
+          }
+        }
       }
     };
 });

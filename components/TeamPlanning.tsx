@@ -98,6 +98,10 @@ export const TeamPlanning: React.FC = () => {
     const [historicalSchedules, setHistoricalSchedules] = useState<PlanningSchedule[]>([]);
     const [showManageModal, setShowManageModal] = useState(false);
     const [managementTab, setManagementTab] = useState<'teams' | 'mailers'>('teams');
+
+    // Drag selection state
+    const [isDragging, setIsDragging] = useState(false);
+    const [dragStartCell, setDragStartCell] = useState<{ scheduleId: string; mailerId: string; dayOfWeek: number } | null>(null);
     const [showBulkUpdateModal, setShowBulkUpdateModal] = useState(false);
     const [bulkTaskInput, setBulkTaskInput] = useState('');
     const [editingCell, setEditingCell] = useState<string | null>(null);
@@ -156,6 +160,45 @@ export const TeamPlanning: React.FC = () => {
             fetchPresets();
         }
     }, [user]);
+
+    // Keyboard shortcuts for Quick Assign
+    useEffect(() => {
+        const handleKeyDown = (e: KeyboardEvent) => {
+            // Don't trigger if user is typing in an input
+            if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) {
+                return;
+            }
+
+            if (e.key === 'Enter' && selectedPreset && selectedCells.size > 0 && !editingCell) {
+                e.preventDefault();
+                applyPresetToSelectedCells();
+            }
+
+            if (e.key === 'Escape') {
+                if (editingCell) {
+                    setEditingCell(null);
+                    setEditValue('');
+                } else if (selectedCells.size > 0) {
+                    setSelectedCells(new Set());
+                } else if (selectedPreset) {
+                    setSelectedPreset(null);
+                }
+            }
+        };
+
+        window.addEventListener('keydown', handleKeyDown);
+        return () => window.removeEventListener('keydown', handleKeyDown);
+    }, [selectedPreset, selectedCells, editingCell, isAdmin]);
+
+    // Global mouseup listener to stop dragging
+    useEffect(() => {
+        const handleGlobalMouseUp = () => {
+            setIsDragging(false);
+            setDragStartCell(null);
+        };
+        window.addEventListener('mouseup', handleGlobalMouseUp);
+        return () => window.removeEventListener('mouseup', handleGlobalMouseUp);
+    }, []);
 
     // Preset Management Functions
     const handleSavePreset = async () => {
@@ -555,14 +598,143 @@ export const TeamPlanning: React.FC = () => {
         }
     };
 
+    // Apply selected preset to all selected cells
+    const applyPresetToSelectedCells = async (presetToApply?: EntityPreset) => {
+        const preset = presetToApply || selectedPreset;
+        if (!preset || !isAdmin || selectedCells.size === 0) return;
+
+        try {
+            const token = localStorage.getItem('auth_token');
+            const taskCode = selectedPreset.codes.join('-');
+            const taskColor = selectedPreset.color;
+
+            const assignments = Array.from(selectedCells).map((cellKey: string) => {
+                const [scheduleId, mailerId, dayOfWeek] = cellKey.split('_');
+                return {
+                    scheduleId,
+                    mailerId,
+                    dayOfWeek: parseInt(dayOfWeek),
+                    taskCode,
+                    taskColor
+                };
+            });
+
+            const response = await fetch(`${API_URL}/api/planning/assignments/bulk`, {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ assignments })
+            });
+
+            if (response.ok) {
+                // Update state locally
+                setSchedules(prevSchedules =>
+                    prevSchedules.map(schedule => {
+                        const scheduleAssignments = assignments.filter(a => a.scheduleId === schedule.id);
+                        if (scheduleAssignments.length === 0) return schedule;
+
+                        let newAssignments = [...schedule.assignments];
+                        scheduleAssignments.forEach(newAssignment => {
+                            const existingIndex = newAssignments.findIndex(
+                                a => a.mailerId === newAssignment.mailerId && a.dayOfWeek === newAssignment.dayOfWeek
+                            );
+                            if (existingIndex >= 0) {
+                                newAssignments[existingIndex] = { ...newAssignments[existingIndex], taskCode, taskColor };
+                            } else {
+                                newAssignments.push({
+                                    id: `temp-${Date.now()}-${Math.random()}`,
+                                    scheduleId: schedule.id,
+                                    mailerId: newAssignment.mailerId,
+                                    dayOfWeek: newAssignment.dayOfWeek,
+                                    taskCode,
+                                    taskColor
+                                } as PlanningAssignment);
+                            }
+                        });
+                        return { ...schedule, assignments: newAssignments };
+                    })
+                );
+                setSelectedCells(new Set()); // Clear selection after applying
+            } else {
+                const errorData = await response.json();
+                alert(`Failed to apply preset: ${errorData.error || 'Unknown error'}`);
+            }
+        } catch (error) {
+            console.error('Error applying preset to selected cells:', error);
+        }
+    };
+
+    const handleCellMouseDown = (scheduleId: string, mailerId: string, dayOfWeek: number, event: React.MouseEvent) => {
+        if (!isAdmin || editingCell) return;
+
+        // Prevent text selection while dragging
+        if (event.detail > 1) event.preventDefault();
+
+        setIsDragging(true);
+        setDragStartCell({ scheduleId, mailerId, dayOfWeek });
+
+        const cellKey = getCellKey(scheduleId, mailerId, dayOfWeek);
+
+        if (event.shiftKey && lastClickedCell && lastClickedCell.scheduleId === scheduleId) {
+            // Shift+Click: Select range (reuse existing logic)
+            handleCellClick(scheduleId, mailerId, dayOfWeek, event);
+        } else if (event.ctrlKey || event.metaKey) {
+            // Multi-select with Ctrl/Cmd
+            const newSelected = new Set(selectedCells);
+            if (newSelected.has(cellKey)) {
+                newSelected.delete(cellKey);
+            } else {
+                newSelected.add(cellKey);
+            }
+            setSelectedCells(newSelected);
+        } else {
+            // Single select / Start new drag selection
+            setSelectedCells(new Set([cellKey]));
+        }
+
+        setLastClickedCell({ scheduleId, mailerId, dayOfWeek });
+    };
+
+    const handleCellMouseEnter = (scheduleId: string, mailerId: string, dayOfWeek: number) => {
+        if (!isDragging || !dragStartCell || !isAdmin || editingCell) return;
+        if (dragStartCell.scheduleId !== scheduleId) return;
+
+        // Range selection logic for dragging
+        const allMailers: string[] = [];
+        teams.forEach(team => {
+            team.mailers.forEach(mailer => {
+                allMailers.push(mailer.id);
+            });
+        });
+
+        const startMailerIdx = allMailers.indexOf(dragStartCell.mailerId);
+        const endMailerIdx = allMailers.indexOf(mailerId);
+
+        if (startMailerIdx === -1 || endMailerIdx === -1) return;
+
+        const mStart = Math.min(startMailerIdx, endMailerIdx);
+        const mEnd = Math.max(startMailerIdx, endMailerIdx);
+        const dStart = Math.min(dragStartCell.dayOfWeek, dayOfWeek);
+        const dEnd = Math.max(dragStartCell.dayOfWeek, dayOfWeek);
+
+        const newSelected = new Set<string>();
+        // If we want to support Ctrl + Drag, we'd merge with existing selection.
+        // For now, let's keep it simple: drag creates a new range selection.
+        for (let i = mStart; i <= mEnd; i++) {
+            for (let j = dStart; j <= dEnd; j++) {
+                newSelected.add(getCellKey(scheduleId, allMailers[i], j));
+            }
+        }
+        setSelectedCells(newSelected);
+    };
+
     const handleCellClick = async (scheduleId: string, mailerId: string, dayOfWeek: number, event: React.MouseEvent) => {
         if (!isAdmin) return;
 
-        // Quick Assign mode: if a preset is selected, apply it on click
-        if (selectedPreset) {
-            await applyPresetToCell(scheduleId, mailerId, dayOfWeek, selectedPreset);
-            return; // Don't select the cell when in Quick Assign mode
-        }
+        // If in editing mode, don't do selection
+        if (editingCell) return;
 
         const cellKey = getCellKey(scheduleId, mailerId, dayOfWeek);
         const newSelected = new Set(selectedCells);
@@ -1216,10 +1388,14 @@ export const TeamPlanning: React.FC = () => {
                                         draggable={isAdmin}
                                         onDragStart={(e) => handleDragStart(preset, e)}
                                         onClick={() => {
-                                            if (selectedPreset?.label === preset.label) {
-                                                setSelectedPreset(null); // Deselect if already selected
+                                            if (selectedCells.size > 0) {
+                                                applyPresetToSelectedCells(preset);
                                             } else {
-                                                setSelectedPreset(preset); // Select this preset
+                                                if (selectedPreset?.label === preset.label) {
+                                                    setSelectedPreset(null); // Deselect if already selected
+                                                } else {
+                                                    setSelectedPreset(preset); // Select this preset
+                                                }
                                             }
                                         }}
                                         className={`group relative px-4 py-2 rounded-lg font-semibold shadow-sm cursor-pointer hover:shadow-md transition-all duration-200 transform hover:-translate-y-0.5 active:scale-95 flex items-center gap-2 select-none ${isSelected
@@ -1241,11 +1417,19 @@ export const TeamPlanning: React.FC = () => {
                             })}
                         </div>
                         {selectedPreset && (
-                            <div className="mt-4 p-3 bg-indigo-50 border border-indigo-200 rounded-lg">
+                            <div className="mt-4 p-3 bg-indigo-50 border border-indigo-200 rounded-lg flex items-center justify-between">
                                 <p className="text-sm text-indigo-700 font-medium flex items-center gap-2">
-                                    <span className="text-lg">👆</span>
-                                    <span>Click-to-fill mode active: Click on any cell to assign <strong>{selectedPreset.label}</strong></span>
+                                    <span className="text-lg">🎯</span>
+                                    <span>Quick Assign Active: Select cells and press <strong>Enter</strong> to apply <strong>{selectedPreset.label}</strong></span>
                                 </p>
+                                {selectedCells.size > 0 && (
+                                    <button
+                                        onClick={applyPresetToSelectedCells}
+                                        className="px-4 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-md shadow-sm transition-all flex items-center gap-2"
+                                    >
+                                        <span>📥</span> Apply to {selectedCells.size} cell{selectedCells.size > 1 ? 's' : ''} (Enter)
+                                    </button>
+                                )}
                             </div>
                         )}
                         <div className="mt-4 flex flex-wrap items-center gap-4">
@@ -1498,7 +1682,8 @@ export const TeamPlanning: React.FC = () => {
                                                                                     backgroundColor: assignment?.taskColor || (isSelected ? '#EEF2FF' : 'transparent'),
                                                                                     boxShadow: isSelected ? 'inset 0 0 0 2px #4F46E5' : 'none'
                                                                                 }}
-                                                                                onClick={(e) => handleCellClick(schedule.id, mailer.id, dayIdx, e)}
+                                                                                onMouseDown={(e) => handleCellMouseDown(schedule.id, mailer.id, dayIdx, e)}
+                                                                                onMouseEnter={() => handleCellMouseEnter(schedule.id, mailer.id, dayIdx)}
                                                                                 onDoubleClick={() => handleCellDoubleClick(schedule.id, mailer.id, dayIdx, assignment?.taskCode || '')}
                                                                                 onDragOver={handleDragOver}
                                                                                 onDrop={(e) => handleDrop(schedule.id, mailer.id, dayIdx, e)}

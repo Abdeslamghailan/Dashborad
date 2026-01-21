@@ -3,6 +3,7 @@
 
 generator client {
   provider = "prisma-client-js"
+  binaryTargets = ["native", "rhel-openssl-3.0.x"]
 }
 
 datasource db {
@@ -26,8 +27,7 @@ model User {
   // Relations
   accessibleEntities EntityAccess[]
   changeHistory      ChangeHistory[]
-  diagramManagers    DiagramManager[]
-  diagramTeamLeaders DiagramTeamLeader[]
+
 }
 
 model Entity {
@@ -71,6 +71,12 @@ model ChangeHistory {
   description String   @db.Text // Human-readable description of the change
   oldValue    String?  @db.Text // JSON string of old value (optional)
   newValue    String?  @db.Text // JSON string of new value (optional)
+  methodId    String?
+  categoryId  String?
+  categoryName String?
+  profileId   String?
+  profileName String?
+  batchId     String?
   createdAt   DateTime @default(now())
   
   user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -119,7 +125,7 @@ model Mailer {
   
   team        Team     @relation(fields: [teamId], references: [id], onDelete: Cascade)
   assignments PlanningAssignment[]
-  diagramAssignments DiagramMailerAssignment[]
+
   
   @@index([teamId, order])
 }
@@ -176,105 +182,7 @@ model PlanningPreset {
   @@index([order])
 }
 
-// =====================
-// CMHW Team Diagram Models
-// =====================
 
-// Manager - Top level of the hierarchy
-model DiagramManager {
-  id          String   @id @default(uuid())
-  name        String   @unique
-  email       String?
-  phone       String?
-  avatarColor String?  // For visual distinction
-  order       Int      @default(0)
-  isActive    Boolean  @default(true)
-  portalId    String?
-  userId      Int?
-  user        User?    @relation(fields: [userId], references: [id])
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  
-  // Many-to-many relationship with Team Leaders
-  teamLeaderLinks ManagerTeamLeaderLink[]
-  
-  @@index([order])
-}
-
-// Team Leader - Can report to multiple Managers, manages teams
-model DiagramTeamLeader {
-  id          String   @id @default(uuid())
-  name        String
-  email       String?
-  phone       String?
-  avatarColor String?
-  order       Int      @default(0)
-  isActive    Boolean  @default(true)
-  portalId    String?
-  userId      Int?
-  user        User?    @relation(fields: [userId], references: [id])
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  
-  // Many-to-many relationship with Managers
-  managerLinks ManagerTeamLeaderLink[]
-  teams        DiagramTeam[]
-  
-  @@index([order])
-}
-
-// Junction table for Many-to-Many relationship between Managers and Team Leaders
-model ManagerTeamLeaderLink {
-  id            String   @id @default(uuid())
-  managerId     String
-  teamLeaderId  String
-  isPrimary     Boolean  @default(false) // Is this the primary manager for this team leader?
-  createdAt     DateTime @default(now())
-  
-  manager       DiagramManager     @relation(fields: [managerId], references: [id], onDelete: Cascade)
-  teamLeader    DiagramTeamLeader  @relation(fields: [teamLeaderId], references: [id], onDelete: Cascade)
-  
-  @@unique([managerId, teamLeaderId])
-  @@index([managerId])
-  @@index([teamLeaderId])
-}
-
-// DiagramTeam - A team managed by a Team Leader
-model DiagramTeam {
-  id            String   @id @default(uuid())
-  name          String
-  description   String?  @db.Text
-  color         String?  // Team color for visual distinction
-  teamLeaderId  String
-  order         Int      @default(0)
-  isActive      Boolean  @default(true)
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
-  
-  teamLeader    DiagramTeamLeader @relation(fields: [teamLeaderId], references: [id], onDelete: Cascade)
-  mailerAssignments DiagramMailerAssignment[]
-  
-  @@index([teamLeaderId, order])
-}
-
-// Mailer Assignment - Links mailers to teams (many-to-many)
-model DiagramMailerAssignment {
-  id          String   @id @default(uuid())
-  mailerId    String   // Reference to existing Mailer
-  teamId      String
-  role        String?  // Optional role within the team
-  isPrimary   Boolean  @default(false) // Is this their primary team?
-  joinedAt    DateTime @default(now())
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  
-  mailer      Mailer      @relation(fields: [mailerId], references: [id], onDelete: Cascade)
-  team        DiagramTeam @relation(fields: [teamId], references: [id], onDelete: Cascade)
-  
-  @@unique([mailerId, teamId])
-  @@index([teamId])
-  @@index([mailerId])
-}
 
 // Day Plan - Stores customized STEP and START values per session per category per date
 model DayPlan {
@@ -331,3 +239,18 @@ model Scenario {
   @@index([order])
   @@index([isActive])
 }
+
+// Reporting Method - Dynamic methods for entities
+model ReportingMethod {
+  id          String   @id // e.g., "desktop", "webautomate"
+  name        String
+  description String?  @db.Text
+  icon        String   // Lucide icon name
+  color       String
+  gradient    String
+  order       Int      @default(0)
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+

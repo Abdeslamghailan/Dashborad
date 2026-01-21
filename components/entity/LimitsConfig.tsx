@@ -4,11 +4,13 @@ import { RefreshCw, Maximize2, X } from 'lucide-react';
 import { service } from '../../services';
 import { Button } from '../ui/Button';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useAuth } from '../../contexts/AuthContext';
 
 interface Props {
   entity: Entity;
   category: ParentCategory;
   onUpdate: () => void;
+  onSave?: (limits: LimitConfig[]) => Promise<void>;
 }
 
 // Helper: Parse string ranges into array of [start, end]
@@ -140,9 +142,7 @@ const calculateIntervalComplement = (totalRange: string, excludedIntervals: stri
   return complementRanges.map(([s, e]) => s === e ? `${s}` : `${s}-${e}`).join(',');
 };
 
-import { useAuth } from '../../contexts/AuthContext';
-
-export const LimitsConfig: React.FC<Props> = ({ entity, category, onUpdate }) => {
+export const LimitsConfig: React.FC<Props> = ({ entity, category, onUpdate, onSave }) => {
   const { user } = useAuth();
   const canEdit = user?.role === 'ADMIN' || user?.role === 'MAILER';
   const [allLimits, setAllLimits] = useState<LimitConfig[]>([]);
@@ -295,11 +295,21 @@ export const LimitsConfig: React.FC<Props> = ({ entity, category, onUpdate }) =>
 
   const handleSave = async () => {
     setSaving(true);
-    const updatedEntity = { ...entity, limitsConfiguration: allLimits };
-    await service.saveEntity(updatedEntity);
-    window.dispatchEvent(new Event('entity-updated'));
-    setSaving(false);
-    onUpdate();
+    try {
+      if (onSave) {
+        await onSave(allLimits);
+      } else {
+        // Fallback for legacy usage
+        const updatedEntity = { ...entity, limitsConfiguration: allLimits };
+        await service.saveEntity(updatedEntity);
+        window.dispatchEvent(new Event('entity-updated'));
+        onUpdate();
+      }
+    } catch (error) {
+      console.error('Error saving limits:', error);
+    } finally {
+      setSaving(false);
+    }
   };
 
   const openExpandedView = (id: string, field: keyof LimitConfig, title: string, value: string, readOnly: boolean = false) => {
@@ -380,18 +390,18 @@ export const LimitsConfig: React.FC<Props> = ({ entity, category, onUpdate }) =>
           </thead>
           <tbody>
             {categoryLimits.map((limit) => (
-              <tr key={limit.id} className="group hover:bg-gray-50/50 transition-colors">
+              <tr key={limit.profileName} className="group hover:bg-gray-50/50 transition-colors">
                 <td className="py-3 px-6 text-sm font-medium text-gray-700 sticky left-0 bg-white group-hover:bg-gray-50/50 transition-colors z-10 border border-gray-300 shadow-[4px_0_8px_-4px_rgba(0,0,0,0.05)]">
                   {limit.profileName}
                 </td>
                 <td className="py-3 px-3 border border-gray-300">
                   <input
                     type="text"
-                    value={limit.limitActiveSession}
+                    value={limit.limitActiveSession || `1-${(category.profiles.find(p => p.profileName === limit.profileName)?.sessionCount || 0)}`}
                     onChange={(e) => handleChange(limit.id, 'limitActiveSession', e.target.value)}
                     readOnly={!canEdit}
                     className={`w-full bg-white border border-gray-200 rounded-lg px-3 py-2 text-sm text-center text-gray-700 focus:ring-2 focus:ring-blue-100 focus:border-blue-400 outline-none transition-all placeholder-gray-300 hover:border-gray-300 ${!canEdit ? 'bg-gray-50 cursor-not-allowed' : ''}`}
-                    placeholder="e.g. 1-14000"
+                    placeholder="e.g. 1-Total"
                   />
                 </td>
                 <td className="py-3 px-3 border border-gray-300">

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { LayoutDashboard, LogOut, Box, Hexagon, Shield, Shuffle, Clock, Calendar, GitBranch } from 'lucide-react';
+import { LayoutDashboard, LogOut, Box, Hexagon, Shield, Shuffle, Clock, Calendar, GitBranch, FileSpreadsheet, BarChart3 } from 'lucide-react';
+
 import { service } from '../services';
 import { Entity } from '../types';
 import { useAuth } from '../contexts/AuthContext';
@@ -96,7 +97,7 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
               </Link>
             )}
 
-            {(isAdmin || user?.role === 'MAILER_CMHW') && (
+            {(isAdmin || user?.role === 'MAILER_CMHW' || user?.role === 'MAILER') && (
               <Link
                 to="/team-planning"
                 className={`flex items-center gap-3 px-3 py-2 rounded-lg transition-all group ${location.pathname === '/team-planning'
@@ -109,18 +110,31 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
               </Link>
             )}
 
-            {(isAdmin || user?.role === 'MAILER_CMHW') && (
+            <Link
+              to="/simulation-excel"
+              className={`flex items-center gap-3 px-3 py-2 rounded-lg transition-all group ${location.pathname === '/simulation-excel'
+                ? 'bg-indigo-50 text-indigo-600'
+                : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+                }`}
+            >
+              <FileSpreadsheet size={18} className={location.pathname === '/simulation-excel' ? 'text-indigo-600' : 'text-gray-400 group-hover:text-gray-600'} />
+              <span className="text-sm font-medium">Simulation Excel</span>
+            </Link>
+
+            {(isAdmin || user?.role === 'MAILER') && (
               <Link
-                to="/cmhw-diagram"
-                className={`flex items-center gap-3 px-3 py-2 rounded-lg transition-all group ${location.pathname === '/cmhw-diagram'
+                to="/dashboard-reporting"
+                className={`flex items-center gap-3 px-3 py-2 rounded-lg transition-all group ${location.pathname === '/dashboard-reporting'
                   ? 'bg-indigo-50 text-indigo-600'
                   : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
                   }`}
               >
-                <GitBranch size={18} className={location.pathname === '/cmhw-diagram' ? 'text-indigo-600' : 'text-gray-400 group-hover:text-gray-600'} />
-                <span className="text-sm font-medium">CMHW Diagram</span>
+                <BarChart3 size={18} className={location.pathname === '/dashboard-reporting' ? 'text-indigo-600' : 'text-gray-400 group-hover:text-gray-600'} />
+                <span className="text-sm font-medium">Dashboard Reporting</span>
               </Link>
             )}
+
+
 
             {isAdmin && (
               <Link
@@ -209,8 +223,9 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
                   location.pathname === '/history' ? 'Change History' :
                     location.pathname === '/proxy-partition' ? 'Proxy Partition' :
                       location.pathname === '/team-planning' ? 'Team Planning' :
-                        location.pathname === '/cmhw-diagram' ? 'Diagram — CMHW Team' :
-                          entities.find(e => `/entity/${e.id}` === location.pathname)?.name || 'Entity Details'}
+                        location.pathname === '/simulation-excel' ? 'Simulation Excel' :
+                          location.pathname === '/dashboard-reporting' ? 'Dashboard Reporting' :
+                            entities.find(e => `/entity/${e.id}` === location.pathname)?.name || 'Entity Details'}
             </h2>
             {location.pathname !== '/' && location.pathname !== '/admin' && (
               <span className="px-2 py-1 bg-green-50 text-green-700 text-xs font-medium rounded-md border border-green-100 hidden sm:inline-block flex items-center gap-1">
@@ -242,8 +257,8 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
         </header>
 
         {/* Scrollable Content */}
-        <main className="flex-1 overflow-y-auto p-8 scroll-smooth">
-          <div className={`${location.pathname === '/proxy-partition' || location.pathname.startsWith('/entity/') ? 'w-full' : 'max-w-7xl mx-auto'}`}>
+        <main className={`flex-1 overflow-y-auto scroll-smooth ${location.pathname === '/dashboard-reporting' ? 'p-2' : 'p-8'}`}>
+          <div className={`${location.pathname === '/proxy-partition' || location.pathname === '/dashboard-reporting' || location.pathname.startsWith('/entity/') ? 'w-full' : 'max-w-7xl mx-auto'}`}>
             {children}
           </div>
         </main>

@@ -123,50 +123,7 @@ async function exportData() {
     );
     console.log(`   ✅ Exported ${planningPresets.length} planning presets`);
 
-    // Export Diagram Managers
-    console.log('📤 Exporting Diagram Managers...');
-    const diagramManagers = await prisma.diagramManager.findMany();
-    fs.writeFileSync(
-      path.join(exportDir, 'diagram-managers.json'),
-      JSON.stringify(diagramManagers, null, 2)
-    );
-    console.log(`   ✅ Exported ${diagramManagers.length} diagram managers`);
-
-    // Export Diagram Team Leaders
-    console.log('📤 Exporting Diagram Team Leaders...');
-    const diagramTeamLeaders = await prisma.diagramTeamLeader.findMany();
-    fs.writeFileSync(
-      path.join(exportDir, 'diagram-team-leaders.json'),
-      JSON.stringify(diagramTeamLeaders, null, 2)
-    );
-    console.log(`   ✅ Exported ${diagramTeamLeaders.length} diagram team leaders`);
-
-    // Export Manager Team Leader Links
-    console.log('📤 Exporting Manager Team Leader Links...');
-    const managerTeamLeaderLinks = await prisma.managerTeamLeaderLink.findMany();
-    fs.writeFileSync(
-      path.join(exportDir, 'manager-team-leader-links.json'),
-      JSON.stringify(managerTeamLeaderLinks, null, 2)
-    );
-    console.log(`   ✅ Exported ${managerTeamLeaderLinks.length} manager-team leader links`);
-
-    // Export Diagram Teams
-    console.log('📤 Exporting Diagram Teams...');
-    const diagramTeams = await prisma.diagramTeam.findMany();
-    fs.writeFileSync(
-      path.join(exportDir, 'diagram-teams.json'),
-      JSON.stringify(diagramTeams, null, 2)
-    );
-    console.log(`   ✅ Exported ${diagramTeams.length} diagram teams`);
-
-    // Export Diagram Mailer Assignments
-    console.log('📤 Exporting Diagram Mailer Assignments...');
-    const diagramMailerAssignments = await prisma.diagramMailerAssignment.findMany();
-    fs.writeFileSync(
-      path.join(exportDir, 'diagram-mailer-assignments.json'),
-      JSON.stringify(diagramMailerAssignments, null, 2)
-    );
-    console.log(`   ✅ Exported ${diagramMailerAssignments.length} diagram mailer assignments`);
+    console.log(`   ✅ Exported ${planningPresets.length} planning presets`);
 
     // Export Day Plans
     console.log('📤 Exporting Day Plans...');

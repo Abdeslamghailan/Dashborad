@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { API_URL } from '../config';
+import { logger } from '../utils/logger';
 
 interface User {
     id: number;
@@ -48,8 +49,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
             if (response.ok) {
                 const userData = await response.json();
-                console.log('🟢 User data received:', userData);
-                console.log('🟢 PhotoUrl:', userData.photoUrl);
+                logger.debug('User authenticated successfully');
                 setUser(userData);
             } else {
                 // Token invalid, clear it
@@ -57,7 +57,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
                 setToken(null);
             }
         } catch (error) {
-            console.error('Failed to fetch user:', error);
+            logger.error('Failed to fetch user', error);
             localStorage.removeItem('auth_token');
             setToken(null);
         } finally {
@@ -67,9 +67,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
     const login = async (telegramData: any) => {
         try {
-            console.log('🔵 Frontend: Attempting Telegram login with data:', telegramData);
-            console.log('🔵 Frontend: API_URL:', API_URL);
-            console.log('🔵 Frontend: Full URL:', `${API_URL}/api/auth/telegram`);
+            logger.debug('Attempting Telegram login');
 
             const response = await fetch(`${API_URL}/api/auth/telegram`, {
                 method: 'POST',
@@ -79,23 +77,18 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
                 body: JSON.stringify(telegramData)
             });
 
-            console.log('🔵 Frontend: Response status:', response.status);
-
             if (!response.ok) {
                 const errorData = await response.json();
-                console.log('🔵 Frontend: Error response:', errorData);
                 throw new Error(errorData.error || 'Authentication failed');
             }
 
             const data = await response.json();
-            console.log('🔵 Frontend: Login successful, received token');
-            console.log('🔵 Frontend: User data:', data.user);
-            console.log('🔵 Frontend: PhotoUrl:', data.user?.photoUrl);
+            logger.debug('Login successful');
             setToken(data.token);
             setUser(data.user);
             localStorage.setItem('auth_token', data.token);
         } catch (error) {
-            console.error('🔴 Frontend: Login error:', error);
+            logger.error('Login error', error);
             throw error;
         }
     };
@@ -120,7 +113,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             setUser(data.user);
             localStorage.setItem('auth_token', data.token);
         } catch (error) {
-            console.error('Password login error:', error);
+            logger.error('Password login error', error);
             throw error;
         }
     };

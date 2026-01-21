@@ -22,11 +22,15 @@ dist-ssr
 *.sln
 *.sw?
 
-# Environment files (sensitive)
+# Environment files (sensitive) - SECURITY CRITICAL
 .env
 .env.local
 .env.*.local
+.env.production
+.env.development
 server/.env
+server/.env.local
+server/.env.production
 
 # Database files (local only)
 *.db
@@ -35,7 +39,38 @@ server/prisma/*.db
 server/prisma/*.db-journal
 server/backups/*.db
 
-# Keep dist for deployment (comment this out to include dist in git)
+# Build output
 dist
 server/dist
 dist-prod
+build
+
+# Sensitive data exports
+server/data-export-*
+*.backup
+*.bak
+
+# IDE and OS files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# Test coverage
+coverage/
+.nyc_output/
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+
+# Security and secrets
+*.pem
+*.key
+*.cert
+secrets/
+.secrets/

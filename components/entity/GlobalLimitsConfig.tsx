@@ -184,7 +184,7 @@ export const GlobalLimitsConfig: React.FC<Props> = ({ entity, onUpdate }) => {
                                         onChange={(e) => handleChange(limit.id, 'limitActiveSession', e.target.value)}
                                         readOnly={!canEdit}
                                         className={`w-full bg-white border border-gray-200 rounded px-3 py-2 text-sm text-gray-700 focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 outline-none ${!canEdit ? 'bg-gray-50 cursor-not-allowed' : ''}`}
-                                        placeholder="e.g. 1-14000"
+                                        placeholder="e.g. 1-Total"
                                     />
                                 </td>
                                 <td className="py-3 px-4">

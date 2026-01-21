@@ -1,17 +1,49 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { service } from '../services';
-import { Entity } from '../types';
+import { Entity, MethodType, MethodData } from '../types';
 import {
   PieChart, Pie, Cell, ResponsiveContainer,
   BarChart, Bar, XAxis, YAxis, Tooltip, Legend,
   CartesianGrid
 } from 'recharts';
-import { motion } from 'framer-motion';
-import { Building2, AlignLeft, CheckCircle2, XCircle } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+import {
+  Building2, AlignLeft, CheckCircle2, XCircle, LayoutGrid, RefreshCw,
+  Monitor, Bot, Smartphone, Globe, Cpu, Zap, Terminal, MousePointer2,
+  Laptop, Tablet, AppWindow, Box, Activity
+} from 'lucide-react';
+import { AVAILABLE_METHODS, getMethodConfig } from '../config/methods';
+import { API_URL } from '../config';
+import { useAuth } from '../contexts/AuthContext';
+
+// Helper to get method-specific data with fallback to legacy data
+const getMethodData = (entity: Entity, methodType: MethodType): MethodData => {
+  // First try to get from methodsData
+  if (entity.methodsData && entity.methodsData[methodType]) {
+    return entity.methodsData[methodType];
+  }
+
+  // For desktop method, fallback to legacy data for backward compatibility
+  if (methodType === 'desktop') {
+    return {
+      parentCategories: entity.reporting?.parentCategories || [],
+      limitsConfiguration: entity.limitsConfiguration || []
+    };
+  }
+
+  // For other methods, return empty data
+  return {
+    parentCategories: [],
+    limitsConfiguration: []
+  };
+};
 
 export const GlobalDashboard: React.FC = () => {
+  const { token } = useAuth();
   const [entities, setEntities] = useState<Entity[]>([]);
   const [loading, setLoading] = useState(true);
+  const [activeMethod, setActiveMethod] = useState<MethodType | 'all'>('all');
+  const [availableMethods, setAvailableMethods] = useState<any[]>([]);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -23,24 +55,75 @@ export const GlobalDashboard: React.FC = () => {
       setEntities(sortedData);
       setLoading(false);
     };
+
+    const fetchMethods = async () => {
+      try {
+        const response = await fetch(`${API_URL}/api/methods`, {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        });
+        if (response.ok) {
+          const data = await response.json();
+          setAvailableMethods(data);
+        } else {
+          setAvailableMethods(AVAILABLE_METHODS);
+        }
+      } catch (error) {
+        console.error('Failed to fetch methods:', error);
+        setAvailableMethods(AVAILABLE_METHODS);
+      }
+    };
+
     fetchData();
-  }, []);
+    if (token) fetchMethods();
+  }, [token]);
+
+  const getDynamicMethodConfig = (methodId: string) => {
+    const dynamic = availableMethods.find(m => m.id === methodId);
+    if (dynamic) return dynamic;
+    return getMethodConfig(methodId as MethodType);
+  };
+
+  // Filter methods to only show those that are actually used by at least one entity
+  const filteredMethods = useMemo(() => {
+    const usedMethodIds = new Set<string>();
+    entities.forEach(ent => {
+      if (ent.enabledMethods && ent.enabledMethods.length > 0) {
+        ent.enabledMethods.forEach(m => usedMethodIds.add(m));
+      } else {
+        usedMethodIds.add('desktop'); // Default method
+      }
+    });
+
+    return availableMethods.filter(m =>
+      usedMethodIds.has(m.id) &&
+      (m.isActive === undefined || m.isActive === true)
+    );
+  }, [entities, availableMethods]);
 
   if (loading) return <div className="p-10 text-center text-gray-500">Loading metrics...</div>;
 
   // --- Calculations ---
 
   // Helper: Get actual metrics from reporting data
-  const getEntityMetrics = (ent: Entity) => {
+  const getEntityMetrics = (ent: Entity, method: MethodType | 'all') => {
     let totalCount = 0;
     let totalConnected = 0;
     let totalBlocked = 0;
 
-    ent.reporting.parentCategories.forEach(cat => {
-      cat.profiles.forEach(p => {
-        totalCount += p.sessionCount || 0;
-        totalConnected += p.successCount || 0;
-        totalBlocked += p.errorCount || 0;
+    const methodsToProcess: MethodType[] = method === 'all'
+      ? (ent.enabledMethods || ['desktop'])
+      : [method];
+
+    methodsToProcess.forEach(m => {
+      const methodData = getMethodData(ent, m);
+      methodData.parentCategories.forEach(cat => {
+        cat.profiles.forEach(p => {
+          totalCount += p.sessionCount || 0;
+          totalConnected += p.successCount || 0;
+          totalBlocked += p.errorCount || 0;
+        });
       });
     });
 
@@ -53,7 +136,7 @@ export const GlobalDashboard: React.FC = () => {
   let grandTotalBlocked = 0;
 
   const entityPerformanceData = entities.map(ent => {
-    const { totalCount, totalConnected, totalBlocked } = getEntityMetrics(ent);
+    const { totalCount, totalConnected, totalBlocked } = getEntityMetrics(ent, activeMethod);
 
     grandTotalSeeds += totalCount;
     grandTotalConnected += totalConnected;
@@ -82,12 +165,64 @@ export const GlobalDashboard: React.FC = () => {
   const PIE_COLORS = ['#22c55e', '#ef4444']; // Green-500, Red-500
   const BAR_COLORS = { count: '#3b82f6', connected: '#22c55e', blocked: '#ef4444' };
 
+  const currentMethodConfig = activeMethod === 'all' ? null : getDynamicMethodConfig(activeMethod);
+
   return (
     <div className="space-y-6 pb-10">
 
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">Global Dashboard</h1>
-        <p className="text-gray-500">Aggregated overview of all CMH entities.</p>
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">Global Dashboard</h1>
+          <p className="text-gray-500">Aggregated overview of all CMH entities.</p>
+        </div>
+
+        {/* Method Switcher */}
+        <div className="bg-white rounded-2xl border border-gray-200 p-1.5 shadow-sm flex items-center gap-1 overflow-x-auto scrollbar-hide">
+          <button
+            onClick={() => setActiveMethod('all')}
+            className={`flex items-center gap-2 px-4 py-2 rounded-xl font-semibold transition-all duration-200 whitespace-nowrap ${activeMethod === 'all'
+              ? 'bg-gray-900 text-white shadow-lg'
+              : 'text-gray-600 hover:bg-gray-100'
+              }`}
+          >
+            <LayoutGrid size={18} />
+            <span>All Methods</span>
+          </button>
+
+          <div className="w-px h-6 bg-gray-200 mx-1 hidden sm:block"></div>
+
+          {filteredMethods.map(method => {
+            const IconMap: Record<string, any> = {
+              Monitor, Bot, Smartphone, Globe, Cpu, Zap, Terminal,
+              MousePointer2, Laptop, Tablet, AppWindow, Box, Activity,
+              LayoutGrid, RefreshCw
+            };
+
+            let Icon = RefreshCw;
+            if (method.icon) {
+              if (typeof method.icon === 'string') {
+                Icon = IconMap[method.icon] || RefreshCw;
+              } else {
+                Icon = method.icon;
+              }
+            }
+            const isActive = activeMethod === method.id;
+
+            return (
+              <button
+                key={method.id}
+                onClick={() => setActiveMethod(method.id)}
+                className={`flex items-center gap-2 px-4 py-2 rounded-xl font-semibold transition-all duration-200 whitespace-nowrap ${isActive
+                  ? `bg-gradient-to-r ${method.gradient} text-white shadow-lg`
+                  : 'text-gray-600 hover:bg-gray-100'
+                  }`}
+              >
+                <Icon size={18} />
+                <span>{method.name}</span>
+              </button>
+            );
+          })}
+        </div>
       </div>
 
       {/* Top Stats Cards */}
@@ -125,11 +260,14 @@ export const GlobalDashboard: React.FC = () => {
 
         {/* Overall Seeds Donut */}
         <motion.div
+          key={`pie-${activeMethod}`}
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
           className="bg-white p-6 rounded-xl shadow-sm border border-gray-200"
         >
-          <h3 className="font-semibold text-gray-800 mb-4">Overall seeds</h3>
+          <h3 className="font-semibold text-gray-800 mb-4">
+            Overall seeds {activeMethod !== 'all' && `(${currentMethodConfig?.name})`}
+          </h3>
           <div className="h-[240px] relative">
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
@@ -182,12 +320,15 @@ export const GlobalDashboard: React.FC = () => {
 
         {/* Performance by Entity Bar Chart */}
         <motion.div
+          key={`bar-${activeMethod}`}
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.1 }}
           className="bg-white p-6 rounded-xl shadow-sm border border-gray-200"
         >
-          <h3 className="font-semibold text-gray-800 mb-4">Performance by Entity</h3>
+          <h3 className="font-semibold text-gray-800 mb-4">
+            Performance by Entity {activeMethod !== 'all' && `(${currentMethodConfig?.name})`}
+          </h3>
           <div className="h-[300px]">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={entityPerformanceData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
@@ -208,13 +349,143 @@ export const GlobalDashboard: React.FC = () => {
         </motion.div>
       </div>
 
+      {/* Methods Comparison - Only show when 'all' is selected */}
+      {activeMethod === 'all' && (
+        <div className="space-y-6">
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="bg-white p-6 rounded-xl shadow-sm border border-gray-200"
+          >
+            <h3 className="font-semibold text-gray-800 mb-4">Methods Performance Comparison</h3>
+            <div className="h-[300px]">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart
+                  data={filteredMethods.map(m => {
+                    let totalCount = 0;
+                    let totalConnected = 0;
+                    let totalBlocked = 0;
+
+                    entities.forEach(ent => {
+                      if (ent.enabledMethods?.includes(m.id) || (m.id === 'desktop' && !ent.enabledMethods)) {
+                        const metrics = getEntityMetrics(ent, m.id);
+                        totalCount += metrics.totalCount;
+                        totalConnected += metrics.totalConnected;
+                        totalBlocked += metrics.totalBlocked;
+                      }
+                    });
+
+                    return {
+                      name: m.name,
+                      Count: totalCount,
+                      Connected: totalConnected,
+                      Blocked: totalBlocked,
+                      gradient: m.gradient
+                    };
+                  })}
+                  margin={{ top: 20, right: 30, left: 20, bottom: 5 }}
+                >
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                  <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: '#64748b' }} dy={10} />
+                  <YAxis axisLine={false} tickLine={false} tick={{ fill: '#64748b' }} />
+                  <Tooltip
+                    cursor={{ fill: '#f8fafc' }}
+                    contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
+                  />
+                  <Legend iconType="rect" verticalAlign="bottom" height={36} formatter={(val) => <span className="text-gray-600 ml-1">{val}</span>} />
+                  <Bar dataKey="Count" fill="#3b82f6" radius={[4, 4, 0, 0]} barSize={60} />
+                  <Bar dataKey="Connected" fill="#22c55e" radius={[4, 4, 0, 0]} barSize={60} />
+                  <Bar dataKey="Blocked" fill="#ef4444" radius={[4, 4, 0, 0]} barSize={60} />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </motion.div>
+
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.1 }}
+            className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden"
+          >
+            <div className="p-6 border-b border-gray-100">
+              <h3 className="font-semibold text-gray-800">Methods Breakdown</h3>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full text-left">
+                <thead className="bg-gray-50 text-gray-500 text-xs uppercase tracking-wider">
+                  <tr>
+                    <th className="px-6 py-3 font-bold">Method</th>
+                    <th className="px-6 py-3 font-bold text-center">Total Seeds</th>
+                    <th className="px-6 py-3 font-bold text-center">Connected</th>
+                    <th className="px-6 py-3 font-bold text-center">Blocked</th>
+                    <th className="px-6 py-3 font-bold text-center">Success Rate</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100">
+                  {filteredMethods.map(m => {
+                    let totalCount = 0;
+                    let totalConnected = 0;
+                    let totalBlocked = 0;
+
+                    entities.forEach(ent => {
+                      if (ent.enabledMethods?.includes(m.id) || (m.id === 'desktop' && !ent.enabledMethods)) {
+                        const metrics = getEntityMetrics(ent, m.id);
+                        totalCount += metrics.totalCount;
+                        totalConnected += metrics.totalConnected;
+                        totalBlocked += metrics.totalBlocked;
+                      }
+                    });
+
+                    const successRate = totalCount > 0 ? ((totalConnected / totalCount) * 100).toFixed(1) : '0.0';
+
+                    return (
+                      <tr key={m.id} className="hover:bg-gray-50 transition-colors">
+                        <td className="px-6 py-4">
+                          <div className="flex items-center gap-3">
+                            <div className={`p-2 rounded-lg bg-gradient-to-r ${m.gradient} text-white`}>
+                              {(() => {
+                                const IconMap: Record<string, any> = {
+                                  Monitor, Bot, Smartphone, Globe, Cpu, Zap, Terminal,
+                                  MousePointer2, Laptop, Tablet, AppWindow, Box, Activity,
+                                  LayoutGrid, RefreshCw
+                                };
+                                const Icon = IconMap[m.icon] || RefreshCw;
+                                return <Icon size={16} />;
+                              })()}
+                            </div>
+                            <span className="font-bold text-gray-900">{m.name}</span>
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 text-center font-semibold text-gray-700">{totalCount.toLocaleString()}</td>
+                        <td className="px-6 py-4 text-center font-semibold text-green-600">{totalConnected.toLocaleString()}</td>
+                        <td className="px-6 py-4 text-center font-semibold text-red-500">{totalBlocked.toLocaleString()}</td>
+                        <td className="px-6 py-4 text-center">
+                          <span className={`px-2.5 py-1 rounded-full text-xs font-bold ${parseFloat(successRate) > 80 ? 'bg-green-100 text-green-700' :
+                            parseFloat(successRate) > 50 ? 'bg-amber-100 text-amber-700' :
+                              'bg-red-100 text-red-700'
+                            }`}>
+                            {successRate}%
+                          </span>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </motion.div>
+        </div>
+      )}
+
       {/* Seeds by Entity List */}
       <div className="space-y-4">
-        <h3 className="text-lg font-semibold text-gray-800">Seeds by Entity</h3>
+        <h3 className="text-lg font-semibold text-gray-800">
+          Seeds by Entity {activeMethod !== 'all' && `(${currentMethodConfig?.name})`}
+        </h3>
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-6">
           {entityPerformanceData.map((ent, idx) => (
             <motion.div
-              key={ent.fullName}
+              key={`${ent.fullName}-${activeMethod}`}
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
               transition={{ delay: 0.1 + (idx * 0.05) }}
