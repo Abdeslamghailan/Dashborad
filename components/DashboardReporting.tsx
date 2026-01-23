@@ -1280,7 +1280,7 @@ export const DashboardReporting: React.FC = () => {
     const [isLoading, setIsLoading] = useState(true);
     const [isRefetching, setIsRefetching] = useState(false);
     const [error, setError] = useState<string | null>(null);
-    const [selectedEntities, setSelectedEntities] = useState<string[]>([]);
+    const [selectedEntities, setSelectedEntities] = useState<string[]>([]); // Empty = show all entities
     const [selectedHours, setSelectedHours] = useState<string[]>([new Date().getHours().toString().padStart(2, '0')]);
     const [selectedDate, setSelectedDate] = useState<string>('');
     const [showDetailedLogs, setShowDetailedLogs] = useState(false);
@@ -1297,7 +1297,8 @@ export const DashboardReporting: React.FC = () => {
             // Build query parameters for filtering
             const params = new URLSearchParams();
 
-            // Add entity filter
+            // Add entity filter ONLY if specific entities are selected
+            // Empty array = show all entities (no filter)
             if (selectedEntities.length > 0) {
                 params.append('entities', selectedEntities.join(','));
             }
