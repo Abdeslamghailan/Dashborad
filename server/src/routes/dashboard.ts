@@ -5,8 +5,23 @@ const DATA_API_URL = 'https://abdelgh9.pythonanywhere.com/api/all-data';
 
 router.get('/all-data', async (req, res) => {
   try {
-    console.log('🔄 Proxying request to external API:', DATA_API_URL);
-    const response = await fetch(DATA_API_URL);
+    // Extract query parameters for filtering
+    const { entities, date, hours, limit } = req.query;
+    
+    // Build query string for external API
+    const queryParams = new URLSearchParams();
+    if (entities) queryParams.append('entities', entities as string);
+    if (date) queryParams.append('date', date as string);
+    if (hours) queryParams.append('hours', hours as string);
+    if (limit) queryParams.append('limit', limit as string);
+    
+    const queryString = queryParams.toString();
+    const apiUrl = queryString ? `${DATA_API_URL}?${queryString}` : DATA_API_URL;
+    
+    console.log('🔄 Proxying filtered request to external API:', apiUrl);
+    console.log('📊 Filters:', { entities, date, hours, limit });
+    
+    const response = await fetch(apiUrl);
     
     if (!response.ok) {
       console.error(`❌ External API error: ${response.status} ${response.statusText}`);
@@ -18,7 +33,8 @@ router.get('/all-data', async (req, res) => {
     }
     
     const data = await response.json();
-    console.log('✅ Successfully fetched data from external API');
+    console.log('✅ Successfully fetched filtered data from external API');
+    console.log('📦 Records returned:', data.record_counts || 'unknown');
     res.json(data);
   } catch (error: any) {
     console.error('🔴 Dashboard Proxy Exception:', error);

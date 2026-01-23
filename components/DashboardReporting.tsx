@@ -1278,85 +1278,145 @@ const SessionPerformance = ({ sessions, stats }: { sessions: any[], stats: any }
 export const DashboardReporting: React.FC = () => {
     const [rawData, setRawData] = useState<any>(null);
     const [isLoading, setIsLoading] = useState(true);
+    const [isRefetching, setIsRefetching] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [selectedEntities, setSelectedEntities] = useState<string[]>([]);
     const [selectedHours, setSelectedHours] = useState<string[]>([new Date().getHours().toString().padStart(2, '0')]);
     const [selectedDate, setSelectedDate] = useState<string>('');
     const [showDetailedLogs, setShowDetailedLogs] = useState(false);
 
-    useEffect(() => {
-        const fetchData = async () => {
-            try {
+    // Fetch data with optional filters
+    const fetchData = async (showRefetchingState = false) => {
+        try {
+            if (showRefetchingState) {
+                setIsRefetching(true);
+            } else {
                 setIsLoading(true);
-                const response = await fetch(DATA_API_URL);
-                if (!response.ok) throw new Error('Failed to fetch dashboard data');
-                const result = await response.json();
-
-                if (!result.data) throw new Error('Invalid data format received');
-
-                const normalizeTimestamp = (ts: string) => {
-                    if (!ts) return '';
-                    const parts = ts.split(' ');
-                    if (parts.length !== 2) return ts;
-                    const dateParts = parts[0].split('-');
-                    const timeParts = parts[1].split(/[-:]/);
-                    if (dateParts.length !== 3 || timeParts.length < 2) return ts;
-                    return `${dateParts[2]}-${dateParts[1]}-${dateParts[0]} ${timeParts[0]}:${timeParts[1]}`;
-                };
-
-                const transformItems = (items: any[], category?: string) => {
-                    return (items || []).map(item => {
-                        const p = item.parsed || {};
-                        return {
-                            ...p,
-                            timestamp: normalizeTimestamp(p.timestamp),
-                            entity: p.session ? p.session.split('_')[0] : 'Unknown',
-                            category: category || p.category
-                        };
-                    });
-                };
-
-                const inboxActions = transformItems(result.data.inbox_actions, 'inbox');
-
-                const spamActions: any[] = [];
-                (result.data.spam_actions || []).forEach((item: any) => {
-                    const p = item.parsed || {};
-                    const count = p.count || 0;
-                    const ts = normalizeTimestamp(p.timestamp);
-                    const entity = p.session ? p.session.split('_')[0] : 'Unknown';
-
-                    if (count === 0) return;
-
-                    for (let i = 0; i < count; i++) {
-                        spamActions.push({
-                            ...p,
-                            count: 1,
-                            timestamp: ts,
-                            entity: entity,
-                            category: 'spam',
-                            action_type: 'SPAM_ACTION'
-                        });
-                    }
-                });
-
-                const transformedData = {
-                    combined_actions: [...inboxActions, ...spamActions],
-                    inbox_domains: transformItems(result.data.inbox_domains, 'inbox'),
-                    spam_domains: transformItems(result.data.spam_domains, 'spam'),
-                    inbox_relationships: transformItems(result.data.inbox_relationships, 'inbox')
-                };
-
-                console.log('📊 Data transformed. Spam domains:', transformedData.spam_domains.length, 'Inbox domains:', transformedData.inbox_domains.length);
-                setRawData(transformedData);
-            } catch (err: any) {
-                console.error('Data Fetch Error:', err);
-                setError(err.message);
-            } finally {
-                setIsLoading(false);
             }
-        };
+
+            // Build query parameters for filtering
+            const params = new URLSearchParams();
+
+            // Add entity filter
+            if (selectedEntities.length > 0) {
+                params.append('entities', selectedEntities.join(','));
+            }
+
+            // Add date filter (convert to YYYY-MM-DD format)
+            if (selectedDate) {
+                params.append('date', selectedDate);
+            }
+
+            // Add hours filter
+            if (selectedHours.length > 0 && selectedHours.length < 24) {
+                params.append('hours', selectedHours.join(','));
+            }
+
+            const queryString = params.toString();
+            const url = queryString ? `${DATA_API_URL}?${queryString}` : DATA_API_URL;
+
+            console.log('🔍 Fetching filtered data:', {
+                entities: selectedEntities,
+                date: selectedDate,
+                hours: selectedHours.length < 24 ? selectedHours : 'all',
+                url
+            });
+
+            const response = await fetch(url);
+            if (!response.ok) throw new Error('Failed to fetch dashboard data');
+            const result = await response.json();
+
+            if (!result.data) throw new Error('Invalid data format received');
+
+            // Log filter info if filters were applied
+            if (result.filters_applied) {
+                console.log('✅ Filters applied:', result.filters_applied);
+                console.log('📦 Records returned:', result.record_counts);
+            }
+
+            const normalizeTimestamp = (ts: string) => {
+                if (!ts) return '';
+                const parts = ts.split(' ');
+                if (parts.length !== 2) return ts;
+                const dateParts = parts[0].split('-');
+                const timeParts = parts[1].split(/[-:]/);
+                if (dateParts.length !== 3 || timeParts.length < 2) return ts;
+                return `${dateParts[2]}-${dateParts[1]}-${dateParts[0]} ${timeParts[0]}:${timeParts[1]}`;
+            };
+
+            const transformItems = (items: any[], category?: string) => {
+                return (items || []).map(item => {
+                    const p = item.parsed || {};
+                    return {
+                        ...p,
+                        timestamp: normalizeTimestamp(p.timestamp),
+                        entity: p.session ? p.session.split('_')[0] : 'Unknown',
+                        category: category || p.category
+                    };
+                });
+            };
+
+            const inboxActions = transformItems(result.data.inbox_actions, 'inbox');
+
+            const spamActions: any[] = [];
+            (result.data.spam_actions || []).forEach((item: any) => {
+                const p = item.parsed || {};
+                const count = p.count || 0;
+                const ts = normalizeTimestamp(p.timestamp);
+                const entity = p.session ? p.session.split('_')[0] : 'Unknown';
+
+                if (count === 0) return;
+
+                for (let i = 0; i < count; i++) {
+                    spamActions.push({
+                        ...p,
+                        count: 1,
+                        timestamp: ts,
+                        entity: entity,
+                        category: 'spam',
+                        action_type: 'SPAM_ACTION'
+                    });
+                }
+            });
+
+            const transformedData = {
+                combined_actions: [...inboxActions, ...spamActions],
+                inbox_domains: transformItems(result.data.inbox_domains, 'inbox'),
+                spam_domains: transformItems(result.data.spam_domains, 'spam'),
+                inbox_relationships: transformItems(result.data.inbox_relationships, 'inbox')
+            };
+
+            console.log('📊 Data transformed. Spam domains:', transformedData.spam_domains.length, 'Inbox domains:', transformedData.inbox_domains.length);
+            setRawData(transformedData);
+            setError(null);
+        } catch (err: any) {
+            console.error('Data Fetch Error:', err);
+            setError(err.message);
+        } finally {
+            setIsLoading(false);
+            setIsRefetching(false);
+        }
+    };
+
+    // Initial data fetch
+    useEffect(() => {
         fetchData();
     }, []);
+
+    // Refetch when filters change (with debouncing)
+    useEffect(() => {
+        // Skip if initial load hasn't completed
+        if (isLoading) return;
+
+        // Debounce filter changes to avoid excessive API calls
+        const timeoutId = setTimeout(() => {
+            console.log('🔄 Filters changed, refetching data...');
+            fetchData(true);
+        }, 500); // 500ms debounce
+
+        return () => clearTimeout(timeoutId);
+    }, [selectedEntities, selectedDate, selectedHours]);
+
 
     const resolvedDomainsRef = useRef<Set<string>>(new Set());
     const [dnsStatus, setDnsStatus] = useState<'idle' | 'resolving' | 'completed' | 'error'>('idle');
@@ -1880,6 +1940,17 @@ export const DashboardReporting: React.FC = () => {
                             <Activity size={14} className="text-blue-500" />
                             <span className="text-[10px] font-bold uppercase tracking-wider">Navigate</span>
                         </div>
+                        {/* Refetching Indicator */}
+                        {isRefetching && (
+                            <motion.div
+                                initial={{ opacity: 0, scale: 0.9 }}
+                                animate={{ opacity: 1, scale: 1 }}
+                                className="flex items-center gap-2 px-3 py-1.5 bg-blue-50 rounded-lg text-blue-600 mr-2"
+                            >
+                                <RefreshCw size={14} className="animate-spin" />
+                                <span className="text-[10px] font-bold uppercase tracking-wider">Updating...</span>
+                            </motion.div>
+                        )}
                         {[
                             { id: 'overview', label: 'Overview', icon: <PieChart size={15} />, color: 'blue' },
                             { id: 'forms', label: 'Forms', icon: <FileText size={15} />, color: 'purple' },
