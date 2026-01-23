@@ -1614,8 +1614,14 @@ export const DashboardReporting: React.FC = () => {
         const aggregateActionTypes = (arr: any[]) => {
             const map: Record<string, number> = {};
             arr.forEach(item => {
-                const key = item.action_type || 'Unknown';
-                map[key] = (map[key] || 0) + 1;
+                // Count action_type (e.g., ACTION_STAR, ACTION_IMPORTANT, ACTION_CLICK, ACTION_OPEN)
+                const actionType = item.action_type || 'Unknown';
+                map[actionType] = (map[actionType] || 0) + 1;
+
+                // Also count archive_action if it exists (e.g., ACTION_ARCHIVE)
+                if (item.archive_action && item.archive_action !== actionType) {
+                    map[item.archive_action] = (map[item.archive_action] || 0) + 1;
+                }
             });
             const total = arr.length;
             return Object.entries(map).map(([name, count]) => ({ name, count, percentage: formatPercentage(count, total) })).sort((a, b) => b.count - a.count);
