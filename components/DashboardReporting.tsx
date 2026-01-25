@@ -1303,15 +1303,19 @@ export const DashboardReporting: React.FC = () => {
                 params.append('entities', selectedEntities.join(','));
             }
 
-            // Add date filter (convert to YYYY-MM-DD format)
-            if (selectedDate) {
-                params.append('date', selectedDate);
-            }
+            // Add date filter - ALWAYS send a date to prevent fetching entire database
+            // Default to today if no date is selected
+            const filterDate = selectedDate || new Date().toISOString().split('T')[0];
+            params.append('date', filterDate);
 
-            // Add hours filter
+            // Add hours filter - only if not all hours selected
             if (selectedHours.length > 0 && selectedHours.length < 24) {
                 params.append('hours', selectedHours.join(','));
             }
+
+            // Add safety limit to prevent timeout on very large datasets
+            // This ensures we never fetch more than 10000 records per table
+            params.append('limit', '10000');
 
             const queryString = params.toString();
             const url = queryString ? `${DATA_API_URL}?${queryString}` : DATA_API_URL;
