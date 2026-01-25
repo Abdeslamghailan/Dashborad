@@ -1314,8 +1314,8 @@ export const DashboardReporting: React.FC = () => {
             }
 
             // Add safety limit to prevent timeout on very large datasets
-            // This ensures we never fetch more than 10000 records per table
-            params.append('limit', '10000');
+            // Reduced to 1000 for faster loading (increase after adding database indexes)
+            params.append('limit', '1000');
 
             const queryString = params.toString();
             const url = queryString ? `${DATA_API_URL}?${queryString}` : DATA_API_URL;
