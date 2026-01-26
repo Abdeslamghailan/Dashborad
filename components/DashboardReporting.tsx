@@ -221,31 +221,34 @@ const MultiSelect = ({ label, options, selected, onChange, icon: Icon, align = '
 
     const getDisplayLabel = () => {
         if (selected.length === 0) return label;
-        if (selected.length === 1) {
-            const val = selected[0];
-            return label === 'Hours' ? `${val}:00` : val;
+        if (selected.length === options.length && options.length > 0) return `All ${label}`;
+
+        if (selected.length <= 2) {
+            return selected.map((val: string) => label === 'Hours' ? `${val}:00` : val).join(', ');
         }
-        if (selected.length === options.length) return `All ${label}`;
-        return `${selected.length} Selected`;
+
+        return `${selected.length} ${label}`;
     };
 
     return (
         <div className="relative">
             <button
                 onClick={() => setIsOpen(!isOpen)}
-                className={`flex items-center gap-2 px-3 py-2 bg-white border rounded-lg text-sm font-semibold transition-all duration-200 hover:border-blue-300 ${selected.length > 0
-                    ? 'border-blue-400 text-blue-700'
-                    : 'border-slate-200 text-slate-600'
+                className={`flex items-center gap-2 px-3 py-2 bg-white border rounded-lg text-sm font-bold transition-all duration-200 hover:shadow-md ${selected.length > 0
+                    ? 'border-blue-500 bg-blue-50/30 text-blue-700 shadow-sm'
+                    : 'border-slate-200 text-slate-600 hover:border-slate-300'
                     }`}
             >
-                <Icon size={15} className={selected.length > 0 ? 'text-blue-500' : 'text-slate-400'} />
-                <span className="truncate max-w-[120px]">{getDisplayLabel()}</span>
-                {selected.length > 0 && (
-                    <span className="flex items-center justify-center min-w-[18px] h-[18px] px-1 text-[10px] font-bold bg-blue-500 text-white rounded-full">
+                <div className={`p-1 rounded-md ${selected.length > 0 ? 'bg-blue-100 text-blue-600' : 'bg-slate-100 text-slate-400'}`}>
+                    <Icon size={14} />
+                </div>
+                <span className="truncate max-w-[150px]">{getDisplayLabel()}</span>
+                {selected.length > 0 && selected.length < options.length && (
+                    <span className="flex items-center justify-center min-w-[18px] h-[18px] px-1 text-[10px] font-black bg-blue-600 text-white rounded-full shadow-sm">
                         {selected.length}
                     </span>
                 )}
-                <ChevronDown size={14} className={`ml-1 transition-transform duration-200 ${isOpen ? 'rotate-180' : 'text-slate-400'}`} />
+                <ChevronDown size={14} className={`ml-1 transition-transform duration-300 ${isOpen ? 'rotate-180 text-blue-600' : 'text-slate-400'}`} />
             </button>
 
             <AnimatePresence>
@@ -1990,19 +1993,36 @@ export const DashboardReporting: React.FC = () => {
 
                         {/* Date Picker */}
                         <div className="relative group">
-                            <div className={`flex items-center gap-2 px-3 py-2 bg-white border rounded-lg text-sm font-semibold transition-all duration-200 hover:border-blue-300 ${selectedDate ? 'border-blue-400 text-blue-700' : 'border-slate-200 text-slate-600'
+                            <div className={`flex items-center gap-2 px-3 py-2 bg-white border rounded-lg text-sm font-bold transition-all duration-200 hover:shadow-md ${selectedDate ? 'border-blue-500 bg-blue-50/30 text-blue-700 shadow-sm' : 'border-slate-200 text-slate-600 hover:border-slate-300'
                                 }`}>
-                                <Calendar size={15} className={selectedDate ? 'text-blue-500' : 'text-slate-400'} />
-                                <select
-                                    value={selectedDate}
-                                    onChange={(e) => setSelectedDate(e.target.value)}
-                                    className="bg-transparent border-none focus:ring-0 text-sm font-semibold cursor-pointer outline-none appearance-none pr-6"
-                                >
-                                    {filterOptions.dates.map(date => (
-                                        <option key={date} value={date}>{date}</option>
-                                    ))}
-                                </select>
-                                <ChevronDown size={14} className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                                <div className={`p-1 rounded-md ${selectedDate ? 'bg-blue-100 text-blue-600' : 'bg-slate-100 text-slate-400'}`}>
+                                    <Calendar size={14} />
+                                </div>
+                                <div className="relative flex items-center">
+                                    <span className="mr-1">
+                                        {(() => {
+                                            const now = new Date();
+                                            const today = `${now.getFullYear()}-${(now.getMonth() + 1).toString().padStart(2, '0')}-${now.getDate().toString().padStart(2, '0')}`;
+                                            const yesterday = new Date(now);
+                                            yesterday.setDate(now.getDate() - 1);
+                                            const yesterdayStr = `${yesterday.getFullYear()}-${(yesterday.getMonth() + 1).toString().padStart(2, '0')}-${yesterday.getDate().toString().padStart(2, '0')}`;
+
+                                            if (selectedDate === today) return 'Today';
+                                            if (selectedDate === yesterdayStr) return 'Yesterday';
+                                            return selectedDate;
+                                        })()}
+                                    </span>
+                                    <select
+                                        value={selectedDate}
+                                        onChange={(e) => setSelectedDate(e.target.value)}
+                                        className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
+                                    >
+                                        {filterOptions.dates.map(date => (
+                                            <option key={date} value={date}>{date}</option>
+                                        ))}
+                                    </select>
+                                    <ChevronDown size={14} className="text-slate-400 ml-1" />
+                                </div>
                             </div>
                         </div>
 
@@ -2016,8 +2036,10 @@ export const DashboardReporting: React.FC = () => {
                             return filterOptions.dates.includes(today) ? today : filterOptions.dates[0];
                         })())) && (
                                 <motion.button
-                                    initial={{ opacity: 0, scale: 0.9 }}
-                                    animate={{ opacity: 1, scale: 1 }}
+                                    initial={{ opacity: 0, scale: 0.9, x: 10 }}
+                                    animate={{ opacity: 1, scale: 1, x: 0 }}
+                                    whileHover={{ scale: 1.05 }}
+                                    whileTap={{ scale: 0.95 }}
                                     onClick={() => {
                                         const now = new Date();
                                         const currentHour = now.getHours().toString().padStart(2, '0');
@@ -2026,9 +2048,9 @@ export const DashboardReporting: React.FC = () => {
                                         setSelectedHours([currentHour]);
                                         setSelectedDate(filterOptions.dates.includes(today) ? today : (filterOptions.dates[0] || ''));
                                     }}
-                                    className="flex items-center gap-2 px-3 py-2 bg-rose-50 text-rose-600 hover:bg-rose-100 border border-rose-200 rounded-lg text-xs font-bold uppercase tracking-wider transition-all duration-200"
+                                    className="flex items-center gap-2 px-4 py-2 bg-rose-50 text-rose-600 hover:bg-rose-100 border border-rose-200 rounded-lg text-xs font-black uppercase tracking-widest transition-all duration-200 shadow-sm hover:shadow-md"
                                 >
-                                    <X size={14} />
+                                    <RotateCcw size={14} className="stroke-[3]" />
                                     Reset
                                 </motion.button>
                             )}
