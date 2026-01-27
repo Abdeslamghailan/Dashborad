@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Mail, Globe, Search, Copy, Download, Trash2, Check, Clock, ShieldAlert, Zap } from 'lucide-react';
+import { Mail, Globe, Search, Copy, Download, Trash2, Check, Clock, ShieldAlert, Zap, Scissors, Wand2, AlertTriangle, X } from 'lucide-react';
 import { Button } from './ui/Button';
 import { service } from '../services';
 
@@ -49,10 +49,34 @@ const GmailFilterGenerator = () => {
     const [unreadSpam, setUnreadSpam] = useState(true);
     const [generated, setGenerated] = useState<{ inbox: string; spam: string } | null>(null);
     const [copied, setCopied] = useState<'inbox' | 'spam' | null>(null);
+    const [isAiShortened, setIsAiShortened] = useState(false);
+    const [showAiWarning, setShowAiWarning] = useState(false);
 
-    const handleGenerate = () => {
-        const subjectList = subjects.split('\n').filter(s => s.trim() !== '');
+    const calculateQueryLength = (subjectList: string[]) => {
+        const subjectQuery = subjectList.map(s => `subject:"${s.trim()}"`).join(' OR ');
+        const timeQuery = `newer_than:${newerThan}${unit === 'Hours' ? 'h' : unit === 'Days' ? 'd' : 'm'}`;
+        const unreadQuery = unreadOnly ? 'is:unread' : '';
+        return `(${subjectQuery}) ${unreadQuery} ${timeQuery}`.trim().length;
+    };
+
+    const handleGenerate = (forceAi = false) => {
+        let subjectList = subjects.split('\n').filter(s => s.trim() !== '');
         if (subjectList.length === 0) return;
+
+        let shortened = false;
+        if (forceAi) {
+            const maxChars = 1100; // Leave room for other parts of query
+            let currentList: string[] = [];
+            for (const s of subjectList) {
+                const testList = [...currentList, s];
+                if (calculateQueryLength(testList) > maxChars) {
+                    shortened = true;
+                    break;
+                }
+                currentList.push(s);
+            }
+            subjectList = currentList;
+        }
 
         const subjectQuery = subjectList.map(s => `subject:"${s.trim()}"`).join(' OR ');
         const timeQuery = `newer_than:${newerThan}${unit === 'Hours' ? 'h' : unit === 'Days' ? 'd' : 'm'}`;
@@ -62,6 +86,8 @@ const GmailFilterGenerator = () => {
         const spamQuery = `in:spam (${subjectQuery}) ${unreadQuery} ${timeQuery}`.trim();
 
         setGenerated({ inbox: inboxQuery, spam: spamQuery });
+        setIsAiShortened(forceAi && shortened);
+        setShowAiWarning(forceAi && shortened);
     };
 
     const copyToClipboard = (text: string, type: 'inbox' | 'spam') => {
@@ -111,7 +137,8 @@ const GmailFilterGenerator = () => {
                                 placeholder="subject 1&#10;subject 2"
                                 className="w-full h-48 p-4 bg-slate-50 border-2 border-slate-100 rounded-xl focus:border-indigo-500 focus:ring-0 transition-all font-mono text-sm resize-none"
                             />
-                            <div className="absolute bottom-4 right-4 bg-white/80 backdrop-blur px-2 py-1 rounded border border-slate-200 text-[10px] font-bold text-slate-500 uppercase">
+                            <div className={`absolute bottom-4 right-4 bg-white/80 backdrop-blur px-2 py-1 rounded border text-[10px] font-bold uppercase flex items-center gap-1 ${subjects.length > 1200 ? 'text-orange-600 border-orange-200' : 'text-slate-500 border-slate-200'}`}>
+                                {subjects.length > 1200 && <AlertTriangle size={10} />}
                                 Est. Query Size: {subjects.length} / 1200
                             </div>
                         </div>
@@ -161,27 +188,68 @@ const GmailFilterGenerator = () => {
 
                     <div className="flex gap-4 pt-4">
                         <button
-                            onClick={handleGenerate}
+                            onClick={() => handleGenerate(false)}
                             className="flex-1 bg-slate-900 text-white py-4 rounded-xl font-black uppercase tracking-widest hover:bg-slate-800 transition-all shadow-[4px_4px_0px_0px_rgba(0,0,0,0.2)] active:translate-y-1 active:shadow-none flex items-center justify-center gap-2"
                         >
                             Standard Generate <Zap size={18} className="fill-current" />
                         </button>
-                        <button
-                            disabled
-                            className="flex-1 bg-slate-50 text-slate-400 py-4 rounded-xl font-black uppercase tracking-widest border-2 border-slate-100 flex items-center justify-center gap-2 cursor-not-allowed"
-                        >
-                            <ShieldAlert size={18} /> 1133 query chars to unlock AI
-                        </button>
+                        {subjects.length > 1200 ? (
+                            <button
+                                onClick={() => handleGenerate(true)}
+                                className="flex-1 bg-white text-indigo-600 py-4 rounded-xl font-black uppercase tracking-widest border-2 border-indigo-600 hover:bg-indigo-50 transition-all shadow-[4px_4px_0px_0px_rgba(79,70,229,0.2)] active:translate-y-1 active:shadow-none flex items-center justify-center gap-2"
+                            >
+                                <Scissors size={18} /> AI Shorten & Generate
+                            </button>
+                        ) : (
+                            <button
+                                disabled
+                                className="flex-1 bg-slate-50 text-slate-400 py-4 rounded-xl font-black uppercase tracking-widest border-2 border-slate-100 flex items-center justify-center gap-2 cursor-not-allowed"
+                            >
+                                <ShieldAlert size={18} /> {1200 - subjects.length} query chars to unlock AI
+                            </button>
+                        )}
                     </div>
                 </div>
             </div>
+
+            {showAiWarning && (
+                <div className="max-w-4xl mx-auto animate-in slide-in-from-top-4 duration-500">
+                    <div className="bg-red-400 border-2 border-slate-900 p-6 shadow-[8px_8px_0px_0px_rgba(15,23,42,1)] relative overflow-hidden group">
+                        <div className="flex items-start gap-4 relative z-10">
+                            <div className="bg-white p-2 border-2 border-slate-900 shadow-[2px_2px_0px_0px_rgba(15,23,42,1)]">
+                                <AlertTriangle className="w-6 h-6 text-red-600" />
+                            </div>
+                            <div className="flex-1">
+                                <h3 className="text-white font-black uppercase italic tracking-tighter text-xl mb-1">Critical Verification Required</h3>
+                                <p className="text-white/90 font-bold text-sm uppercase leading-tight">
+                                    AI shortening applied. Manually verify and fix machine errors/truncation in your search terms before use.
+                                </p>
+                            </div>
+                            <button
+                                onClick={() => setShowAiWarning(false)}
+                                className="text-white hover:bg-white/20 p-1 rounded transition-colors"
+                            >
+                                <X size={24} />
+                            </button>
+                        </div>
+                        <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 -rotate-45 translate-x-16 -translate-y-16 pointer-events-none"></div>
+                    </div>
+                </div>
+            )}
 
             {generated && (
                 <div className="max-w-4xl mx-auto space-y-6 animate-in slide-in-from-bottom-4 duration-500">
                     <div className="flex items-center justify-between px-4">
                         <h2 className="text-2xl font-black text-slate-900 italic uppercase">Generated Queries</h2>
-                        <div className="bg-slate-900 text-white px-4 py-1 rounded-full text-xs font-bold flex items-center gap-2">
-                            <Clock size={14} /> {newerThan} {unit.toUpperCase()}
+                        <div className="flex gap-2">
+                            <div className="bg-slate-900 text-white px-4 py-1 rounded-full text-xs font-bold flex items-center gap-2">
+                                <Clock size={14} /> {newerThan} {unit.toUpperCase()}
+                            </div>
+                            {isAiShortened && (
+                                <div className="bg-indigo-600 text-white px-4 py-1 rounded-full text-xs font-bold flex items-center gap-2 animate-pulse">
+                                    <Wand2 size={14} /> AI Shortened
+                                </div>
+                            )}
                         </div>
                     </div>
 
