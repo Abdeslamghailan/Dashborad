@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Mail, Globe, Search, Copy, Download, Trash2, Check, Clock, ShieldAlert, Zap, Home } from 'lucide-react';
+import { Mail, Globe, Search, Copy, Download, Trash2, Check, Clock, ShieldAlert, Zap } from 'lucide-react';
 import { Button } from './ui/Button';
 import { service } from '../services';
 
@@ -330,17 +330,11 @@ export const ToolsPage: React.FC = () => {
                             WOW!
                         </div>
                         <nav className="flex items-center gap-1">
-                            <Link
-                                to="/"
-                                className="px-4 py-2 rounded-xl text-sm font-black uppercase tracking-widest text-slate-400 hover:text-slate-600 hover:bg-slate-50 transition-all flex items-center gap-2"
-                            >
-                                <Home size={16} /> Home
-                            </Link>
                             <button
                                 onClick={() => setActiveTab('gFilter')}
                                 className={`px-4 py-2 rounded-xl text-sm font-black uppercase tracking-widest transition-all flex items-center gap-2 ${activeTab === 'gFilter'
-                                        ? 'bg-orange-500 text-white shadow-[4px_4px_0px_0px_rgba(15,23,42,1)] -translate-y-0.5'
-                                        : 'text-slate-400 hover:text-slate-600 hover:bg-slate-50'
+                                    ? 'bg-orange-500 text-white shadow-[4px_4px_0px_0px_rgba(15,23,42,1)] -translate-y-0.5'
+                                    : 'text-slate-400 hover:text-slate-600 hover:bg-slate-50'
                                     }`}
                             >
                                 <Mail size={16} /> gFilter
@@ -348,8 +342,8 @@ export const ToolsPage: React.FC = () => {
                             <button
                                 onClick={() => setActiveTab('dns')}
                                 className={`px-4 py-2 rounded-xl text-sm font-black uppercase tracking-widest transition-all flex items-center gap-2 ${activeTab === 'dns'
-                                        ? 'bg-indigo-600 text-white shadow-[4px_4px_0px_0px_rgba(15,23,42,1)] -translate-y-0.5'
-                                        : 'text-slate-400 hover:text-slate-600 hover:bg-slate-50'
+                                    ? 'bg-indigo-600 text-white shadow-[4px_4px_0px_0px_rgba(15,23,42,1)] -translate-y-0.5'
+                                    : 'text-slate-400 hover:text-slate-600 hover:bg-slate-50'
                                     }`}
                             >
                                 <Globe size={16} /> DNS
