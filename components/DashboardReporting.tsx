@@ -265,19 +265,19 @@ const MultiSelect = ({ label, options, selected, onChange, icon: Icon, align = '
                     : 'border-slate-200 text-slate-600 hover:border-blue-300'
                     }`}
             >
-                <div className="flex items-center gap-2 overflow-hidden w-full">
-                    <Icon size={16} className={selected.length > 0 ? 'text-blue-500' : 'text-slate-400'} />
-                    <span className="truncate block w-full text-left text-sm">
+                <div className="flex items-center gap-1.5 overflow-hidden w-full">
+                    <Icon size={14} className={selected.length > 0 ? 'text-blue-500' : 'text-slate-400'} />
+                    <span className="truncate block w-full text-left text-xs">
                         {getDisplayLabel()}
                     </span>
                 </div>
-                <div className="flex items-center gap-1.5 flex-shrink-0 ml-1">
+                <div className="flex items-center gap-1 flex-shrink-0 ml-0.5">
                     {selected.length > 0 && selected.length < options.length && (
-                        <span className="flex items-center justify-center min-w-[20px] h-[20px] px-1.5 text-[10px] font-bold bg-blue-500 text-white rounded-full">
+                        <span className="flex items-center justify-center min-w-[18px] h-[18px] px-1 text-[9px] font-bold bg-blue-500 text-white rounded-full">
                             {selected.length}
                         </span>
                     )}
-                    <ChevronDown size={16} className={`transition-transform duration-200 ${isOpen ? 'rotate-180 text-blue-500' : 'text-slate-400'
+                    <ChevronDown size={14} className={`transition-transform duration-200 ${isOpen ? 'rotate-180 text-blue-500' : 'text-slate-400'
                         }`} />
                 </div>
             </button>
@@ -2186,9 +2186,9 @@ export const DashboardReporting: React.FC = () => {
                     </div>
 
                     {/* Right: Filters & Reset */}
-                    <div className="flex items-center gap-3 flex-nowrap flex-shrink-0">
+                    <div className="flex items-center gap-2 flex-nowrap flex-shrink-0">
                         {/* Updating Indicator (Fixed Width to prevent jump) */}
-                        <div className="w-24 flex justify-end">
+                        <div className="w-16 flex justify-end">
                             <AnimatePresence>
                                 {isRefetching && (
                                     <motion.div
@@ -2212,28 +2212,17 @@ export const DashboardReporting: React.FC = () => {
                         </div>
 
                         {/* Date Picker (Fixed Width) - Modern Design */}
-                        <div className="relative group w-[150px] flex-shrink-0">
-                            <motion.div
-                                whileHover={{ scale: 1.02 }}
-                                whileTap={{ scale: 0.98 }}
-                                className={`relative flex items-center gap-2 px-3.5 py-2.5 bg-gradient-to-br rounded-xl text-sm font-semibold transition-all duration-300 w-full justify-between group overflow-hidden ${selectedDate
-                                    ? 'from-blue-500 to-indigo-600 text-white shadow-lg shadow-blue-500/30 hover:shadow-xl hover:shadow-blue-500/40'
-                                    : 'from-white to-slate-50 border-2 border-slate-200 text-slate-700 hover:border-blue-300 hover:shadow-md'
+                        <div className="relative group w-[120px] flex-shrink-0">
+                            <button
+                                className={`relative flex items-center gap-1.5 px-2 py-1.5 bg-white border-2 rounded-lg text-xs font-medium transition-all duration-200 w-full justify-between ${selectedDate
+                                    ? 'border-blue-500 text-blue-600'
+                                    : 'border-slate-200 text-slate-600 hover:border-blue-300'
                                     }`}
                             >
-                                {/* Animated gradient overlay */}
-                                {selectedDate && (
-                                    <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500"
-                                        style={{ transform: 'translateX(-100%)', animation: 'shimmer 2s infinite' }} />
-                                )}
-
-                                <div className="flex items-center gap-2.5 overflow-hidden w-full relative z-10">
-                                    <div className={`p-1.5 rounded-lg flex-shrink-0 transition-all ${selectedDate ? 'bg-white/20' : 'bg-slate-100 group-hover:bg-blue-100'
-                                        }`}>
-                                        <Calendar size={15} className={selectedDate ? 'text-white' : 'text-slate-500 group-hover:text-blue-600'} />
-                                    </div>
+                                <div className="flex items-center gap-1.5 overflow-hidden w-full relative z-10">
+                                    <Calendar size={14} className={selectedDate ? 'text-blue-500' : 'text-slate-400'} />
                                     <div className="relative flex items-center overflow-hidden w-full">
-                                        <span className="truncate block w-full text-left text-xs font-bold tracking-wide">
+                                        <span className="truncate block w-full text-left text-xs">
                                             {(() => {
                                                 const now = new Date();
                                                 const today = `${now.getFullYear()}-${(now.getMonth() + 1).toString().padStart(2, '0')}-${now.getDate().toString().padStart(2, '0')}`;
@@ -2257,32 +2246,26 @@ export const DashboardReporting: React.FC = () => {
                                         </select>
                                     </div>
                                 </div>
-                                <ChevronDown size={15} className={`ml-1 flex-shrink-0 transition-all relative z-10 ${selectedDate ? 'text-white' : 'text-slate-400 group-hover:text-blue-600'
-                                    }`} />
-                            </motion.div>
+                                <ChevronDown size={14} className={`flex-shrink-0 transition-all ${selectedDate ? 'text-blue-500' : 'text-slate-400'}`} />
+                            </button>
                         </div>
 
-                        <div className="w-[150px] flex-shrink-0">
+                        <div className="w-[120px] flex-shrink-0">
                             <MultiSelect label="Entities" options={filterOptions.entities} selected={selectedEntities} onChange={setSelectedEntities} icon={Box} />
                         </div>
-                        <div className="w-[150px] flex-shrink-0">
+                        <div className="w-[120px] flex-shrink-0">
                             <MultiSelect label="Hours" options={filterOptions.hours} selected={selectedHours} onChange={setSelectedHours} icon={Clock} align="right" />
                         </div>
 
                         {/* Reset Button Container (Fixed Width to prevent jump) */}
-                        <div className="w-28 flex justify-end">
+                        <div className="w-20 flex justify-end">
                             <AnimatePresence>
                                 {(selectedEntities.length > 0 || selectedHours.length !== 1 || selectedHours[0] !== new Date().getHours().toString().padStart(2, '0') || (selectedDate && selectedDate !== (() => {
                                     const now = new Date();
                                     const today = `${now.getFullYear()}-${(now.getMonth() + 1).toString().padStart(2, '0')}-${now.getDate().toString().padStart(2, '0')}`;
                                     return filterOptions.dates.includes(today) ? today : filterOptions.dates[0];
                                 })())) && (
-                                        <motion.button
-                                            initial={{ opacity: 0, scale: 0.9, x: 10 }}
-                                            animate={{ opacity: 1, scale: 1, x: 0 }}
-                                            exit={{ opacity: 0, scale: 0.9, x: 10 }}
-                                            whileHover={{ scale: 1.08, rotate: -5 }}
-                                            whileTap={{ scale: 0.92 }}
+                                        <button
                                             onClick={() => {
                                                 const now = new Date();
                                                 const currentHour = now.getHours().toString().padStart(2, '0');
@@ -2291,13 +2274,11 @@ export const DashboardReporting: React.FC = () => {
                                                 setSelectedHours([currentHour]);
                                                 setSelectedDate(filterOptions.dates.includes(today) ? today : (filterOptions.dates[0] || ''));
                                             }}
-                                            className="relative flex items-center gap-2 px-3.5 py-2.5 bg-gradient-to-br from-rose-500 to-pink-600 text-white rounded-xl text-[10px] font-black uppercase tracking-wide transition-all duration-300 shadow-lg shadow-rose-500/30 hover:shadow-xl hover:shadow-rose-500/40 whitespace-nowrap overflow-hidden group"
+                                            className="flex items-center gap-1.5 px-2 py-1.5 bg-rose-500 text-white rounded-lg text-[9px] font-bold uppercase tracking-wide hover:bg-rose-600 transition-all duration-200 shadow-sm whitespace-nowrap"
                                         >
-                                            <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500"
-                                                style={{ transform: 'translateX(-100%)', animation: 'shimmer 2s infinite' }} />
-                                            <RotateCcw size={13} className="stroke-[3] relative z-10" />
-                                            <span className="relative z-10">Reset</span>
-                                        </motion.button>
+                                            <RotateCcw size={12} className="stroke-[3]" />
+                                            <span>Reset</span>
+                                        </button>
                                     )}
                             </AnimatePresence>
                         </div>
