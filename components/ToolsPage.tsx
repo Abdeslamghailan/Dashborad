@@ -54,6 +54,7 @@ const GmailFilterGenerator = () => {
     const [copied, setCopied] = useState<'inbox' | 'spam' | null>(null);
     const [isAiShortened, setIsAiShortened] = useState(false);
     const [showAiWarning, setShowAiWarning] = useState(false);
+    const [isAiProcessing, setIsAiProcessing] = useState(false);
 
     const calculateQueryLength = (subjectList: string[]) => {
         const subjectQuery = subjectList.map(s => `subject:"${s.trim()}"`).join(' OR ');
@@ -62,15 +63,32 @@ const GmailFilterGenerator = () => {
         return `(${subjectQuery}) ${unreadQuery} ${timeQuery}`.trim().length;
     };
 
-    const handleGenerate = (forceAi = false) => {
+    const handleGenerate = async (forceAi = false) => {
         let subjectList = subjects.split('\n').filter(s => s.trim() !== '');
         if (subjectList.length === 0) return;
+
+        if (forceAi) {
+            setIsAiProcessing(true);
+            // Simulate AI processing time
+            await new Promise(resolve => setTimeout(resolve, 800));
+        }
 
         let shortened = false;
         if (forceAi) {
             const maxChars = 1100; // Leave room for other parts of query
+
+            // AI Logic: Extract key words instead of full sentences
+            const stopWords = new Set(['the', 'and', 'for', 'with', 'your', 'from', 'this', 'that', 'have', 'been', 'subject', 'regarding', 'about']);
+            let processedList = subjectList.map(s => {
+                const words = s.replace(/[^\w\s]/gi, ' ').split(/\s+/).filter(w =>
+                    w.length > 1 && !stopWords.has(w.toLowerCase())
+                );
+                // Take up to 3 most "significant" words (longer words or first ones)
+                return words.slice(0, 3).join(' ');
+            });
+
             let currentList: string[] = [];
-            for (const s of subjectList) {
+            for (const s of processedList) {
                 const testList = [...currentList, s];
                 if (calculateQueryLength(testList) > maxChars) {
                     shortened = true;
@@ -89,8 +107,9 @@ const GmailFilterGenerator = () => {
         const spamQuery = `in:spam (${subjectQuery}) ${unreadQuery} ${timeQuery}`.trim();
 
         setGenerated({ inbox: inboxQuery, spam: spamQuery });
-        setIsAiShortened(forceAi && shortened);
+        setIsAiShortened(forceAi);
         setShowAiWarning(forceAi && shortened);
+        setIsAiProcessing(false);
     };
 
     const copyToClipboard = (text: string, type: 'inbox' | 'spam') => {
@@ -192,16 +211,23 @@ const GmailFilterGenerator = () => {
                     <div className="flex gap-4 pt-4">
                         <button
                             onClick={() => handleGenerate(false)}
-                            className="flex-1 bg-slate-900 text-white py-4 rounded-xl font-black uppercase tracking-widest hover:bg-slate-800 transition-all shadow-[4px_4px_0px_0px_rgba(0,0,0,0.2)] active:translate-y-1 active:shadow-none flex items-center justify-center gap-2"
+                            disabled={isAiProcessing}
+                            className="flex-1 bg-slate-900 text-white py-4 rounded-xl font-black uppercase tracking-widest hover:bg-slate-800 transition-all shadow-[4px_4px_0px_0px_rgba(0,0,0,0.2)] active:translate-y-1 active:shadow-none flex items-center justify-center gap-2 disabled:opacity-50"
                         >
                             Standard Generate <Zap size={18} className="fill-current" />
                         </button>
                         {subjects.length > 1200 ? (
                             <button
                                 onClick={() => handleGenerate(true)}
-                                className="flex-1 bg-white text-indigo-600 py-4 rounded-xl font-black uppercase tracking-widest border-2 border-indigo-600 hover:bg-indigo-50 transition-all shadow-[4px_4px_0px_0px_rgba(79,70,229,0.2)] active:translate-y-1 active:shadow-none flex items-center justify-center gap-2"
+                                disabled={isAiProcessing}
+                                className="flex-1 bg-white text-indigo-600 py-4 rounded-xl font-black uppercase tracking-widest border-2 border-indigo-600 hover:bg-indigo-50 transition-all shadow-[4px_4px_0px_0px_rgba(79,70,229,0.2)] active:translate-y-1 active:shadow-none flex items-center justify-center gap-2 disabled:opacity-50"
                             >
-                                <Scissors size={18} /> AI Shorten & Generate
+                                {isAiProcessing ? (
+                                    <div className="w-5 h-5 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin"></div>
+                                ) : (
+                                    <Scissors size={18} />
+                                )}
+                                AI Shorten & Generate
                             </button>
                         ) : (
                             <button
