@@ -76,6 +76,7 @@ const allowedOrigins = [
   'http://localhost:5173',
   'http://localhost:3002',
   'https://cmhw.netlify.app',
+  'https://cmhw2.netlify.app',
 ];
 
 // Add Railway/Netlify URL if available
