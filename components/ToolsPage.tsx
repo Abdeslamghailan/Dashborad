@@ -4,6 +4,43 @@ import { Mail, Globe, Search, Copy, Download, Trash2, Check, Clock, ShieldAlert,
 import { Button } from './ui/Button';
 import { service } from '../services';
 
+const WowAnimations = () => (
+    <style dangerouslySetInnerHTML={{
+        __html: `
+    @keyframes wow-float {
+      0%, 100% { transform: translateY(0) rotate(0); }
+      50% { transform: translateY(-10px) rotate(2deg); }
+    }
+    @keyframes wow-skew-slide {
+      0% { transform: translateX(-100px) skewX(-15deg); opacity: 0; }
+      100% { transform: translateX(0) skewX(-6deg); opacity: 1; }
+    }
+    @keyframes wow-pop {
+      0% { transform: scale(0.8) rotate(-5deg); opacity: 0; }
+      70% { transform: scale(1.1) rotate(2deg); }
+      100% { transform: scale(1) rotate(-1deg); opacity: 1; }
+    }
+    @keyframes wow-pulse-shadow {
+      0%, 100% { shadow: 4px 4px 0px 0px rgba(15,23,42,1); }
+      50% { shadow: 8px 8px 0px 0px rgba(15,23,42,1); }
+    }
+    .animate-wow-float { animation: wow-float 3s ease-in-out infinite; }
+    .animate-wow-skew-slide { animation: wow-skew-slide 0.8s cubic-bezier(0.34, 1.56, 0.64, 1) forwards; }
+    .animate-wow-pop { animation: wow-pop 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) forwards; }
+    @keyframes wow-shimmer {
+      0% { background-position: -200% center; }
+      100% { background-position: 200% center; }
+    }
+    .wow-shimmer-text {
+      background: linear-gradient(90deg, #fff 0%, #fff 40%, #ffedd5 50%, #fff 60%, #fff 100%);
+      background-size: 200% auto;
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      animation: wow-shimmer 4s linear infinite;
+    }
+  `}} />
+);
+
 const GmailFilterGenerator = () => {
     const [subjects, setSubjects] = useState('');
     const [newerThan, setNewerThan] = useState('2');
@@ -40,17 +77,18 @@ const GmailFilterGenerator = () => {
 
     return (
         <div className="space-y-8 animate-in fade-in duration-500">
+            <WowAnimations />
             <div className="text-center space-y-4">
-                <div className="inline-flex items-center justify-center w-16 h-16 bg-white border-2 border-slate-900 rounded-xl shadow-[4px_4px_0px_0px_rgba(15,23,42,1)] mb-4">
+                <div className="inline-flex items-center justify-center w-16 h-16 bg-white border-2 border-slate-900 rounded-xl shadow-[4px_4px_0px_0px_rgba(15,23,42,1)] mb-4 animate-wow-float">
                     <Search className="w-8 h-8 text-slate-900" />
                 </div>
-                <div className="relative inline-block">
+                <div className="relative inline-block animate-wow-skew-slide">
                     <div className="absolute inset-0 bg-orange-500 transform -skew-x-6 translate-y-1"></div>
-                    <h1 className="relative text-4xl md:text-5xl font-black text-white px-8 py-2 italic tracking-tighter uppercase">
+                    <h1 className="relative text-4xl md:text-5xl font-black text-white px-8 py-2 italic tracking-tighter uppercase wow-shimmer-text">
                         Gmail Filter Generator
                     </h1>
                 </div>
-                <div className="flex justify-center">
+                <div className="flex justify-center animate-wow-pop" style={{ animationDelay: '0.2s' }}>
                     <div className="bg-yellow-400 border-2 border-slate-900 px-6 py-2 shadow-[4px_4px_0px_0px_rgba(15,23,42,1)] -rotate-1">
                         <p className="font-bold text-slate-900">Create powerful search queries to find recent emails.</p>
                     </div>
@@ -230,17 +268,18 @@ const DNSChecker = () => {
 
     return (
         <div className="space-y-8 animate-in fade-in duration-500">
+            <WowAnimations />
             <div className="text-center space-y-4">
-                <div className="inline-flex items-center justify-center w-16 h-16 bg-white border-2 border-slate-900 rounded-xl shadow-[4px_4px_0px_0px_rgba(15,23,42,1)] mb-4">
+                <div className="inline-flex items-center justify-center w-16 h-16 bg-white border-2 border-slate-900 rounded-xl shadow-[4px_4px_0px_0px_rgba(15,23,42,1)] mb-4 animate-wow-float">
                     <Globe className="w-8 h-8 text-slate-900" />
                 </div>
-                <div className="relative inline-block">
+                <div className="relative inline-block animate-wow-skew-slide">
                     <div className="absolute inset-0 bg-indigo-500 transform -skew-x-6 translate-y-1"></div>
-                    <h1 className="relative text-4xl md:text-5xl font-black text-white px-8 py-2 italic tracking-tighter uppercase">
+                    <h1 className="relative text-4xl md:text-5xl font-black text-white px-8 py-2 italic tracking-tighter uppercase wow-shimmer-text">
                         DNS Batch Lookup
                     </h1>
                 </div>
-                <div className="flex justify-center">
+                <div className="flex justify-center animate-wow-pop" style={{ animationDelay: '0.2s' }}>
                     <div className="bg-white border-2 border-slate-900 px-6 py-2 shadow-[4px_4px_0px_0px_rgba(15,23,42,1)] rotate-1">
                         <p className="font-bold text-slate-900">Check IPv4 and IPv6 addresses for multiple domains at once.</p>
                     </div>
