@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
+import { useAuth } from '../contexts/AuthContext';
 import { Mail, Globe, Search, Copy, Download, Trash2, Check, Clock, ShieldAlert, Zap, Scissors, Wand2, AlertTriangle, X } from 'lucide-react';
 import { Button } from './ui/Button';
 import { service } from '../services';
@@ -299,6 +300,7 @@ const GmailFilterGenerator = () => {
 };
 
 const DNSChecker = () => {
+    const { token } = useAuth();
     const [domains, setDomains] = useState('');
     const [results, setResults] = useState<Record<string, { a: string; aaaa: string }> | null>(null);
     const [loading, setLoading] = useState(false);
@@ -315,7 +317,10 @@ const DNSChecker = () => {
         try {
             const response = await fetch('/api/dashboard/dns-lookup', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
                 body: JSON.stringify({ domains: domainList })
             });
 
@@ -336,7 +341,7 @@ const DNSChecker = () => {
 
     const downloadIPs = () => {
         if (!results) return;
-        const content = Object.entries(results)
+        const content = (Object.entries(results) as [string, { a: string; aaaa: string }][])
             .map(([domain, data]) => `${domain},${data.a},${data.aaaa}`)
             .join('\n');
         const blob = new Blob([`Domain,IPv4 (A),IPv6 (AAAA)\n${content}`], { type: 'text/csv' });
@@ -430,7 +435,7 @@ const DNSChecker = () => {
                                 </tr>
                             </thead>
                             <tbody className="divide-y-2 divide-slate-50">
-                                {Object.entries(results).map(([domain, data]) => (
+                                {(Object.entries(results) as [string, { a: string; aaaa: string }][]).map(([domain, data]) => (
                                     <tr key={domain} className="hover:bg-slate-50/50 transition-colors">
                                         <td className="px-6 py-4 font-bold text-slate-700">{domain}</td>
                                         <td className="px-6 py-4 font-mono text-sm text-slate-500">{data.a}</td>
