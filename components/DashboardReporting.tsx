@@ -11,6 +11,7 @@ import {
     Zap, Eye, List, ArrowRight, FileText, FileSpreadsheet, Sparkles, Layers
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useAuth } from '../contexts/AuthContext';
 
 // --- Styles ---
 const dashboardStyles = `
@@ -1529,6 +1530,7 @@ const RawDataViewer = ({ data }: { data: any }) => {
 // --- Main Dashboard Component ---
 
 export const DashboardReporting: React.FC = () => {
+    const { token } = useAuth();
     const [rawData, setRawData] = useState<any>(null);
     const [apiResponse, setApiResponse] = useState<any>(null);
     const [isLoading, setIsLoading] = useState(true);
@@ -1581,7 +1583,11 @@ export const DashboardReporting: React.FC = () => {
                 url
             });
 
-            const response = await fetch(url);
+            const response = await fetch(url, {
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                }
+            });
             if (!response.ok) throw new Error('Failed to fetch dashboard data');
             const result = await response.json();
 

@@ -1,10 +1,44 @@
 import { Router } from 'express';
+import { authenticateToken } from '../middleware/auth';
 
 const router = Router();
 const DATA_API_URL = 'https://abdelgh9.pythonanywhere.com/api/all-data';
+const KEY_URL = 'https://abdelgh9.pythonanywhere.com/api/debug/show-key';
+
+let cachedApiKey: string | null = null;
+
+/**
+ * Fetches the API key from the debug endpoint.
+ * In a production environment, this should ideally be stored in environment variables.
+ */
+async function getApiKey() {
+  if (cachedApiKey) return cachedApiKey;
+  
+  try {
+    console.log('🔑 Fetching API key from:', KEY_URL);
+    const response = await fetch(KEY_URL);
+    const data = await response.json() as any;
+    
+    if (data.status === 'success' && data.api_key) {
+      cachedApiKey = data.api_key;
+      console.log('✅ API key retrieved successfully');
+      return cachedApiKey;
+    }
+    console.error('❌ Failed to retrieve API key from response:', data);
+  } catch (error) {
+    console.error('🔴 Error fetching API key:', error);
+  }
+  return null;
+}
+
+// Apply authentication to all dashboard routes
+router.use(authenticateToken);
 
 router.get('/all-data', async (req, res) => {
   try {
+    // Get the API key
+    const apiKey = await getApiKey();
+    
     // Extract query parameters for filtering
     const { entities, date, hours, limit } = req.query;
     
@@ -15,11 +49,17 @@ router.get('/all-data', async (req, res) => {
     if (hours) queryParams.append('hours', hours as string);
     if (limit) queryParams.append('limit', limit as string);
     
+    // Add the API key to the query parameters
+    if (apiKey) {
+      queryParams.append('api_key', apiKey);
+    }
+    
     const queryString = queryParams.toString();
     const apiUrl = queryString ? `${DATA_API_URL}?${queryString}` : DATA_API_URL;
     
-    console.log('🔄 Proxying filtered request to external API:', apiUrl);
-    console.log('📊 Filters:', { entities, date, hours, limit });
+    // Log the request (hiding the API key in logs for security)
+    const logUrl = apiUrl.replace(/api_key=[^&]+/, 'api_key=***');
+    console.log('🔄 Proxying filtered request to external API:', logUrl);
     
     const response = await fetch(apiUrl);
     
@@ -34,7 +74,6 @@ router.get('/all-data', async (req, res) => {
     
     const data = await response.json();
     console.log('✅ Successfully fetched filtered data from external API');
-    console.log('📦 Records returned:', data.record_counts || 'unknown');
     res.json(data);
   } catch (error: any) {
     console.error('🔴 Dashboard Proxy Exception:', error);
@@ -79,3 +118,4 @@ router.post('/dns-lookup', async (req, res) => {
 });
 
 export default router;
+
