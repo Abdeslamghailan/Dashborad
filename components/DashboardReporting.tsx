@@ -257,45 +257,30 @@ const MultiSelect = ({ label, options, selected, onChange, icon: Icon, align = '
     const quickSelects = getQuickSelects();
 
     return (
-        <div className="relative">
-            <motion.button
+        <div className="relative z-50">
+            <button
                 onClick={() => setIsOpen(!isOpen)}
-                whileHover={{ scale: 1.02 }}
-                whileTap={{ scale: 0.98 }}
-                className={`relative flex items-center gap-2 px-3.5 py-2.5 bg-gradient-to-br rounded-xl text-sm font-semibold transition-all duration-300 w-full justify-between group overflow-hidden ${selected.length > 0
-                    ? 'from-blue-500 to-indigo-600 text-white shadow-lg shadow-blue-500/30 hover:shadow-xl hover:shadow-blue-500/40'
-                    : 'from-white to-slate-50 border-2 border-slate-200 text-slate-700 hover:border-blue-300 hover:shadow-md'
+                className={`flex items-center gap-2 px-3 py-2 bg-white border-2 rounded-lg text-sm font-medium transition-all duration-200 w-full justify-between ${selected.length > 0
+                    ? 'border-blue-500 text-blue-600'
+                    : 'border-slate-200 text-slate-600 hover:border-blue-300'
                     }`}
             >
-                {/* Animated gradient overlay */}
-                {selected.length > 0 && (
-                    <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500"
-                        style={{ transform: 'translateX(-100%)', animation: 'shimmer 2s infinite' }} />
-                )}
-
-                <div className="flex items-center gap-2.5 overflow-hidden w-full relative z-10">
-                    <div className={`p-1.5 rounded-lg flex-shrink-0 transition-all ${selected.length > 0 ? 'bg-white/20' : 'bg-slate-100 group-hover:bg-blue-100'
-                        }`}>
-                        <Icon size={15} className={selected.length > 0 ? 'text-white' : 'text-slate-500 group-hover:text-blue-600'} />
-                    </div>
-                    <span className="truncate block w-full text-left text-xs font-bold tracking-wide">
+                <div className="flex items-center gap-2 overflow-hidden w-full">
+                    <Icon size={16} className={selected.length > 0 ? 'text-blue-500' : 'text-slate-400'} />
+                    <span className="truncate block w-full text-left text-sm">
                         {getDisplayLabel()}
                     </span>
                 </div>
-                <div className="flex items-center gap-1.5 flex-shrink-0 ml-1 relative z-10">
+                <div className="flex items-center gap-1.5 flex-shrink-0 ml-1">
                     {selected.length > 0 && selected.length < options.length && (
-                        <motion.span
-                            initial={{ scale: 0 }}
-                            animate={{ scale: 1 }}
-                            className="flex items-center justify-center min-w-[20px] h-[20px] px-1.5 text-[10px] font-black bg-white/30 backdrop-blur-sm text-white rounded-full border border-white/40"
-                        >
+                        <span className="flex items-center justify-center min-w-[20px] h-[20px] px-1.5 text-[10px] font-bold bg-blue-500 text-white rounded-full">
                             {selected.length}
-                        </motion.span>
+                        </span>
                     )}
-                    <ChevronDown size={15} className={`transition-all duration-300 ${isOpen ? 'rotate-180' : ''
-                        } ${selected.length > 0 ? 'text-white' : 'text-slate-400 group-hover:text-blue-600'}`} />
+                    <ChevronDown size={16} className={`transition-transform duration-200 ${isOpen ? 'rotate-180 text-blue-500' : 'text-slate-400'
+                        }`} />
                 </div>
-            </motion.button>
+            </button>
 
             <AnimatePresence>
                 {isOpen && (
@@ -306,7 +291,7 @@ const MultiSelect = ({ label, options, selected, onChange, icon: Icon, align = '
                             animate={{ opacity: 1, y: 0, scale: 1 }}
                             exit={{ opacity: 0, y: -15, scale: 0.92 }}
                             transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-                            className={`absolute ${align === 'right' ? 'right-0' : 'left-0'} bottom-full mb-3 w-80 bg-white border-2 border-slate-200/60 rounded-2xl shadow-2xl z-[1002] overflow-hidden`}
+                            className={`absolute ${align === 'right' ? 'right-0' : 'left-0'} top-full mt-2 w-80 bg-white border-2 border-slate-200/60 rounded-2xl shadow-2xl z-[1002] overflow-hidden`}
                         >
                             {/* Header with gradient */}
                             <div className="bg-gradient-to-r from-blue-500 to-indigo-600 p-4 text-white">
