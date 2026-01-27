@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { LayoutDashboard, LogOut, Box, Hexagon, Shield, Shuffle, Clock, Calendar, GitBranch, FileSpreadsheet, BarChart3 } from 'lucide-react';
+import { LayoutDashboard, LogOut, Box, Hexagon, Shield, Shuffle, Clock, Calendar, GitBranch, FileSpreadsheet, BarChart3, Wrench } from 'lucide-react';
 
 import { service } from '../services';
 import { Entity } from '../types';
@@ -134,7 +134,16 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
               </Link>
             )}
 
-
+            <Link
+              to="/tools"
+              className={`flex items-center gap-3 px-3 py-2 rounded-lg transition-all group ${location.pathname === '/tools'
+                ? 'bg-indigo-50 text-indigo-600'
+                : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+                }`}
+            >
+              <Wrench size={18} className={location.pathname === '/tools' ? 'text-indigo-600' : 'text-gray-400 group-hover:text-gray-600'} />
+              <span className="text-sm font-medium">Tools</span>
+            </Link>
 
             {isAdmin && (
               <Link
@@ -225,7 +234,8 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
                       location.pathname === '/team-planning' ? 'Team Planning' :
                         location.pathname === '/simulation-excel' ? 'Simulation Excel' :
                           location.pathname === '/dashboard-reporting' ? 'Dashboard Reporting' :
-                            entities.find(e => `/entity/${e.id}` === location.pathname)?.name || 'Entity Details'}
+                            location.pathname === '/tools' ? 'Tools' :
+                              entities.find(e => `/entity/${e.id}` === location.pathname)?.name || 'Entity Details'}
             </h2>
             {location.pathname !== '/' && location.pathname !== '/admin' && (
               <span className="px-2 py-1 bg-green-50 text-green-700 text-xs font-medium rounded-md border border-green-100 hidden sm:inline-block flex items-center gap-1">
@@ -258,7 +268,7 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
 
         {/* Scrollable Content */}
         <main className={`flex-1 overflow-y-auto scroll-smooth ${location.pathname === '/dashboard-reporting' ? 'p-2' : 'p-8'}`}>
-          <div className={`${location.pathname === '/proxy-partition' || location.pathname === '/dashboard-reporting' || location.pathname.startsWith('/entity/') ? 'w-full' : 'max-w-7xl mx-auto'}`}>
+          <div className={`${location.pathname === '/proxy-partition' || location.pathname === '/dashboard-reporting' || location.pathname === '/tools' || location.pathname.startsWith('/entity/') ? 'w-full' : 'max-w-7xl mx-auto'}`}>
             {children}
           </div>
         </main>

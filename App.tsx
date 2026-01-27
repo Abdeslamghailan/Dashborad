@@ -12,6 +12,7 @@ import { HistoryPage } from './components/HistoryPage';
 import { TeamPlanning } from './components/TeamPlanning';
 import { SimulationExcel } from './components/SimulationExcel';
 import { DashboardReporting } from './components/DashboardReporting';
+import { ToolsPage } from './components/ToolsPage';
 
 
 
@@ -142,6 +143,16 @@ const AppRoutes: React.FC = () => {
               <DashboardReporting />
             </Layout>
           </MailerOrAdminRoute>
+        }
+      />
+      <Route
+        path="/tools"
+        element={
+          <ProtectedRoute>
+            <Layout>
+              <ToolsPage />
+            </Layout>
+          </ProtectedRoute>
         }
       />
 

@@ -94,16 +94,24 @@ router.post('/dns-lookup', async (req, res) => {
     }
 
     const dns = await import('dns/promises');
-    const results: Record<string, string> = {};
+    const results: Record<string, { a: string; aaaa: string }> = {};
 
     await Promise.all(
       domains.map(async (domain: string) => {
+        const result = { a: 'N/A', aaaa: 'N/A' };
         try {
-          const addresses = await dns.resolve4(domain);
-          results[domain] = addresses[0] || 'N/A';
+          const aRecords = await dns.resolve4(domain);
+          result.a = aRecords[0] || 'N/A';
         } catch (error) {
-          results[domain] = 'N/A';
+          // Ignore error
         }
+        try {
+          const aaaaRecords = await dns.resolve6(domain);
+          result.aaaa = aaaaRecords[0] || 'N/A';
+        } catch (error) {
+          // Ignore error
+        }
+        results[domain] = result;
       })
     );
 
