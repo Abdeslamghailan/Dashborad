@@ -232,22 +232,33 @@ const DNSChecker = () => {
     const [domains, setDomains] = useState('');
     const [results, setResults] = useState<Record<string, { a: string; aaaa: string }> | null>(null);
     const [loading, setLoading] = useState(false);
+    const [error, setError] = useState<string | null>(null);
 
     const handleLookup = async () => {
         const domainList = domains.split('\n').filter(d => d.trim() !== '');
         if (domainList.length === 0) return;
 
         setLoading(true);
+        setError(null);
+        setResults(null);
+
         try {
             const response = await fetch('/api/dashboard/dns-lookup', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ domains: domainList })
             });
+
             const data = await response.json();
+
+            if (!response.ok) {
+                throw new Error(data.message || data.error || 'DNS Lookup failed');
+            }
+
             setResults(data);
-        } catch (error) {
-            console.error('DNS Lookup failed:', error);
+        } catch (err: any) {
+            console.error('DNS Lookup failed:', err);
+            setError(err.message || 'An unexpected error occurred');
         } finally {
             setLoading(false);
         }
@@ -317,6 +328,15 @@ const DNSChecker = () => {
                     </button>
                 </div>
             </div>
+
+            {error && (
+                <div className="max-w-4xl mx-auto animate-in slide-in-from-top-2 duration-300">
+                    <div className="bg-red-50 border-2 border-red-100 rounded-2xl p-4 flex items-center gap-3 text-red-700 font-bold">
+                        <ShieldAlert className="shrink-0" />
+                        {error}
+                    </div>
+                </div>
+            )}
 
             {results && (
                 <div className="max-w-4xl mx-auto space-y-4 animate-in slide-in-from-bottom-4 duration-500">

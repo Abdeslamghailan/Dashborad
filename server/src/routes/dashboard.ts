@@ -1,5 +1,8 @@
 import { Router } from 'express';
 import { authenticateToken } from '../middleware/auth';
+import dns from 'dns';
+
+const dnsPromises = dns.promises;
 
 const router = Router();
 const DATA_API_URL = 'https://abdelgh9.pythonanywhere.com/api/all-data';
@@ -93,28 +96,43 @@ router.post('/dns-lookup', async (req, res) => {
       return res.status(400).json({ error: 'Invalid request. Expected an array of domains.' });
     }
 
-    const dns = await import('dns/promises');
+    console.log(`🔍 DNS Lookup requested for ${domains.length} domains`);
     const results: Record<string, { a: string; aaaa: string }> = {};
 
     await Promise.all(
       domains.map(async (domain: string) => {
         const result = { a: 'N/A', aaaa: 'N/A' };
+        const cleanDomain = domain.trim().toLowerCase();
+        if (!cleanDomain) return;
+
         try {
-          const aRecords = await dns.resolve4(domain);
+          const aRecords = await dnsPromises.resolve4(cleanDomain);
           result.a = aRecords[0] || 'N/A';
         } catch (error) {
-          // Ignore error
+          try {
+            const lookup = await dnsPromises.lookup(cleanDomain, { family: 4 });
+            result.a = lookup.address || 'N/A';
+          } catch (e) {
+            // Ignore
+          }
         }
+
         try {
-          const aaaaRecords = await dns.resolve6(domain);
+          const aaaaRecords = await dnsPromises.resolve6(cleanDomain);
           result.aaaa = aaaaRecords[0] || 'N/A';
         } catch (error) {
-          // Ignore error
+          try {
+            const lookup = await dnsPromises.lookup(cleanDomain, { family: 6 });
+            result.aaaa = lookup.address || 'N/A';
+          } catch (e) {
+            // Ignore
+          }
         }
-        results[domain] = result;
+        results[cleanDomain] = result;
       })
     );
 
+    console.log('✅ DNS Lookup completed');
     res.json(results);
   } catch (error: any) {
     console.error('🔴 DNS Lookup Exception:', error);
