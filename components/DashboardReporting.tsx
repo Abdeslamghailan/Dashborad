@@ -1606,29 +1606,28 @@ export const DashboardReporting: React.FC = () => {
     }, [rawData?.spam_domains?.length, rawData?.inbox_domains?.length]);
 
     const filterOptions = useMemo(() => {
-        if (!rawData || !rawData.combined_actions) return { entities: [], hours: [], dates: [] };
-        const entities = Array.from(new Set(rawData.combined_actions.map((a: any) => a.entity))).sort() as string[];
-        const hours = Array.from(new Set(rawData.combined_actions.filter((a: any) => a.timestamp).map((a: any) => {
-            try {
-                return new Date(a.timestamp.replace(' ', 'T')).getHours().toString().padStart(2, '0');
-            } catch (e) {
-                return null;
-            }
-        }).filter(h => h !== null))).sort() as string[];
+        // 1. Generate last 7 days (Today, Yesterday, etc.)
+        const dates: string[] = [];
+        for (let i = 0; i < 7; i++) {
+            const d = new Date();
+            d.setDate(d.getDate() - i);
+            dates.push(`${d.getFullYear()}-${(d.getMonth() + 1).toString().padStart(2, '0')}-${d.getDate().toString().padStart(2, '0')}`);
+        }
 
-        const now = new Date();
-        const today = `${now.getFullYear()}-${(now.getMonth() + 1).toString().padStart(2, '0')}-${now.getDate().toString().padStart(2, '0')}`;
+        // 2. Generate entities CMH1 to CMH16
+        const entities: string[] = [];
+        for (let i = 1; i <= 16; i++) {
+            entities.push(`CMH${i}`);
+        }
 
-        let dates = Array.from(new Set(rawData.combined_actions.filter((a: any) => a.timestamp).map((a: any) => a.timestamp.split(' ')[0]))).sort().reverse() as string[];
-
-        if (!dates.includes(today)) {
-            dates = [today, ...dates];
-        } else {
-            dates = [today, ...dates.filter(d => d !== today)];
+        // 3. Generate all 24 hours
+        const hours: string[] = [];
+        for (let i = 0; i < 24; i++) {
+            hours.push(i.toString().padStart(2, '0'));
         }
 
         return { entities, hours, dates };
-    }, [rawData]);
+    }, []);
 
     // Set initial date if not set
     useEffect(() => {
