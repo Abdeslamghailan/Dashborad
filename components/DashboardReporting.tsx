@@ -1395,6 +1395,8 @@ const SessionPerformance = ({ sessions, stats }: { sessions: any[], stats: any }
 const RawDataViewer = ({ data }: { data: any }) => {
     const [activeTab, setActiveTab] = useState('spam_actions');
     const [search, setSearch] = useState('');
+    const [copiedId, setCopiedId] = useState<string | number | null>(null);
+    const [isCopyingAll, setIsCopyingAll] = useState(false);
 
     const tabs = [
         { id: 'spam_actions', label: 'Spam Actions', icon: <Zap size={14} /> },
@@ -1408,6 +1410,19 @@ const RawDataViewer = ({ data }: { data: any }) => {
         item.raw?.toLowerCase().includes(search.toLowerCase())
     );
 
+    const handleCopy = (text: string, id: string | number) => {
+        navigator.clipboard.writeText(text);
+        setCopiedId(id);
+        setTimeout(() => setCopiedId(null), 2000);
+    };
+
+    const handleCopyAll = () => {
+        const allText = filteredData.map((item: any) => item.raw).join('\n');
+        navigator.clipboard.writeText(allText);
+        setIsCopyingAll(true);
+        setTimeout(() => setIsCopyingAll(false), 2000);
+    };
+
     return (
         <div id="raw-data" className="bg-white rounded-2xl border shadow-sm overflow-hidden mb-6 scroll-mt-32">
             <div className="p-4 border-b bg-slate-50 flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -1420,15 +1435,28 @@ const RawDataViewer = ({ data }: { data: any }) => {
                         <p className="text-[10px] text-slate-500 font-medium uppercase tracking-wide">Direct API Response Logs</p>
                     </div>
                 </div>
-                <div className="relative">
-                    <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-                    <input
-                        type="text"
-                        placeholder="Search raw logs..."
-                        value={search}
-                        onChange={(e) => setSearch(e.target.value)}
-                        className="pl-9 pr-4 py-2 bg-white border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all w-full md:w-80 shadow-sm"
-                    />
+                <div className="flex items-center gap-3">
+                    <div className="relative">
+                        <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                        <input
+                            type="text"
+                            placeholder="Search raw logs..."
+                            value={search}
+                            onChange={(e) => setSearch(e.target.value)}
+                            className="pl-9 pr-4 py-2 bg-white border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all w-full md:w-64 shadow-sm"
+                        />
+                    </div>
+                    <button
+                        onClick={handleCopyAll}
+                        disabled={filteredData.length === 0}
+                        className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all ${isCopyingAll
+                                ? 'bg-green-500 text-white shadow-lg shadow-green-500/30'
+                                : 'bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 shadow-sm disabled:opacity-50'
+                            }`}
+                    >
+                        {isCopyingAll ? <Check size={14} /> : <Copy size={14} />}
+                        {isCopyingAll ? 'Copied All!' : 'Copy All'}
+                    </button>
                 </div>
             </div>
             <div className="flex border-b overflow-x-auto no-scrollbar bg-white">
@@ -1456,6 +1484,7 @@ const RawDataViewer = ({ data }: { data: any }) => {
                         <tr>
                             <th className="p-4 border-b font-black text-slate-400 uppercase tracking-wider w-16">#</th>
                             <th className="p-4 border-b font-black text-slate-400 uppercase tracking-wider">Raw Record Content (from file)</th>
+                            <th className="p-4 border-b font-black text-slate-400 uppercase tracking-wider w-20 text-center">Action</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -1463,11 +1492,23 @@ const RawDataViewer = ({ data }: { data: any }) => {
                             <tr key={idx} className="hover:bg-blue-50/30 transition-colors border-b border-slate-100 last:border-0 group">
                                 <td className="p-4 text-slate-400 font-mono group-hover:text-blue-400 transition-colors">{idx + 1}</td>
                                 <td className="p-4 text-slate-700 font-mono break-all whitespace-pre-wrap leading-relaxed">{item.raw}</td>
+                                <td className="p-4 text-center">
+                                    <button
+                                        onClick={() => handleCopy(item.raw, idx)}
+                                        className={`p-2 rounded-lg transition-all ${copiedId === idx
+                                                ? 'bg-green-100 text-green-600'
+                                                : 'bg-slate-100 text-slate-400 hover:bg-blue-100 hover:text-blue-600 opacity-0 group-hover:opacity-100'
+                                            }`}
+                                        title="Copy record"
+                                    >
+                                        {copiedId === idx ? <Check size={14} /> : <Copy size={14} />}
+                                    </button>
+                                </td>
                             </tr>
                         ))}
                         {filteredData.length === 0 && (
                             <tr>
-                                <td colSpan={2} className="p-20 text-center">
+                                <td colSpan={3} className="p-20 text-center">
                                     <div className="flex flex-col items-center gap-3">
                                         <div className="p-4 bg-slate-100 rounded-full">
                                             <Search size={24} className="text-slate-300" />
