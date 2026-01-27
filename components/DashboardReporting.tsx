@@ -1277,9 +1277,106 @@ const SessionPerformance = ({ sessions, stats }: { sessions: any[], stats: any }
 };
 
 
+
+// Raw Data Viewer Component
+const RawDataViewer = ({ data }: { data: any }) => {
+    const [activeTab, setActiveTab] = useState('spam_actions');
+    const [search, setSearch] = useState('');
+
+    const tabs = [
+        { id: 'spam_actions', label: 'Spam Actions', icon: <Zap size={14} /> },
+        { id: 'inbox_actions', label: 'Inbox Actions', icon: <Inbox size={14} /> },
+        { id: 'spam_domains', label: 'Spam Domains', icon: <Globe size={14} /> },
+        { id: 'inbox_domains', label: 'Inbox Domains', icon: <Mail size={14} /> },
+    ];
+
+    const currentData = data?.[activeTab] || [];
+    const filteredData = currentData.filter((item: any) =>
+        item.raw?.toLowerCase().includes(search.toLowerCase())
+    );
+
+    return (
+        <div id="raw-data" className="bg-white rounded-2xl border shadow-sm overflow-hidden mb-6 scroll-mt-32">
+            <div className="p-4 border-b bg-slate-50 flex flex-col md:flex-row md:items-center justify-between gap-4">
+                <div className="flex items-center gap-3">
+                    <div className="p-2 bg-slate-800 rounded-lg shadow-sm">
+                        <List size={18} className="text-white" />
+                    </div>
+                    <div>
+                        <h3 className="font-bold text-slate-900">Raw Data Records</h3>
+                        <p className="text-[10px] text-slate-500 font-medium uppercase tracking-wide">Direct API Response Logs</p>
+                    </div>
+                </div>
+                <div className="relative">
+                    <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                    <input
+                        type="text"
+                        placeholder="Search raw logs..."
+                        value={search}
+                        onChange={(e) => setSearch(e.target.value)}
+                        className="pl-9 pr-4 py-2 bg-white border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all w-full md:w-80 shadow-sm"
+                    />
+                </div>
+            </div>
+            <div className="flex border-b overflow-x-auto no-scrollbar bg-white">
+                {tabs.map(tab => (
+                    <button
+                        key={tab.id}
+                        onClick={() => setActiveTab(tab.id)}
+                        className={`px-6 py-4 text-xs font-bold flex items-center gap-2 transition-all whitespace-nowrap ${activeTab === tab.id
+                            ? 'text-blue-600 border-b-2 border-blue-600 bg-blue-50/30'
+                            : 'text-slate-500 hover:text-slate-700 hover:bg-slate-50'
+                            }`}
+                    >
+                        {tab.icon}
+                        {tab.label}
+                        <span className={`ml-1 px-2 py-0.5 rounded-full text-[10px] ${activeTab === tab.id ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-500'
+                            }`}>
+                            {data?.[tab.id]?.length || 0}
+                        </span>
+                    </button>
+                ))}
+            </div>
+            <div className="max-h-[600px] overflow-y-auto p-0 custom-scrollbar bg-slate-50/30">
+                <table className="w-full text-xs text-left border-collapse">
+                    <thead className="sticky top-0 bg-white shadow-sm z-10">
+                        <tr>
+                            <th className="p-4 border-b font-black text-slate-400 uppercase tracking-wider w-16">#</th>
+                            <th className="p-4 border-b font-black text-slate-400 uppercase tracking-wider">Raw Record Content (from file)</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {filteredData.map((item: any, idx: number) => (
+                            <tr key={idx} className="hover:bg-blue-50/30 transition-colors border-b border-slate-100 last:border-0 group">
+                                <td className="p-4 text-slate-400 font-mono group-hover:text-blue-400 transition-colors">{idx + 1}</td>
+                                <td className="p-4 text-slate-700 font-mono break-all whitespace-pre-wrap leading-relaxed">{item.raw}</td>
+                            </tr>
+                        ))}
+                        {filteredData.length === 0 && (
+                            <tr>
+                                <td colSpan={2} className="p-20 text-center">
+                                    <div className="flex flex-col items-center gap-3">
+                                        <div className="p-4 bg-slate-100 rounded-full">
+                                            <Search size={24} className="text-slate-300" />
+                                        </div>
+                                        <p className="text-sm text-slate-400 font-medium">No records found for this category</p>
+                                    </div>
+                                </td>
+                            </tr>
+                        )}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    );
+};
+
+
 // --- Main Dashboard Component ---
+
 export const DashboardReporting: React.FC = () => {
     const [rawData, setRawData] = useState<any>(null);
+    const [apiResponse, setApiResponse] = useState<any>(null);
     const [isLoading, setIsLoading] = useState(true);
     const [isRefetching, setIsRefetching] = useState(false);
     const [error, setError] = useState<string | null>(null);
@@ -1335,6 +1432,8 @@ export const DashboardReporting: React.FC = () => {
             const result = await response.json();
 
             if (!result.data) throw new Error('Invalid data format received');
+
+            setApiResponse(result.data);
 
             // Log filter info if filters were applied
             if (result.filters_applied) {
@@ -1972,6 +2071,7 @@ export const DashboardReporting: React.FC = () => {
                             { id: 'domains', label: 'Domains', icon: <Globe size={15} />, color: 'emerald' },
                             { id: 'relationships', label: 'Relationships', icon: <Network size={15} />, color: 'rose' },
                             { id: 'distribution', label: 'Distribution', icon: <TrendingUp size={15} />, color: 'cyan' },
+                            { id: 'raw-data', label: 'Raw Data', icon: <List size={15} />, color: 'slate' },
                         ].map((section) => (
                             <button
                                 key={section.id}
@@ -2259,6 +2359,11 @@ export const DashboardReporting: React.FC = () => {
                         </motion.div>
                     )}
                 </AnimatePresence>
+            </div>
+
+            {/* Raw Data Viewer Section */}
+            <div className="mt-12">
+                <RawDataViewer data={apiResponse} />
             </div>
         </div>
     );
