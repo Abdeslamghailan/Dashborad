@@ -3,6 +3,8 @@ import { Link } from 'react-router-dom';
 import { Mail, Globe, Search, Copy, Download, Trash2, Check, Clock, ShieldAlert, Zap, Scissors, Wand2, AlertTriangle, X } from 'lucide-react';
 import { Button } from './ui/Button';
 import { service } from '../services';
+import { SimulationExcel } from './SimulationExcel';
+import { FileSpreadsheet } from 'lucide-react';
 
 const WowAnimations = () => (
     <style dangerouslySetInnerHTML={{
@@ -445,7 +447,7 @@ const DNSChecker = () => {
 };
 
 export const ToolsPage: React.FC = () => {
-    const [activeTab, setActiveTab] = useState<'gFilter' | 'dns'>('gFilter');
+    const [activeTab, setActiveTab] = useState<'gFilter' | 'dns' | 'excel'>('gFilter');
 
     return (
         <div className="min-h-screen bg-slate-50/50 pb-20">
@@ -475,13 +477,22 @@ export const ToolsPage: React.FC = () => {
                             >
                                 <Globe size={16} /> DNS
                             </button>
+                            <button
+                                onClick={() => setActiveTab('excel')}
+                                className={`px-4 py-2 rounded-xl text-sm font-black uppercase tracking-widest transition-all flex items-center gap-2 ${activeTab === 'excel'
+                                    ? 'bg-emerald-500 text-white shadow-[4px_4px_0px_0px_rgba(15,23,42,1)] -translate-y-0.5'
+                                    : 'text-slate-400 hover:text-slate-600 hover:bg-slate-50'
+                                    }`}
+                            >
+                                <FileSpreadsheet size={16} /> Excel
+                            </button>
                         </nav>
                     </div>
                 </div>
             </div>
 
             <div className="max-w-7xl mx-auto px-8 py-12">
-                {activeTab === 'gFilter' ? <GmailFilterGenerator /> : <DNSChecker />}
+                {activeTab === 'gFilter' ? <GmailFilterGenerator /> : activeTab === 'dns' ? <DNSChecker /> : <SimulationExcel />}
             </div>
         </div>
     );
