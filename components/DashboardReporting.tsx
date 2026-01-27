@@ -234,18 +234,18 @@ const MultiSelect = ({ label, options, selected, onChange, icon: Icon, align = '
         <div className="relative">
             <button
                 onClick={() => setIsOpen(!isOpen)}
-                className={`flex items-center gap-2 px-3 py-2 bg-white border rounded-lg text-sm font-bold transition-all duration-200 hover:shadow-md min-w-[140px] justify-between ${selected.length > 0
+                className={`flex items-center gap-2 px-3 py-2 bg-white border rounded-lg text-sm font-bold transition-all duration-200 hover:shadow-md w-[165px] justify-between ${selected.length > 0
                     ? 'border-blue-500 bg-blue-50/30 text-blue-700 shadow-sm'
                     : 'border-slate-200 text-slate-600 hover:border-slate-300'
                     }`}
             >
-                <div className="flex items-center gap-2 overflow-hidden">
+                <div className="flex items-center gap-2 overflow-hidden w-full">
                     <div className={`p-1 rounded-md flex-shrink-0 ${selected.length > 0 ? 'bg-blue-100 text-blue-600' : 'bg-slate-100 text-slate-400'}`}>
                         <Icon size={14} />
                     </div>
-                    <span className="truncate">{getDisplayLabel()}</span>
+                    <span className="truncate block w-full text-left">{getDisplayLabel()}</span>
                 </div>
-                <div className="flex items-center gap-1.5 flex-shrink-0">
+                <div className="flex items-center gap-1 flex-shrink-0 ml-1">
                     {selected.length > 0 && selected.length < options.length && (
                         <span className="flex items-center justify-center min-w-[18px] h-[18px] px-1 text-[10px] font-black bg-blue-600 text-white rounded-full shadow-sm">
                             {selected.length}
@@ -2100,14 +2100,14 @@ export const DashboardReporting: React.FC = () => {
 
                         {/* Date Picker */}
                         <div className="relative group">
-                            <div className={`flex items-center gap-2 px-3 py-2 bg-white border rounded-lg text-sm font-bold transition-all duration-200 hover:shadow-md min-w-[140px] justify-between ${selectedDate ? 'border-blue-500 bg-blue-50/30 text-blue-700 shadow-sm' : 'border-slate-200 text-slate-600 hover:border-slate-300'
+                            <div className={`flex items-center gap-2 px-3 py-2 bg-white border rounded-lg text-sm font-bold transition-all duration-200 hover:shadow-md w-[165px] justify-between ${selectedDate ? 'border-blue-500 bg-blue-50/30 text-blue-700 shadow-sm' : 'border-slate-200 text-slate-600 hover:border-slate-300'
                                 }`}>
-                                <div className="flex items-center gap-2 overflow-hidden">
+                                <div className="flex items-center gap-2 overflow-hidden w-full">
                                     <div className={`p-1 rounded-md flex-shrink-0 ${selectedDate ? 'bg-blue-100 text-blue-600' : 'bg-slate-100 text-slate-400'}`}>
                                         <Calendar size={14} />
                                     </div>
-                                    <div className="relative flex items-center">
-                                        <span className="truncate">
+                                    <div className="relative flex items-center overflow-hidden w-full">
+                                        <span className="truncate block w-full text-left">
                                             {(() => {
                                                 const now = new Date();
                                                 const today = `${now.getFullYear()}-${(now.getMonth() + 1).toString().padStart(2, '0')}-${now.getDate().toString().padStart(2, '0')}`;
