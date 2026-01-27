@@ -62,6 +62,11 @@ const dashboardStyles = `
   .animate-pulse-subtle {
     animation: pulse-subtle 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
   }
+
+  @keyframes shimmer {
+    0% { transform: translateX(-100%); }
+    100% { transform: translateX(100%); }
+  }
 `;
 
 // API Endpoint
@@ -199,7 +204,7 @@ const MetricCard = ({ value, label, type }: { value: number; label: string; type
     </div>
 );
 
-// Multi-Select Filter
+// Multi-Select Filter - Modern & Smart
 const MultiSelect = ({ label, options, selected, onChange, icon: Icon, align = 'left' }: any) => {
     const [isOpen, setIsOpen] = useState(false);
     const [search, setSearch] = useState('');
@@ -219,109 +224,228 @@ const MultiSelect = ({ label, options, selected, onChange, icon: Icon, align = '
     const selectAll = () => onChange(options);
     const clearAll = () => onChange([]);
 
+    // Smart quick-select presets
+    const getQuickSelects = () => {
+        if (label === 'Hours') {
+            return [
+                { label: 'Morning', values: ['08', '09', '10', '11'] },
+                { label: 'Afternoon', values: ['12', '13', '14', '15', '16'] },
+                { label: 'Evening', values: ['17', '18', '19', '20', '21'] }
+            ];
+        }
+        if (label === 'Entities') {
+            return [
+                { label: 'CMH 1-5', values: ['CMH1', 'CMH2', 'CMH3', 'CMH4', 'CMH5'] },
+                { label: 'CMH 6-10', values: ['CMH6', 'CMH7', 'CMH8', 'CMH9', 'CMH10'] },
+                { label: 'CMH 11-16', values: ['CMH11', 'CMH12', 'CMH13', 'CMH14', 'CMH15', 'CMH16'] }
+            ];
+        }
+        return [];
+    };
+
     const getDisplayLabel = () => {
-        if (selected.length === 0) return label;
+        if (selected.length === 0) return `Select ${label}`;
         if (selected.length === options.length && options.length > 0) return `All ${label}`;
 
         if (selected.length <= 2) {
             return selected.map((val: string) => label === 'Hours' ? `${val}:00` : val).join(', ');
         }
 
-        return `${selected.length} ${label}`;
+        return `${selected.length} selected`;
     };
+
+    const quickSelects = getQuickSelects();
 
     return (
         <div className="relative">
-            <button
+            <motion.button
                 onClick={() => setIsOpen(!isOpen)}
-                className={`flex items-center gap-2 px-3 py-2 bg-white border rounded-lg text-sm font-bold transition-all duration-200 hover:shadow-md w-full justify-between ${selected.length > 0
-                    ? 'border-blue-500 bg-blue-50/30 text-blue-700 shadow-sm'
-                    : 'border-slate-200 text-slate-600 hover:border-slate-300'
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+                className={`relative flex items-center gap-2 px-3.5 py-2.5 bg-gradient-to-br rounded-xl text-sm font-semibold transition-all duration-300 w-full justify-between group overflow-hidden ${selected.length > 0
+                    ? 'from-blue-500 to-indigo-600 text-white shadow-lg shadow-blue-500/30 hover:shadow-xl hover:shadow-blue-500/40'
+                    : 'from-white to-slate-50 border-2 border-slate-200 text-slate-700 hover:border-blue-300 hover:shadow-md'
                     }`}
             >
-                <div className="flex items-center gap-2 overflow-hidden w-full">
-                    <div className={`p-1 rounded-md flex-shrink-0 ${selected.length > 0 ? 'bg-blue-100 text-blue-600' : 'bg-slate-100 text-slate-400'}`}>
-                        <Icon size={14} />
+                {/* Animated gradient overlay */}
+                {selected.length > 0 && (
+                    <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500"
+                        style={{ transform: 'translateX(-100%)', animation: 'shimmer 2s infinite' }} />
+                )}
+
+                <div className="flex items-center gap-2.5 overflow-hidden w-full relative z-10">
+                    <div className={`p-1.5 rounded-lg flex-shrink-0 transition-all ${selected.length > 0 ? 'bg-white/20' : 'bg-slate-100 group-hover:bg-blue-100'
+                        }`}>
+                        <Icon size={15} className={selected.length > 0 ? 'text-white' : 'text-slate-500 group-hover:text-blue-600'} />
                     </div>
-                    <span className="truncate block w-full text-left">{getDisplayLabel()}</span>
+                    <span className="truncate block w-full text-left text-xs font-bold tracking-wide">
+                        {getDisplayLabel()}
+                    </span>
                 </div>
-                <div className="flex items-center gap-1 flex-shrink-0 ml-1">
+                <div className="flex items-center gap-1.5 flex-shrink-0 ml-1 relative z-10">
                     {selected.length > 0 && selected.length < options.length && (
-                        <span className="flex items-center justify-center min-w-[18px] h-[18px] px-1 text-[10px] font-black bg-blue-600 text-white rounded-full shadow-sm">
+                        <motion.span
+                            initial={{ scale: 0 }}
+                            animate={{ scale: 1 }}
+                            className="flex items-center justify-center min-w-[20px] h-[20px] px-1.5 text-[10px] font-black bg-white/30 backdrop-blur-sm text-white rounded-full border border-white/40"
+                        >
                             {selected.length}
-                        </span>
+                        </motion.span>
                     )}
-                    <ChevronDown size={14} className={`transition-transform duration-300 ${isOpen ? 'rotate-180 text-blue-600' : 'text-slate-400'}`} />
+                    <ChevronDown size={15} className={`transition-all duration-300 ${isOpen ? 'rotate-180' : ''
+                        } ${selected.length > 0 ? 'text-white' : 'text-slate-400 group-hover:text-blue-600'}`} />
                 </div>
-            </button>
+            </motion.button>
 
             <AnimatePresence>
                 {isOpen && (
                     <>
-                        <div className="fixed inset-0 z-40" onClick={() => { setIsOpen(false); setSearch(''); }} />
+                        <div className="fixed inset-0 z-[1001] bg-black/5 backdrop-blur-[2px]" onClick={() => { setIsOpen(false); setSearch(''); }} />
                         <motion.div
-                            initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                            initial={{ opacity: 0, y: -15, scale: 0.92 }}
                             animate={{ opacity: 1, y: 0, scale: 1 }}
-                            exit={{ opacity: 0, y: 10, scale: 0.95 }}
-                            className={`absolute ${align === 'right' ? 'right-0' : 'left-0'} mt-2 w-72 bg-white border border-slate-100 rounded-2xl shadow-2xl z-50 overflow-hidden`}
+                            exit={{ opacity: 0, y: -15, scale: 0.92 }}
+                            transition={{ type: 'spring', damping: 25, stiffness: 300 }}
+                            className={`absolute ${align === 'right' ? 'right-0' : 'left-0'} bottom-full mb-3 w-80 bg-white border-2 border-slate-200/60 rounded-2xl shadow-2xl z-[1002] overflow-hidden`}
                         >
-                            <div className="p-3 bg-slate-50/50 border-b border-slate-100">
-                                <div className="relative mb-2">
-                                    <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                            {/* Header with gradient */}
+                            <div className="bg-gradient-to-r from-blue-500 to-indigo-600 p-4 text-white">
+                                <div className="flex items-center justify-between mb-3">
+                                    <div className="flex items-center gap-2">
+                                        <Icon size={18} className="text-white/90" />
+                                        <h3 className="font-bold text-sm">Select {label}</h3>
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                        <motion.button
+                                            whileHover={{ scale: 1.1 }}
+                                            whileTap={{ scale: 0.9 }}
+                                            onClick={selectAll}
+                                            className="px-2.5 py-1 bg-white/20 hover:bg-white/30 rounded-lg text-[10px] font-bold backdrop-blur-sm transition-all"
+                                        >
+                                            All
+                                        </motion.button>
+                                        <motion.button
+                                            whileHover={{ scale: 1.1 }}
+                                            whileTap={{ scale: 0.9 }}
+                                            onClick={clearAll}
+                                            className="px-2.5 py-1 bg-white/20 hover:bg-white/30 rounded-lg text-[10px] font-bold backdrop-blur-sm transition-all"
+                                        >
+                                            Clear
+                                        </motion.button>
+                                    </div>
+                                </div>
+
+                                {/* Search bar */}
+                                <div className="relative">
+                                    <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-white/60" />
                                     <input
                                         type="text"
-                                        placeholder={`Search ${label}...`}
+                                        placeholder={`Search ${label.toLowerCase()}...`}
                                         value={search}
                                         onChange={(e) => setSearch(e.target.value)}
-                                        className="w-full pl-9 pr-4 py-2 bg-white border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all"
+                                        className="w-full pl-9 pr-4 py-2 bg-white/20 backdrop-blur-sm border border-white/30 rounded-xl text-xs text-white placeholder-white/60 focus:bg-white/30 focus:border-white/50 outline-none transition-all"
                                         autoFocus
                                     />
                                 </div>
-                                <div className="flex items-center justify-between px-1">
-                                    <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Select {label}</span>
-                                    <div className="flex gap-3">
-                                        <button onClick={selectAll} className="text-[10px] font-bold text-blue-600 hover:text-blue-700 transition-colors">Select All</button>
-                                        <button onClick={clearAll} className="text-[10px] font-bold text-slate-400 hover:text-rose-500 transition-colors">Clear</button>
-                                    </div>
-                                </div>
                             </div>
 
-                            <div className="max-h-[60vh] overflow-y-auto p-1.5 no-scrollbar">
-                                {filteredOptions.length > 0 ? (
-                                    filteredOptions.map((option: string) => {
-                                        const isSelected = selected.includes(option);
-                                        return (
-                                            <button
-                                                key={option}
-                                                onClick={() => toggleOption(option)}
-                                                className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-sm transition-all group ${isSelected
-                                                    ? 'bg-blue-50 text-blue-700'
-                                                    : 'hover:bg-slate-50 text-slate-600'
-                                                    }`}
+                            {/* Quick Select Chips */}
+                            {quickSelects.length > 0 && (
+                                <div className="px-4 py-3 bg-slate-50/80 border-b border-slate-200/60">
+                                    <div className="flex items-center gap-1.5 mb-2">
+                                        <Sparkles size={12} className="text-indigo-500" />
+                                        <span className="text-[10px] font-black text-slate-500 uppercase tracking-wider">Quick Select</span>
+                                    </div>
+                                    <div className="flex flex-wrap gap-2">
+                                        {quickSelects.map((preset) => (
+                                            <motion.button
+                                                key={preset.label}
+                                                whileHover={{ scale: 1.05, y: -2 }}
+                                                whileTap={{ scale: 0.95 }}
+                                                onClick={() => onChange(preset.values)}
+                                                className="px-3 py-1.5 bg-gradient-to-r from-indigo-500 to-blue-500 text-white rounded-lg text-[11px] font-bold shadow-sm hover:shadow-md transition-all"
                                             >
-                                                <div className="flex items-center gap-3">
-                                                    <div className={`w-4 h-4 rounded border flex items-center justify-center transition-all ${isSelected ? 'bg-blue-600 border-blue-600' : 'border-slate-300 group-hover:border-blue-400'
-                                                        }`}>
-                                                        {isSelected && <Check size={10} className="text-white stroke-[4]" />}
+                                                {preset.label}
+                                            </motion.button>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Options list */}
+                            <div className="max-h-[50vh] overflow-y-auto p-2 no-scrollbar">
+                                {filteredOptions.length > 0 ? (
+                                    <div className="space-y-1">
+                                        {filteredOptions.map((option: string) => {
+                                            const isSelected = selected.includes(option);
+                                            return (
+                                                <motion.button
+                                                    key={option}
+                                                    whileHover={{ x: 4 }}
+                                                    onClick={() => toggleOption(option)}
+                                                    className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-sm transition-all group ${isSelected
+                                                        ? 'bg-gradient-to-r from-blue-50 to-indigo-50 text-blue-700 shadow-sm'
+                                                        : 'hover:bg-slate-50 text-slate-700'
+                                                        }`}
+                                                >
+                                                    <div className="flex items-center gap-3">
+                                                        <div className={`w-5 h-5 rounded-lg border-2 flex items-center justify-center transition-all ${isSelected
+                                                            ? 'bg-gradient-to-br from-blue-500 to-indigo-600 border-blue-500 shadow-sm'
+                                                            : 'border-slate-300 group-hover:border-blue-400 group-hover:bg-blue-50'
+                                                            }`}>
+                                                            {isSelected && (
+                                                                <motion.div
+                                                                    initial={{ scale: 0, rotate: -180 }}
+                                                                    animate={{ scale: 1, rotate: 0 }}
+                                                                    transition={{ type: 'spring', damping: 15 }}
+                                                                >
+                                                                    <Check size={12} className="text-white stroke-[3]" />
+                                                                </motion.div>
+                                                            )}
+                                                        </div>
+                                                        <span className={`font-semibold text-xs ${isSelected ? 'text-blue-700' : 'text-slate-700'}`}>
+                                                            {label === 'Hours' ? `${option}:00` : option}
+                                                        </span>
                                                     </div>
-                                                    <span className={isSelected ? 'font-bold' : 'font-medium'}>{option}</span>
-                                                </div>
-                                                {isSelected && (
-                                                    <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }}>
-                                                        <div className="w-1.5 h-1.5 rounded-full bg-blue-600" />
-                                                    </motion.div>
-                                                )}
-                                            </button>
-                                        );
-                                    })
+                                                    {isSelected && (
+                                                        <motion.div
+                                                            initial={{ scale: 0, rotate: -90 }}
+                                                            animate={{ scale: 1, rotate: 0 }}
+                                                            className="w-2 h-2 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 shadow-sm"
+                                                        />
+                                                    )}
+                                                </motion.button>
+                                            );
+                                        })}
+                                    </div>
                                 ) : (
-                                    <div className="py-8 text-center">
-                                        <div className="bg-slate-50 w-10 h-10 rounded-full flex items-center justify-center mx-auto mb-2">
-                                            <Search size={16} className="text-slate-300" />
-                                        </div>
-                                        <p className="text-xs text-slate-400 font-medium">No results found</p>
+                                    <div className="py-12 text-center">
+                                        <motion.div
+                                            initial={{ scale: 0 }}
+                                            animate={{ scale: 1 }}
+                                            className="bg-gradient-to-br from-slate-100 to-slate-200 w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-3 shadow-inner"
+                                        >
+                                            <Search size={24} className="text-slate-400" />
+                                        </motion.div>
+                                        <p className="text-sm text-slate-500 font-semibold">No results found</p>
+                                        <p className="text-xs text-slate-400 mt-1">Try a different search term</p>
                                     </div>
                                 )}
+                            </div>
+
+                            {/* Footer */}
+                            <div className="px-4 py-2.5 bg-slate-50/80 border-t border-slate-200/60 flex items-center justify-between">
+                                <span className="text-[10px] font-bold text-slate-500">
+                                    {selected.length} of {options.length} selected
+                                </span>
+                                <motion.button
+                                    whileHover={{ scale: 1.05 }}
+                                    whileTap={{ scale: 0.95 }}
+                                    onClick={() => { setIsOpen(false); setSearch(''); }}
+                                    className="px-3 py-1.5 bg-gradient-to-r from-blue-500 to-indigo-600 text-white rounded-lg text-[10px] font-bold shadow-sm hover:shadow-md transition-all"
+                                >
+                                    Done
+                                </motion.button>
                             </div>
                         </motion.div>
                     </>
@@ -2048,8 +2172,8 @@ export const DashboardReporting: React.FC = () => {
             <style>{dashboardStyles}</style>
 
             {/* Sticky Navigation & Filter Toolbar */}
-            <nav className="sticky top-0 z-40 bg-white/80 backdrop-blur-md border-b border-slate-200/60 transition-all duration-300">
-                <div className="max-w-[1800px] mx-auto px-4 h-14 flex items-center justify-between gap-4 flex-nowrap overflow-x-auto no-scrollbar">
+            <nav className="sticky top-0 z-[1000] bg-white/80 backdrop-blur-md border-b border-slate-200/60 transition-all duration-300">
+                <div className="max-w-[1800px] mx-auto px-4 h-14 flex items-center justify-between gap-4 flex-nowrap">
                     {/* Left: Navigation Links */}
                     <div className="flex items-center gap-1 flex-nowrap flex-shrink-0">
                         <div className="flex items-center gap-2 px-2.5 py-1.5 bg-slate-50 rounded-lg text-slate-500 mr-1">
@@ -2095,23 +2219,36 @@ export const DashboardReporting: React.FC = () => {
                             </AnimatePresence>
                         </div>
 
-                        <div className="h-8 w-px bg-slate-200 mx-1" />
+                        <div className="h-8 w-px bg-gradient-to-b from-transparent via-slate-300 to-transparent mx-1" />
 
-                        <div className="flex items-center gap-2 px-2.5 py-1.5 bg-slate-50 rounded-lg text-slate-500">
-                            <Filter size={14} className="text-slate-500" />
-                            <span className="text-[10px] font-bold uppercase tracking-wider">Filters</span>
+                        <div className="flex items-center gap-2 px-3 py-1.5 bg-gradient-to-r from-slate-50 to-slate-100 rounded-lg border border-slate-200/60 shadow-sm">
+                            <Filter size={14} className="text-indigo-500" />
+                            <span className="text-[10px] font-black uppercase tracking-wider bg-gradient-to-r from-indigo-600 to-blue-600 bg-clip-text text-transparent">Filters</span>
                         </div>
 
-                        {/* Date Picker (Fixed Width) */}
+                        {/* Date Picker (Fixed Width) - Modern Design */}
                         <div className="relative group w-[150px] flex-shrink-0">
-                            <div className={`flex items-center gap-2 px-3 py-2 bg-white border rounded-lg text-sm font-bold transition-all duration-200 hover:shadow-md w-full justify-between ${selectedDate ? 'border-blue-500 bg-blue-50/30 text-blue-700 shadow-sm' : 'border-slate-200 text-slate-600 hover:border-slate-300'
-                                }`}>
-                                <div className="flex items-center gap-2 overflow-hidden w-full">
-                                    <div className={`p-1 rounded-md flex-shrink-0 ${selectedDate ? 'bg-blue-100 text-blue-600' : 'bg-slate-100 text-slate-400'}`}>
-                                        <Calendar size={14} />
+                            <motion.div
+                                whileHover={{ scale: 1.02 }}
+                                whileTap={{ scale: 0.98 }}
+                                className={`relative flex items-center gap-2 px-3.5 py-2.5 bg-gradient-to-br rounded-xl text-sm font-semibold transition-all duration-300 w-full justify-between group overflow-hidden ${selectedDate
+                                    ? 'from-blue-500 to-indigo-600 text-white shadow-lg shadow-blue-500/30 hover:shadow-xl hover:shadow-blue-500/40'
+                                    : 'from-white to-slate-50 border-2 border-slate-200 text-slate-700 hover:border-blue-300 hover:shadow-md'
+                                    }`}
+                            >
+                                {/* Animated gradient overlay */}
+                                {selectedDate && (
+                                    <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500"
+                                        style={{ transform: 'translateX(-100%)', animation: 'shimmer 2s infinite' }} />
+                                )}
+
+                                <div className="flex items-center gap-2.5 overflow-hidden w-full relative z-10">
+                                    <div className={`p-1.5 rounded-lg flex-shrink-0 transition-all ${selectedDate ? 'bg-white/20' : 'bg-slate-100 group-hover:bg-blue-100'
+                                        }`}>
+                                        <Calendar size={15} className={selectedDate ? 'text-white' : 'text-slate-500 group-hover:text-blue-600'} />
                                     </div>
                                     <div className="relative flex items-center overflow-hidden w-full">
-                                        <span className="truncate block w-full text-left">
+                                        <span className="truncate block w-full text-left text-xs font-bold tracking-wide">
                                             {(() => {
                                                 const now = new Date();
                                                 const today = `${now.getFullYear()}-${(now.getMonth() + 1).toString().padStart(2, '0')}-${now.getDate().toString().padStart(2, '0')}`;
@@ -2121,7 +2258,7 @@ export const DashboardReporting: React.FC = () => {
 
                                                 if (selectedDate === today) return 'Today';
                                                 if (selectedDate === yesterdayStr) return 'Yesterday';
-                                                return selectedDate;
+                                                return selectedDate || 'Select Date';
                                             })()}
                                         </span>
                                         <select
@@ -2135,8 +2272,9 @@ export const DashboardReporting: React.FC = () => {
                                         </select>
                                     </div>
                                 </div>
-                                <ChevronDown size={14} className="text-slate-400 ml-1 flex-shrink-0" />
-                            </div>
+                                <ChevronDown size={15} className={`ml-1 flex-shrink-0 transition-all relative z-10 ${selectedDate ? 'text-white' : 'text-slate-400 group-hover:text-blue-600'
+                                    }`} />
+                            </motion.div>
                         </div>
 
                         <div className="w-[150px] flex-shrink-0">
@@ -2158,8 +2296,8 @@ export const DashboardReporting: React.FC = () => {
                                             initial={{ opacity: 0, scale: 0.9, x: 10 }}
                                             animate={{ opacity: 1, scale: 1, x: 0 }}
                                             exit={{ opacity: 0, scale: 0.9, x: 10 }}
-                                            whileHover={{ scale: 1.05 }}
-                                            whileTap={{ scale: 0.95 }}
+                                            whileHover={{ scale: 1.08, rotate: -5 }}
+                                            whileTap={{ scale: 0.92 }}
                                             onClick={() => {
                                                 const now = new Date();
                                                 const currentHour = now.getHours().toString().padStart(2, '0');
@@ -2168,10 +2306,12 @@ export const DashboardReporting: React.FC = () => {
                                                 setSelectedHours([currentHour]);
                                                 setSelectedDate(filterOptions.dates.includes(today) ? today : (filterOptions.dates[0] || ''));
                                             }}
-                                            className="flex items-center gap-2 px-4 py-2 bg-rose-50 text-rose-600 hover:bg-rose-100 border border-rose-200 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all duration-200 shadow-sm hover:shadow-md whitespace-nowrap"
+                                            className="relative flex items-center gap-2 px-3.5 py-2.5 bg-gradient-to-br from-rose-500 to-pink-600 text-white rounded-xl text-[10px] font-black uppercase tracking-wide transition-all duration-300 shadow-lg shadow-rose-500/30 hover:shadow-xl hover:shadow-rose-500/40 whitespace-nowrap overflow-hidden group"
                                         >
-                                            <RotateCcw size={14} className="stroke-[3]" />
-                                            Reset
+                                            <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500"
+                                                style={{ transform: 'translateX(-100%)', animation: 'shimmer 2s infinite' }} />
+                                            <RotateCcw size={13} className="stroke-[3] relative z-10" />
+                                            <span className="relative z-10">Reset</span>
                                         </motion.button>
                                     )}
                             </AnimatePresence>
