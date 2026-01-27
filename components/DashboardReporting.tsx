@@ -234,7 +234,7 @@ const MultiSelect = ({ label, options, selected, onChange, icon: Icon, align = '
         <div className="relative">
             <button
                 onClick={() => setIsOpen(!isOpen)}
-                className={`flex items-center gap-2 px-3 py-2 bg-white border rounded-lg text-sm font-bold transition-all duration-200 hover:shadow-md w-[165px] justify-between ${selected.length > 0
+                className={`flex items-center gap-2 px-3 py-2 bg-white border rounded-lg text-sm font-bold transition-all duration-200 hover:shadow-md w-full justify-between ${selected.length > 0
                     ? 'border-blue-500 bg-blue-50/30 text-blue-700 shadow-sm'
                     : 'border-slate-200 text-slate-600 hover:border-slate-300'
                     }`}
@@ -2049,58 +2049,62 @@ export const DashboardReporting: React.FC = () => {
 
             {/* Sticky Navigation & Filter Toolbar */}
             <nav className="sticky top-0 z-40 bg-white/80 backdrop-blur-md border-b border-slate-200/60 transition-all duration-300">
-                <div className="max-w-[1600px] mx-auto px-4 py-2.5 flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-                    {/* Navigation Links */}
-                    <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar">
-                        <div className="flex items-center gap-2 px-3 py-1.5 bg-slate-50 rounded-lg text-slate-500 mr-2">
+                <div className="max-w-[1800px] mx-auto px-4 h-14 flex items-center justify-between gap-4 flex-nowrap overflow-x-auto no-scrollbar">
+                    {/* Left: Navigation Links */}
+                    <div className="flex items-center gap-1 flex-nowrap flex-shrink-0">
+                        <div className="flex items-center gap-2 px-2.5 py-1.5 bg-slate-50 rounded-lg text-slate-500 mr-1">
                             <Activity size={14} className="text-blue-500" />
                             <span className="text-[10px] font-bold uppercase tracking-wider">Navigate</span>
                         </div>
                         {[
-                            { id: 'overview', label: 'Overview', icon: <PieChart size={15} />, color: 'blue' },
-                            { id: 'forms', label: 'Forms', icon: <FileText size={15} />, color: 'purple' },
-                            { id: 'actions', label: 'Actions', icon: <Zap size={15} />, color: 'amber' },
-                            { id: 'domains', label: 'Domains', icon: <Globe size={15} />, color: 'emerald' },
-                            { id: 'relationships', label: 'Relationships', icon: <Network size={15} />, color: 'rose' },
-                            { id: 'distribution', label: 'Distribution', icon: <TrendingUp size={15} />, color: 'cyan' },
-                            { id: 'raw-data', label: 'Raw Data', icon: <List size={15} />, color: 'slate' },
+                            { id: 'overview', label: 'Overview', icon: <PieChart size={14} />, color: 'blue' },
+                            { id: 'forms', label: 'Forms', icon: <FileText size={14} />, color: 'purple' },
+                            { id: 'actions', label: 'Actions', icon: <Zap size={14} />, color: 'amber' },
+                            { id: 'domains', label: 'Domains', icon: <Globe size={14} />, color: 'emerald' },
+                            { id: 'relationships', label: 'Relationships', icon: <Network size={14} />, color: 'rose' },
+                            { id: 'distribution', label: 'Distribution', icon: <TrendingUp size={14} />, color: 'cyan' },
+                            { id: 'raw-data', label: 'Raw Data', icon: <List size={14} />, color: 'slate' },
                         ].map((section) => (
                             <button
                                 key={section.id}
                                 onClick={() => document.getElementById(section.id)?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
-                                className={`px-3 py-1.5 text-xs font-semibold text-slate-600 hover:text-${section.color}-600 hover:bg-${section.color}-50/50 rounded-lg transition-all duration-200 flex items-center gap-2 whitespace-nowrap group`}
+                                className={`px-2.5 py-1.5 text-[11px] font-bold text-slate-600 hover:text-${section.color}-600 hover:bg-${section.color}-50/50 rounded-lg transition-all duration-200 flex items-center gap-1.5 whitespace-nowrap group`}
                             >
                                 <span className={`text-${section.color}-500 group-hover:text-${section.color}-600 transition-colors`}>{section.icon}</span>
                                 {section.label}
                             </button>
                         ))}
-
-                        {/* Refetching Indicator - Moved here to prevent shifting */}
-                        <AnimatePresence>
-                            {isRefetching && (
-                                <motion.div
-                                    initial={{ opacity: 0, x: -10 }}
-                                    animate={{ opacity: 1, x: 0 }}
-                                    exit={{ opacity: 0, x: -10 }}
-                                    className="flex items-center gap-2 px-3 py-1.5 bg-blue-50 rounded-lg text-blue-600 ml-2"
-                                >
-                                    <RefreshCw size={14} className="animate-spin" />
-                                    <span className="text-[10px] font-bold uppercase tracking-wider">Updating...</span>
-                                </motion.div>
-                            )}
-                        </AnimatePresence>
                     </div>
 
-                    {/* Sticky Filters */}
-                    <div className="flex flex-wrap items-center gap-3 pl-4 lg:border-l border-slate-200">
-                        <div className="flex items-center gap-2 px-3 py-1.5 bg-slate-50 rounded-lg text-slate-500 mr-1">
+                    {/* Right: Filters & Reset */}
+                    <div className="flex items-center gap-3 flex-nowrap flex-shrink-0">
+                        {/* Updating Indicator (Fixed Width to prevent jump) */}
+                        <div className="w-24 flex justify-end">
+                            <AnimatePresence>
+                                {isRefetching && (
+                                    <motion.div
+                                        initial={{ opacity: 0, x: 5 }}
+                                        animate={{ opacity: 1, x: 0 }}
+                                        exit={{ opacity: 0, x: 5 }}
+                                        className="flex items-center gap-1.5 text-blue-600"
+                                    >
+                                        <RefreshCw size={12} className="animate-spin" />
+                                        <span className="text-[9px] font-black uppercase tracking-tighter">Updating</span>
+                                    </motion.div>
+                                )}
+                            </AnimatePresence>
+                        </div>
+
+                        <div className="h-8 w-px bg-slate-200 mx-1" />
+
+                        <div className="flex items-center gap-2 px-2.5 py-1.5 bg-slate-50 rounded-lg text-slate-500">
                             <Filter size={14} className="text-slate-500" />
                             <span className="text-[10px] font-bold uppercase tracking-wider">Filters</span>
                         </div>
 
-                        {/* Date Picker */}
-                        <div className="relative group">
-                            <div className={`flex items-center gap-2 px-3 py-2 bg-white border rounded-lg text-sm font-bold transition-all duration-200 hover:shadow-md w-[165px] justify-between ${selectedDate ? 'border-blue-500 bg-blue-50/30 text-blue-700 shadow-sm' : 'border-slate-200 text-slate-600 hover:border-slate-300'
+                        {/* Date Picker (Fixed Width) */}
+                        <div className="relative group w-[150px] flex-shrink-0">
+                            <div className={`flex items-center gap-2 px-3 py-2 bg-white border rounded-lg text-sm font-bold transition-all duration-200 hover:shadow-md w-full justify-between ${selectedDate ? 'border-blue-500 bg-blue-50/30 text-blue-700 shadow-sm' : 'border-slate-200 text-slate-600 hover:border-slate-300'
                                 }`}>
                                 <div className="flex items-center gap-2 overflow-hidden w-full">
                                     <div className={`p-1 rounded-md flex-shrink-0 ${selectedDate ? 'bg-blue-100 text-blue-600' : 'bg-slate-100 text-slate-400'}`}>
@@ -2135,34 +2139,43 @@ export const DashboardReporting: React.FC = () => {
                             </div>
                         </div>
 
-                        <MultiSelect label="Entities" options={filterOptions.entities} selected={selectedEntities} onChange={setSelectedEntities} icon={Box} />
-                        <MultiSelect label="Hours" options={filterOptions.hours} selected={selectedHours} onChange={setSelectedHours} icon={Clock} align="right" />
+                        <div className="w-[150px] flex-shrink-0">
+                            <MultiSelect label="Entities" options={filterOptions.entities} selected={selectedEntities} onChange={setSelectedEntities} icon={Box} />
+                        </div>
+                        <div className="w-[150px] flex-shrink-0">
+                            <MultiSelect label="Hours" options={filterOptions.hours} selected={selectedHours} onChange={setSelectedHours} icon={Clock} align="right" />
+                        </div>
 
-                        {/* Reset Button */}
-                        {(selectedEntities.length > 0 || selectedHours.length !== 1 || selectedHours[0] !== new Date().getHours().toString().padStart(2, '0') || (selectedDate && selectedDate !== (() => {
-                            const now = new Date();
-                            const today = `${now.getFullYear()}-${(now.getMonth() + 1).toString().padStart(2, '0')}-${now.getDate().toString().padStart(2, '0')}`;
-                            return filterOptions.dates.includes(today) ? today : filterOptions.dates[0];
-                        })())) && (
-                                <motion.button
-                                    initial={{ opacity: 0, scale: 0.9, x: 10 }}
-                                    animate={{ opacity: 1, scale: 1, x: 0 }}
-                                    whileHover={{ scale: 1.05 }}
-                                    whileTap={{ scale: 0.95 }}
-                                    onClick={() => {
-                                        const now = new Date();
-                                        const currentHour = now.getHours().toString().padStart(2, '0');
-                                        const today = `${now.getFullYear()}-${(now.getMonth() + 1).toString().padStart(2, '0')}-${now.getDate().toString().padStart(2, '0')}`;
-                                        setSelectedEntities([]);
-                                        setSelectedHours([currentHour]);
-                                        setSelectedDate(filterOptions.dates.includes(today) ? today : (filterOptions.dates[0] || ''));
-                                    }}
-                                    className="flex items-center gap-2 px-4 py-2 bg-rose-50 text-rose-600 hover:bg-rose-100 border border-rose-200 rounded-lg text-xs font-black uppercase tracking-widest transition-all duration-200 shadow-sm hover:shadow-md"
-                                >
-                                    <RotateCcw size={14} className="stroke-[3]" />
-                                    Reset
-                                </motion.button>
-                            )}
+                        {/* Reset Button Container (Fixed Width to prevent jump) */}
+                        <div className="w-28 flex justify-end">
+                            <AnimatePresence>
+                                {(selectedEntities.length > 0 || selectedHours.length !== 1 || selectedHours[0] !== new Date().getHours().toString().padStart(2, '0') || (selectedDate && selectedDate !== (() => {
+                                    const now = new Date();
+                                    const today = `${now.getFullYear()}-${(now.getMonth() + 1).toString().padStart(2, '0')}-${now.getDate().toString().padStart(2, '0')}`;
+                                    return filterOptions.dates.includes(today) ? today : filterOptions.dates[0];
+                                })())) && (
+                                        <motion.button
+                                            initial={{ opacity: 0, scale: 0.9, x: 10 }}
+                                            animate={{ opacity: 1, scale: 1, x: 0 }}
+                                            exit={{ opacity: 0, scale: 0.9, x: 10 }}
+                                            whileHover={{ scale: 1.05 }}
+                                            whileTap={{ scale: 0.95 }}
+                                            onClick={() => {
+                                                const now = new Date();
+                                                const currentHour = now.getHours().toString().padStart(2, '0');
+                                                const today = `${now.getFullYear()}-${(now.getMonth() + 1).toString().padStart(2, '0')}-${now.getDate().toString().padStart(2, '0')}`;
+                                                setSelectedEntities([]);
+                                                setSelectedHours([currentHour]);
+                                                setSelectedDate(filterOptions.dates.includes(today) ? today : (filterOptions.dates[0] || ''));
+                                            }}
+                                            className="flex items-center gap-2 px-4 py-2 bg-rose-50 text-rose-600 hover:bg-rose-100 border border-rose-200 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all duration-200 shadow-sm hover:shadow-md whitespace-nowrap"
+                                        >
+                                            <RotateCcw size={14} className="stroke-[3]" />
+                                            Reset
+                                        </motion.button>
+                                    )}
+                            </AnimatePresence>
+                        </div>
                     </div>
                 </div>
             </nav>
