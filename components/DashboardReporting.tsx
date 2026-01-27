@@ -1450,8 +1450,8 @@ const RawDataViewer = ({ data }: { data: any }) => {
                         onClick={handleCopyAll}
                         disabled={filteredData.length === 0}
                         className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all ${isCopyingAll
-                                ? 'bg-green-500 text-white shadow-lg shadow-green-500/30'
-                                : 'bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 shadow-sm disabled:opacity-50'
+                            ? 'bg-green-500 text-white shadow-lg shadow-green-500/30'
+                            : 'bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 shadow-sm disabled:opacity-50'
                             }`}
                     >
                         {isCopyingAll ? <Check size={14} /> : <Copy size={14} />}
@@ -1496,8 +1496,8 @@ const RawDataViewer = ({ data }: { data: any }) => {
                                     <button
                                         onClick={() => handleCopy(item.raw, idx)}
                                         className={`p-2 rounded-lg transition-all ${copiedId === idx
-                                                ? 'bg-green-100 text-green-600'
-                                                : 'bg-slate-100 text-slate-400 hover:bg-blue-100 hover:text-blue-600 opacity-0 group-hover:opacity-100'
+                                            ? 'bg-green-100 text-green-600'
+                                            : 'bg-slate-100 text-slate-400 hover:bg-blue-100 hover:text-blue-600 opacity-0 group-hover:opacity-100'
                                             }`}
                                         title="Copy record"
                                     >
@@ -1568,8 +1568,8 @@ export const DashboardReporting: React.FC = () => {
             }
 
             // Add safety limit to prevent timeout on very large datasets
-            // Reduced to 1000 for faster loading (increase after adding database indexes)
-            params.append('limit', '1000');
+            // Increased to 10000 to show more records as requested
+            params.append('limit', '10000');
 
             const queryString = params.toString();
             const url = queryString ? `${DATA_API_URL}?${queryString}` : DATA_API_URL;
