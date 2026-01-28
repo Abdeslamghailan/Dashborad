@@ -519,7 +519,7 @@ export const ToolsPage: React.FC = () => {
                 </div>
             </div>
 
-            <div className="max-w-7xl mx-auto px-8 py-12">
+            <div className="max-w-7xl mx-auto px-8 pt-4 pb-12">
                 {activeTab === 'gFilter' ? <GmailFilterGenerator /> : activeTab === 'dns' ? <DNSChecker /> : <SimulationExcel />}
             </div>
         </div>
