@@ -11,6 +11,7 @@ import {
 import { Button } from './ui/Button';
 import { service } from '../services';
 import { Entity } from '../types';
+import { useAuth } from '../contexts/AuthContext';
 
 // --- Types ---
 type SubTab = 'analyzer' | 'consumption' | 'recheck';
@@ -50,6 +51,7 @@ const SectionTitle = ({ children, icon: Icon, color = "text-slate-900" }: { chil
 // --- Main Component ---
 
 export const ReporterHelper: React.FC = () => {
+    const { isAdmin } = useAuth();
     const [activeSubTab, setActiveSubTab] = useState<SubTab>('analyzer');
     const [entities, setEntities] = useState<Entity[]>([]);
     const [isLoading, setIsLoading] = useState(false);
@@ -143,7 +145,7 @@ export const ReporterHelper: React.FC = () => {
                 ...selectedEntity!,
                 botConfig: { token: botToken, chatId: chatId }
             };
-            await service.updateEntity(selectedEntityId, updatedEntity);
+            await service.saveEntity(updatedEntity as any);
             setEntities(prev => prev.map(e => e.id === selectedEntityId ? updatedEntity as any : e));
             alert('Bot configuration saved successfully!');
         } catch (err) {
@@ -377,13 +379,13 @@ export const ReporterHelper: React.FC = () => {
                                         <Card key={status} className="border-t-4 border-t-indigo-500">
                                             <div className="flex justify-between items-center mb-4">
                                                 <h4 className="font-black text-slate-800 uppercase tracking-tight">{status}</h4>
-                                                <span className="bg-indigo-100 text-indigo-600 px-2 py-1 rounded-lg text-xs font-black">{items.length}</span>
+                                                <span className="bg-indigo-100 text-indigo-600 px-2 py-1 rounded-lg text-xs font-black">{(items as BlockedEmail[]).length}</span>
                                             </div>
                                             <div className="h-48 overflow-y-auto bg-slate-50 rounded-xl p-3 font-mono text-[10px] text-slate-500 space-y-1 mb-4">
-                                                {items.map((it, idx) => <div key={idx}>{it.email}</div>)}
+                                                {(items as BlockedEmail[]).map((it, idx) => <div key={idx}>{it.email}</div>)}
                                             </div>
                                             <button
-                                                onClick={() => copyToClipboard(items.map(it => it.email).join('\n'), `${status} list`)}
+                                                onClick={() => copyToClipboard((items as BlockedEmail[]).map(it => it.email).join('\n'), `${status} list`)}
                                                 className="w-full py-2 bg-slate-900 text-white rounded-lg text-[10px] font-black uppercase flex items-center justify-center gap-2 hover:bg-slate-800 transition-all"
                                             >
                                                 <Copy size={12} /> Copy List
@@ -444,8 +446,9 @@ export const ReporterHelper: React.FC = () => {
                                                 type="password"
                                                 value={botToken}
                                                 onChange={(e) => setBotToken(e.target.value)}
-                                                placeholder="7798410..."
-                                                className="w-full p-3 bg-slate-50 border-2 border-slate-100 rounded-xl text-xs font-mono focus:border-indigo-500 outline-none"
+                                                disabled={!isAdmin}
+                                                placeholder={isAdmin ? "7798410..." : "Configured by Admin"}
+                                                className="w-full p-3 bg-slate-50 border-2 border-slate-100 rounded-xl text-xs font-mono focus:border-indigo-500 outline-none disabled:bg-slate-100 disabled:cursor-not-allowed"
                                             />
                                         </div>
                                         <div className="space-y-1">
@@ -455,17 +458,20 @@ export const ReporterHelper: React.FC = () => {
                                                     type="text"
                                                     value={chatId}
                                                     onChange={(e) => setChatId(e.target.value)}
-                                                    placeholder="-100..."
-                                                    className="w-full p-3 bg-slate-50 border-2 border-slate-100 rounded-xl text-xs font-mono focus:border-indigo-500 outline-none"
+                                                    disabled={!isAdmin}
+                                                    placeholder={isAdmin ? "-100..." : "Configured by Admin"}
+                                                    className="w-full p-3 bg-slate-50 border-2 border-slate-100 rounded-xl text-xs font-mono focus:border-indigo-500 outline-none disabled:bg-slate-100 disabled:cursor-not-allowed"
                                                 />
-                                                <button
-                                                    onClick={handleSaveBotConfig}
-                                                    disabled={!selectedEntityId || isSavingConfig}
-                                                    className="p-3 bg-slate-900 text-white rounded-xl hover:bg-slate-800 transition-all disabled:opacity-50"
-                                                    title="Save Config"
-                                                >
-                                                    <Save size={18} />
-                                                </button>
+                                                {isAdmin && (
+                                                    <button
+                                                        onClick={handleSaveBotConfig}
+                                                        disabled={!selectedEntityId || isSavingConfig}
+                                                        className="p-3 bg-slate-900 text-white rounded-xl hover:bg-slate-800 transition-all disabled:opacity-50"
+                                                        title="Save Config"
+                                                    >
+                                                        <Save size={18} />
+                                                    </button>
+                                                )}
                                             </div>
                                         </div>
                                     </div>
@@ -649,7 +655,7 @@ export const ReporterHelper: React.FC = () => {
                                                     {session}
                                                 </h4>
                                                 <span className="bg-red-500 text-white px-2 py-1 rounded-full text-[10px] font-black">
-                                                    {chunks.flat().length}
+                                                    {(chunks as string[][]).flat().length}
                                                 </span>
                                             </div>
 
@@ -676,7 +682,7 @@ export const ReporterHelper: React.FC = () => {
                                                     <Copy size={14} /> Copy Current Group
                                                 </button>
                                                 <button
-                                                    onClick={() => copyToClipboard(chunks.flat().join('\n'), 'All intervals')}
+                                                    onClick={() => copyToClipboard((chunks as string[][]).flat().join('\n'), 'All intervals')}
                                                     className="w-full py-3 bg-red-600 text-white rounded-xl text-[10px] font-black uppercase flex items-center justify-center gap-2 hover:bg-red-700 transition-all shadow-md shadow-red-100"
                                                 >
                                                     <Copy size={14} /> Copy All Intervals
