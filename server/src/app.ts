@@ -16,6 +16,7 @@ import dayplanRoutes from './routes/dayplan';
 import scriptsRoutes from './routes/scripts';
 import methodsRoutes from './routes/methods';
 import dashboardRoutes from './routes/dashboard';
+import reporterRoutes from './routes/reporter';
 import prisma from './db';
 import { initBackupService } from './services/backupService';
 import { logger } from './utils/logger.js';
@@ -136,6 +137,7 @@ app.use('/api/dayplan', dayplanRoutes);
 app.use('/api/scripts', scriptsRoutes);
 app.use('/api/methods', methodsRoutes);
 app.use('/api/dashboard', dashboardRoutes);
+app.use('/api/reporter', reporterRoutes);
 
 // Health check
 app.get('/api/health', async (req, res) => {

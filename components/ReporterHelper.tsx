@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import {
     BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
     PieChart, Pie, Cell
@@ -6,9 +6,11 @@ import {
 import {
     ShieldAlert, Activity, RefreshCw, FileText, Download, Trash2, Copy, Check,
     ChevronLeft, ChevronRight, LayoutDashboard, PieChart as PieIcon, List,
-    ClipboardList, Send, Trash
+    ClipboardList, Send, Trash, Globe, Settings, Save, AlertCircle
 } from 'lucide-react';
 import { Button } from './ui/Button';
+import { service } from '../services';
+import { Entity } from '../types';
 
 // --- Types ---
 type SubTab = 'analyzer' | 'consumption' | 'recheck';
@@ -49,6 +51,25 @@ const SectionTitle = ({ children, icon: Icon, color = "text-slate-900" }: { chil
 
 export const ReporterHelper: React.FC = () => {
     const [activeSubTab, setActiveSubTab] = useState<SubTab>('analyzer');
+    const [entities, setEntities] = useState<Entity[]>([]);
+    const [isLoading, setIsLoading] = useState(false);
+
+    useEffect(() => {
+        const loadEntities = async () => {
+            try {
+                const data = await service.getEntities();
+                setEntities(data);
+            } catch (err) {
+                console.error('Failed to load entities:', err);
+            }
+        };
+        loadEntities();
+    }, []);
+
+    const copyToClipboard = (text: string, label: string) => {
+        navigator.clipboard.writeText(text);
+        alert(`${label} copied to clipboard!`);
+    };
 
     // --- Feature 1: Analyzer State ---
     const [analyzerInput, setAnalyzerInput] = useState('');
@@ -57,7 +78,6 @@ export const ReporterHelper: React.FC = () => {
     const handleAnalyze = () => {
         const lines = analyzerInput.split('\n').filter(l => l.trim());
         const parsed: BlockedEmail[] = lines.map(line => {
-            // "CMH1_P_IP_5,2704,Disconnected,tranxuanduc366@gmail.com,tranxuanduc366@gmail.com ,27-01-2026 11-5"
             const parts = line.split(',').map(p => p.trim().replace(/"/g, ''));
             return {
                 session: parts[0] || 'Unknown',
@@ -77,18 +97,62 @@ export const ReporterHelper: React.FC = () => {
             groups[item.status].push(item);
         });
 
+        const total = analyzerResults.length;
         const chartData = Object.entries(groups).map(([name, items]) => ({
             name,
-            value: items.length
+            value: items.length,
+            percentage: total > 0 ? ((items.length / total) * 100).toFixed(1) : '0'
         }));
 
-        return { groups, chartData, total: analyzerResults.length };
+        return { groups, chartData, total };
     }, [analyzerResults]);
 
     // --- Feature 2: Consumption State ---
+    const [selectedEntityId, setSelectedEntityId] = useState<string>('');
+    const [selectedCategoryId, setSelectedCategoryId] = useState<string>('');
     const [consumptionSeeds, setConsumptionSeeds] = useState('');
     const [consumptionMailboxes, setConsumptionMailboxes] = useState('');
     const [consumptionResults, setConsumptionResults] = useState<ConsumptionData[]>([]);
+
+    const [botToken, setBotToken] = useState('');
+    const [chatId, setChatId] = useState('');
+    const [isSavingConfig, setIsSavingConfig] = useState(false);
+
+    const selectedEntity = useMemo(() =>
+        entities.find(e => e.id === selectedEntityId),
+        [entities, selectedEntityId]);
+
+    const categories = useMemo(() =>
+        selectedEntity?.reporting?.parentCategories || [],
+        [selectedEntity]);
+
+    useEffect(() => {
+        if (selectedEntity) {
+            // @ts-ignore
+            setBotToken(selectedEntity.botConfig?.token || '');
+            // @ts-ignore
+            setChatId(selectedEntity.botConfig?.chatId || '');
+        }
+    }, [selectedEntity]);
+
+    const handleSaveBotConfig = async () => {
+        if (!selectedEntityId) return;
+        setIsSavingConfig(true);
+        try {
+            const updatedEntity = {
+                ...selectedEntity!,
+                botConfig: { token: botToken, chatId: chatId }
+            };
+            await service.updateEntity(selectedEntityId, updatedEntity);
+            setEntities(prev => prev.map(e => e.id === selectedEntityId ? updatedEntity as any : e));
+            alert('Bot configuration saved successfully!');
+        } catch (err) {
+            console.error('Failed to save bot config:', err);
+            alert('Failed to save bot configuration');
+        } finally {
+            setIsSavingConfig(false);
+        }
+    };
 
     const handleGenerateConsumption = () => {
         const seedsLines = consumptionSeeds.split('\n').filter(l => l.trim());
@@ -99,10 +163,10 @@ export const ReporterHelper: React.FC = () => {
             const mbVal = parseInt(mailboxLines[index]) || 0;
             return {
                 drop: `Drop ${index + 1}`,
-                seedsActive: mbVal, // Based on image logic: mbVal is active seeds
+                seedsActive: mbVal,
                 seedsBlocked: Math.max(0, seedVal - mbVal),
                 mailboxesActive: mbVal,
-                mailboxesDropped: 0, // Placeholder
+                mailboxesDropped: 0,
                 sessionsOut: '0'
             };
         });
@@ -116,6 +180,43 @@ export const ReporterHelper: React.FC = () => {
             blocked: acc.blocked + curr.seedsBlocked
         }), { total: 0, active: 0, blocked: 0 });
     }, [consumptionResults]);
+
+    const handleSendToBot = async () => {
+        if (!botToken || !chatId) {
+            alert('Please configure Bot Token and Chat ID first');
+            return;
+        }
+
+        const categoryName = categories.find(c => c.id === selectedCategoryId)?.name || 'General';
+        const entityName = selectedEntity?.name || 'Unknown Entity';
+
+        let htmlReport = `<b>📊 CONSUMPTION REPORT: ${entityName}</b>\n`;
+        htmlReport += `📂 Category: ${categoryName}\n`;
+        htmlReport += `📅 Date: ${new Date().toLocaleDateString()}\n\n`;
+
+        htmlReport += `<b>OVERVIEW:</b>\n`;
+        htmlReport += `• Total Consumed: ${consumptionTotals.total}\n`;
+        htmlReport += `• Active Seeds: ${consumptionTotals.active}\n`;
+        htmlReport += `• Blocked Seeds: ${consumptionTotals.blocked}\n\n`;
+
+        htmlReport += `<b>DETAILED DATA:</b>\n`;
+        consumptionResults.forEach(res => {
+            htmlReport += `• ${res.drop}: ${res.seedsActive} Active | ${res.seedsBlocked} Blocked\n`;
+        });
+
+        try {
+            const response = await fetch('/api/reporter/send-to-bot', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${localStorage.getItem('token')}` },
+                body: JSON.stringify({ entityId: selectedEntityId, htmlReport, botToken, chatId })
+            });
+            const data = await response.json();
+            if (data.success) alert('Report sent to Telegram!');
+            else throw new Error(data.error);
+        } catch (err: any) {
+            alert(`Failed to send report: ${err.message}`);
+        }
+    };
 
     // --- Feature 3: Recheck State ---
     const [recheckInput, setRecheckInput] = useState('');
@@ -179,7 +280,6 @@ export const ReporterHelper: React.FC = () => {
                 >
                     <RefreshCw size={18} /> Recheck Blocked Emails
                 </button>
-                <div className="h-10 w-px bg-slate-200 mx-2"></div>
             </div>
 
             {/* Content Area */}
@@ -224,8 +324,19 @@ export const ReporterHelper: React.FC = () => {
                                                             <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                                                         ))}
                                                     </Pie>
-                                                    <Tooltip />
-                                                    <Legend verticalAlign="middle" align="right" layout="vertical" />
+                                                    <Tooltip
+                                                        formatter={(value: number, name: string, props: any) => [`${value} (${props.payload.percentage}%)`, name]}
+                                                    />
+                                                    <Legend
+                                                        verticalAlign="middle"
+                                                        align="right"
+                                                        layout="vertical"
+                                                        formatter={(value: string, entry: any) => (
+                                                            <span className="text-xs font-bold text-slate-600">
+                                                                {value}: {entry.payload.percentage}%
+                                                            </span>
+                                                        )}
+                                                    />
                                                 </PieChart>
                                             </ResponsiveContainer>
                                             <div className="text-center px-8 border-l-2 border-slate-50">
@@ -240,7 +351,10 @@ export const ReporterHelper: React.FC = () => {
                                             <SectionTitle icon={List} color="text-indigo-600">All Blocked Emails</SectionTitle>
                                             <div className="flex gap-2">
                                                 <span className="bg-indigo-600 text-white px-3 py-1 rounded-full text-[10px] font-black">{analyzerResults.length}</span>
-                                                <button className="bg-red-500 text-white px-3 py-1 rounded-lg text-[10px] font-black uppercase flex items-center gap-1">
+                                                <button
+                                                    onClick={() => copyToClipboard(analyzerResults.map(r => r.email).join('\n'), 'All emails')}
+                                                    className="bg-red-500 text-white px-3 py-1 rounded-lg text-[10px] font-black uppercase flex items-center gap-1 hover:bg-red-600 transition-all"
+                                                >
                                                     <Copy size={12} /> Copy All
                                                 </button>
                                             </div>
@@ -268,7 +382,10 @@ export const ReporterHelper: React.FC = () => {
                                             <div className="h-48 overflow-y-auto bg-slate-50 rounded-xl p-3 font-mono text-[10px] text-slate-500 space-y-1 mb-4">
                                                 {items.map((it, idx) => <div key={idx}>{it.email}</div>)}
                                             </div>
-                                            <button className="w-full py-2 bg-slate-900 text-white rounded-lg text-[10px] font-black uppercase flex items-center justify-center gap-2 hover:bg-slate-800 transition-all">
+                                            <button
+                                                onClick={() => copyToClipboard(items.map(it => it.email).join('\n'), `${status} list`)}
+                                                className="w-full py-2 bg-slate-900 text-white rounded-lg text-[10px] font-black uppercase flex items-center justify-center gap-2 hover:bg-slate-800 transition-all"
+                                            >
                                                 <Copy size={12} /> Copy List
                                             </button>
                                         </Card>
@@ -285,6 +402,74 @@ export const ReporterHelper: React.FC = () => {
                             <div className="text-center mb-8">
                                 <h2 className="text-2xl font-black text-indigo-600 uppercase italic tracking-tighter">Consumption Report Generator</h2>
                                 <p className="text-xs font-bold text-slate-400">{new Date().toLocaleDateString()}</p>
+                            </div>
+
+                            {/* Filters & Config */}
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
+                                <div className="space-y-4">
+                                    <SectionTitle icon={Settings} color="text-slate-600">Report Context</SectionTitle>
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <div className="space-y-1">
+                                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Select Entity</label>
+                                            <select
+                                                value={selectedEntityId}
+                                                onChange={(e) => setSelectedEntityId(e.target.value)}
+                                                className="w-full p-3 bg-slate-50 border-2 border-slate-100 rounded-xl text-sm font-bold text-slate-700 focus:border-indigo-500 outline-none"
+                                            >
+                                                <option value="">Choose Entity...</option>
+                                                {entities.map(e => <option key={e.id} value={e.id}>{e.name}</option>)}
+                                            </select>
+                                        </div>
+                                        <div className="space-y-1">
+                                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Select Category</label>
+                                            <select
+                                                value={selectedCategoryId}
+                                                onChange={(e) => setSelectedCategoryId(e.target.value)}
+                                                disabled={!selectedEntityId}
+                                                className="w-full p-3 bg-slate-50 border-2 border-slate-100 rounded-xl text-sm font-bold text-slate-700 focus:border-indigo-500 outline-none disabled:opacity-50"
+                                            >
+                                                <option value="">Choose Category...</option>
+                                                {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                                            </select>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div className="space-y-4">
+                                    <SectionTitle icon={Globe} color="text-slate-600">Bot Configuration</SectionTitle>
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <div className="space-y-1">
+                                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Bot Token</label>
+                                            <input
+                                                type="password"
+                                                value={botToken}
+                                                onChange={(e) => setBotToken(e.target.value)}
+                                                placeholder="7798410..."
+                                                className="w-full p-3 bg-slate-50 border-2 border-slate-100 rounded-xl text-xs font-mono focus:border-indigo-500 outline-none"
+                                            />
+                                        </div>
+                                        <div className="space-y-1">
+                                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Chat ID</label>
+                                            <div className="flex gap-2">
+                                                <input
+                                                    type="text"
+                                                    value={chatId}
+                                                    onChange={(e) => setChatId(e.target.value)}
+                                                    placeholder="-100..."
+                                                    className="w-full p-3 bg-slate-50 border-2 border-slate-100 rounded-xl text-xs font-mono focus:border-indigo-500 outline-none"
+                                                />
+                                                <button
+                                                    onClick={handleSaveBotConfig}
+                                                    disabled={!selectedEntityId || isSavingConfig}
+                                                    className="p-3 bg-slate-900 text-white rounded-xl hover:bg-slate-800 transition-all disabled:opacity-50"
+                                                    title="Save Config"
+                                                >
+                                                    <Save size={18} />
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
 
                             <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
@@ -322,7 +507,10 @@ export const ReporterHelper: React.FC = () => {
                                 >
                                     Generate Table & Chart
                                 </button>
-                                <button className="bg-red-600 text-white px-8 py-3 rounded-xl font-black uppercase tracking-widest hover:bg-red-700 transition-all shadow-lg shadow-red-100">
+                                <button
+                                    onClick={() => { setConsumptionSeeds(''); setConsumptionMailboxes(''); setConsumptionResults([]); }}
+                                    className="bg-red-600 text-white px-8 py-3 rounded-xl font-black uppercase tracking-widest hover:bg-red-700 transition-all shadow-lg shadow-red-100"
+                                >
                                     Clear
                                 </button>
                             </div>
@@ -333,19 +521,28 @@ export const ReporterHelper: React.FC = () => {
                                 <Card>
                                     <div className="flex justify-between items-start mb-8">
                                         <SectionTitle icon={Activity} color="text-indigo-600">Consumption Overview</SectionTitle>
-                                        <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100 grid grid-cols-3 gap-8">
-                                            <div className="text-center">
-                                                <div className="text-xs font-bold text-slate-400 uppercase">Total</div>
-                                                <div className="text-xl font-black text-indigo-600">{consumptionTotals.total}</div>
+                                        <div className="flex gap-4">
+                                            <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100 grid grid-cols-3 gap-8">
+                                                <div className="text-center">
+                                                    <div className="text-xs font-bold text-slate-400 uppercase">Total</div>
+                                                    <div className="text-xl font-black text-indigo-600">{consumptionTotals.total}</div>
+                                                </div>
+                                                <div className="text-center">
+                                                    <div className="text-xs font-bold text-slate-400 uppercase">Active</div>
+                                                    <div className="text-xl font-black text-emerald-500">{consumptionTotals.active}</div>
+                                                </div>
+                                                <div className="text-center">
+                                                    <div className="text-xs font-bold text-slate-400 uppercase">Blocked</div>
+                                                    <div className="text-xl font-black text-red-500">{consumptionTotals.blocked}</div>
+                                                </div>
                                             </div>
-                                            <div className="text-center">
-                                                <div className="text-xs font-bold text-slate-400 uppercase">Active</div>
-                                                <div className="text-xl font-black text-emerald-500">{consumptionTotals.active}</div>
-                                            </div>
-                                            <div className="text-center">
-                                                <div className="text-xs font-bold text-slate-400 uppercase">Blocked</div>
-                                                <div className="text-xl font-black text-red-500">{consumptionTotals.blocked}</div>
-                                            </div>
+                                            <button
+                                                onClick={handleSendToBot}
+                                                className="bg-emerald-500 text-white px-6 rounded-2xl font-black uppercase tracking-widest hover:bg-emerald-600 transition-all shadow-lg shadow-emerald-100 flex flex-col items-center justify-center gap-1"
+                                            >
+                                                <Send size={20} />
+                                                <span className="text-[10px]">Send to Bot</span>
+                                            </button>
                                         </div>
                                     </div>
                                     <div className="h-[400px]">
@@ -425,6 +622,15 @@ export const ReporterHelper: React.FC = () => {
                                 >
                                     <RefreshCw size={18} /> Process Data
                                 </button>
+                                <button
+                                    onClick={() => {
+                                        const profiles = recheckInput.split('\n').filter(l => l.trim()).map(l => l.split(',')[1]?.trim().replace(/"/g, '')).filter(Boolean).join('\n');
+                                        copyToClipboard(profiles, 'Profile IDs');
+                                    }}
+                                    className="bg-emerald-500 text-white px-8 py-3 rounded-xl font-black uppercase tracking-widest hover:bg-emerald-600 transition-all shadow-lg shadow-emerald-100 flex items-center gap-2"
+                                >
+                                    <Copy size={18} /> Copy Profiles
+                                </button>
                                 <button onClick={() => setRecheckInput('')} className="bg-red-600 text-white px-8 py-3 rounded-xl font-black uppercase tracking-widest hover:bg-red-700 transition-all shadow-lg shadow-red-100 flex items-center gap-2">
                                     <Trash size={18} /> Clear
                                 </button>
@@ -463,10 +669,16 @@ export const ReporterHelper: React.FC = () => {
                                             </div>
 
                                             <div className="mt-6 space-y-2">
-                                                <button className="w-full py-3 bg-red-500 text-white rounded-xl text-[10px] font-black uppercase flex items-center justify-center gap-2 hover:bg-red-600 transition-all shadow-md shadow-red-100">
+                                                <button
+                                                    onClick={() => copyToClipboard(chunks[0]?.join('\n') || '', 'Current group')}
+                                                    className="w-full py-3 bg-red-500 text-white rounded-xl text-[10px] font-black uppercase flex items-center justify-center gap-2 hover:bg-red-600 transition-all shadow-md shadow-red-100"
+                                                >
                                                     <Copy size={14} /> Copy Current Group
                                                 </button>
-                                                <button className="w-full py-3 bg-red-600 text-white rounded-xl text-[10px] font-black uppercase flex items-center justify-center gap-2 hover:bg-red-700 transition-all shadow-md shadow-red-100">
+                                                <button
+                                                    onClick={() => copyToClipboard(chunks.flat().join('\n'), 'All intervals')}
+                                                    className="w-full py-3 bg-red-600 text-white rounded-xl text-[10px] font-black uppercase flex items-center justify-center gap-2 hover:bg-red-700 transition-all shadow-md shadow-red-100"
+                                                >
                                                     <Copy size={14} /> Copy All Intervals
                                                 </button>
                                             </div>
