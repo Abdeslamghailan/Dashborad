@@ -1,12 +1,13 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import {
     BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
-    PieChart, Pie, Cell
+    PieChart, Pie, Cell, AreaChart, Area
 } from 'recharts';
 import {
     ShieldAlert, Activity, RefreshCw, FileText, Download, Trash2, Copy, Check,
     ChevronLeft, ChevronRight, LayoutDashboard, PieChart as PieIcon, List,
-    ClipboardList, Send, Trash, Globe, Settings, Save, AlertCircle
+    ClipboardList, Send, Trash, Globe, Settings, Save, AlertCircle, Zap,
+    Target, BarChart3, Layers, Search, Filter, AlignLeft, Eraser, Type, LayoutGrid
 } from 'lucide-react';
 import { Button } from './ui/Button';
 import { service } from '../services';
@@ -14,7 +15,7 @@ import { Entity } from '../types';
 import { useAuth } from '../contexts/AuthContext';
 
 // --- Types ---
-type SubTab = 'analyzer' | 'consumption' | 'recheck';
+type SubTab = 'analyzer' | 'recheck';
 
 interface BlockedEmail {
     session: string;
@@ -24,27 +25,20 @@ interface BlockedEmail {
     date: string;
 }
 
-interface ConsumptionData {
-    drop: string;
-    seedsActive: number;
-    seedsBlocked: number;
-    mailboxesActive: number;
-    mailboxesDropped: number;
-    sessionsOut: string;
-}
 
-// --- Helper Components ---
 
-const Card = ({ children, className = "" }: { children: React.ReactNode, className?: string }) => (
-    <div className={`bg-white border-2 border-slate-100 rounded-2xl shadow-lg p-6 ${className}`}>
+// --- Excel-style Components ---
+
+const ExcelCard = ({ children, className = "" }: { children: React.ReactNode, className?: string, key?: string | number }) => (
+    <div className={`bg-white rounded-2xl border border-gray-200 shadow-sm p-6 ${className}`}>
         {children}
     </div>
 );
 
-const SectionTitle = ({ children, icon: Icon, color = "text-slate-900" }: { children: React.ReactNode, icon?: any, color?: string }) => (
+const ExcelSectionTitle = ({ children, icon: Icon }: { children: React.ReactNode, icon?: any }) => (
     <div className="flex items-center gap-2 mb-4">
-        {Icon && <Icon size={18} className={color} />}
-        <h3 className={`text-lg font-black uppercase italic tracking-tight ${color}`}>{children}</h3>
+        {Icon && <Icon size={18} className="text-[#5c7cfa]" />}
+        <h3 className="text-lg font-bold text-gray-700">{children}</h3>
     </div>
 );
 
@@ -109,116 +103,7 @@ export const ReporterHelper: React.FC = () => {
         return { groups, chartData, total };
     }, [analyzerResults]);
 
-    // --- Feature 2: Consumption State ---
-    const [selectedEntityId, setSelectedEntityId] = useState<string>('');
-    const [selectedCategoryId, setSelectedCategoryId] = useState<string>('');
-    const [consumptionSeeds, setConsumptionSeeds] = useState('');
-    const [consumptionMailboxes, setConsumptionMailboxes] = useState('');
-    const [consumptionResults, setConsumptionResults] = useState<ConsumptionData[]>([]);
 
-    const [botToken, setBotToken] = useState('');
-    const [chatId, setChatId] = useState('');
-    const [isSavingConfig, setIsSavingConfig] = useState(false);
-
-    const selectedEntity = useMemo(() =>
-        entities.find(e => e.id === selectedEntityId),
-        [entities, selectedEntityId]);
-
-    const categories = useMemo(() =>
-        selectedEntity?.reporting?.parentCategories || [],
-        [selectedEntity]);
-
-    useEffect(() => {
-        if (selectedEntity) {
-            // @ts-ignore
-            setBotToken(selectedEntity.botConfig?.token || '');
-            // @ts-ignore
-            setChatId(selectedEntity.botConfig?.chatId || '');
-        }
-    }, [selectedEntity]);
-
-    const handleSaveBotConfig = async () => {
-        if (!selectedEntityId) return;
-        setIsSavingConfig(true);
-        try {
-            const updatedEntity = {
-                ...selectedEntity!,
-                botConfig: { token: botToken, chatId: chatId }
-            };
-            await service.saveEntity(updatedEntity as any);
-            setEntities(prev => prev.map(e => e.id === selectedEntityId ? updatedEntity as any : e));
-            alert('Bot configuration saved successfully!');
-        } catch (err) {
-            console.error('Failed to save bot config:', err);
-            alert('Failed to save bot configuration');
-        } finally {
-            setIsSavingConfig(false);
-        }
-    };
-
-    const handleGenerateConsumption = () => {
-        const seedsLines = consumptionSeeds.split('\n').filter(l => l.trim());
-        const mailboxLines = consumptionMailboxes.split('\n').filter(l => l.trim());
-
-        const results: ConsumptionData[] = seedsLines.map((line, index) => {
-            const seedVal = parseInt(line) || 0;
-            const mbVal = parseInt(mailboxLines[index]) || 0;
-            return {
-                drop: `Drop ${index + 1}`,
-                seedsActive: mbVal,
-                seedsBlocked: Math.max(0, seedVal - mbVal),
-                mailboxesActive: mbVal,
-                mailboxesDropped: 0,
-                sessionsOut: '0'
-            };
-        });
-        setConsumptionResults(results);
-    };
-
-    const consumptionTotals = useMemo(() => {
-        return consumptionResults.reduce((acc, curr) => ({
-            total: acc.total + curr.seedsActive + curr.seedsBlocked,
-            active: acc.active + curr.seedsActive,
-            blocked: acc.blocked + curr.seedsBlocked
-        }), { total: 0, active: 0, blocked: 0 });
-    }, [consumptionResults]);
-
-    const handleSendToBot = async () => {
-        if (!botToken || !chatId) {
-            alert('Please configure Bot Token and Chat ID first');
-            return;
-        }
-
-        const categoryName = categories.find(c => c.id === selectedCategoryId)?.name || 'General';
-        const entityName = selectedEntity?.name || 'Unknown Entity';
-
-        let htmlReport = `<b>📊 CONSUMPTION REPORT: ${entityName}</b>\n`;
-        htmlReport += `📂 Category: ${categoryName}\n`;
-        htmlReport += `📅 Date: ${new Date().toLocaleDateString()}\n\n`;
-
-        htmlReport += `<b>OVERVIEW:</b>\n`;
-        htmlReport += `• Total Consumed: ${consumptionTotals.total}\n`;
-        htmlReport += `• Active Seeds: ${consumptionTotals.active}\n`;
-        htmlReport += `• Blocked Seeds: ${consumptionTotals.blocked}\n\n`;
-
-        htmlReport += `<b>DETAILED DATA:</b>\n`;
-        consumptionResults.forEach(res => {
-            htmlReport += `• ${res.drop}: ${res.seedsActive} Active | ${res.seedsBlocked} Blocked\n`;
-        });
-
-        try {
-            const response = await fetch('/api/reporter/send-to-bot', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${localStorage.getItem('token')}` },
-                body: JSON.stringify({ entityId: selectedEntityId, htmlReport, botToken, chatId })
-            });
-            const data = await response.json();
-            if (data.success) alert('Report sent to Telegram!');
-            else throw new Error(data.error);
-        } catch (err: any) {
-            alert(`Failed to send report: ${err.message}`);
-        }
-    };
 
     // --- Feature 3: Recheck State ---
     const [recheckInput, setRecheckInput] = useState('');
@@ -250,422 +135,211 @@ export const ReporterHelper: React.FC = () => {
         setRecheckGroups(grouped);
     };
 
-    const COLORS = ['#4F46E5', '#EF4444', '#10B981', '#F59E0B', '#6366F1'];
+    const COLORS = ['#5c7cfa', '#f03e3e', '#37b24d', '#fcc419', '#7048e8'];
 
     return (
-        <div className="space-y-8 animate-in fade-in duration-500">
-            {/* Header */}
-            <div className="bg-white border-2 border-slate-100 rounded-3xl p-8 shadow-xl text-center relative overflow-hidden">
-                <div className="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500"></div>
-                <h1 className="text-4xl font-black text-slate-900 italic uppercase tracking-tighter">
-                    Reporter Helper
-                </h1>
-            </div>
+        <div className="min-h-screen py-4 sm:py-6 px-2 sm:px-4 font-sans bg-[#f8fafc] animate-in fade-in duration-500">
+            <div className="max-w-[1400px] mx-auto space-y-4 sm:space-y-6">
 
-            {/* Navbar */}
-            <div className="flex flex-wrap items-center justify-center gap-4">
-                <button
-                    onClick={() => setActiveSubTab('analyzer')}
-                    className={`px-6 py-3 rounded-2xl text-sm font-black uppercase tracking-widest transition-all flex items-center gap-2 ${activeSubTab === 'analyzer' ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-200 -translate-y-1' : 'bg-white text-slate-400 hover:bg-slate-50 border-2 border-slate-100'}`}
-                >
-                    <ShieldAlert size={18} /> Blocked Emails Analyzer
-                </button>
-                <button
-                    onClick={() => setActiveSubTab('consumption')}
-                    className={`px-6 py-3 rounded-2xl text-sm font-black uppercase tracking-widest transition-all flex items-center gap-2 ${activeSubTab === 'consumption' ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-200 -translate-y-1' : 'bg-white text-slate-400 hover:bg-slate-50 border-2 border-slate-100'}`}
-                >
-                    <Activity size={18} /> Consumption Dashboard
-                </button>
-                <button
-                    onClick={() => setActiveSubTab('recheck')}
-                    className={`px-6 py-3 rounded-2xl text-sm font-black uppercase tracking-widest transition-all flex items-center gap-2 ${activeSubTab === 'recheck' ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-200 -translate-y-1' : 'bg-white text-slate-400 hover:bg-slate-50 border-2 border-slate-100'}`}
-                >
-                    <RefreshCw size={18} /> Recheck Blocked Emails
-                </button>
-            </div>
+                {/* Header Section */}
+                <div className="text-center space-y-2">
+                    <h1 className="text-2xl sm:text-3xl lg:text-4xl font-black text-gray-900 tracking-tight">
+                        Reporter Helper <span className="text-[#5c7cfa]">CMHW</span>
+                    </h1>
+                    <p className="text-gray-500 text-xs sm:text-sm font-medium">
+                        Smart analytics and data processing for your reports.
+                    </p>
+                </div>
 
-            {/* Content Area */}
-            <div className="space-y-8">
-                {activeSubTab === 'analyzer' && (
-                    <div className="space-y-8 animate-in slide-in-from-bottom-4 duration-500">
-                        <Card>
-                            <textarea
-                                value={analyzerInput}
-                                onChange={(e) => setAnalyzerInput(e.target.value)}
-                                placeholder='"CMH1_P_IP_5,2704,Disconnected,email@gmail.com,email@gmail.com ,27-01-2026 11-5"'
-                                className="w-full h-48 p-4 bg-slate-50 border-2 border-slate-100 rounded-2xl focus:border-indigo-500 focus:ring-0 transition-all font-mono text-xs resize-none mb-4"
-                            />
-                            <div className="flex justify-center">
-                                <button
-                                    onClick={handleAnalyze}
-                                    className="bg-indigo-600 text-white px-8 py-3 rounded-xl font-black uppercase tracking-widest hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-100 flex items-center gap-2"
-                                >
-                                    <Activity size={18} /> Analyze Blocked Emails
-                                </button>
-                            </div>
-                        </Card>
+                {/* Tab Switcher Toolbar */}
+                <div className="flex justify-center px-2">
+                    <div className="bg-white p-1.5 rounded-2xl border border-gray-200 shadow-sm flex flex-col sm:flex-row items-stretch sm:items-center gap-1 w-full sm:w-auto">
+                        <button
+                            onClick={() => setActiveSubTab('analyzer')}
+                            className={`flex items-center justify-center gap-2 px-4 sm:px-6 py-2.5 rounded-xl text-xs sm:text-sm font-bold transition-all ${activeSubTab === 'analyzer' ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-100' : 'text-gray-500 hover:bg-gray-50'}`}
+                        >
+                            <ShieldAlert size={18} />
+                            Blocked Analyzer
+                        </button>
 
-                        {analyzerResults.length > 0 && (
-                            <>
-                                <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                                    <Card>
-                                        <SectionTitle icon={PieIcon} color="text-indigo-600">Blocked Email Distribution</SectionTitle>
-                                        <div className="h-[300px] flex items-center">
-                                            <ResponsiveContainer width="100%" height="100%">
-                                                <PieChart>
-                                                    <Pie
-                                                        data={analyzerStats.chartData}
-                                                        cx="50%"
-                                                        cy="50%"
-                                                        innerRadius={60}
-                                                        outerRadius={100}
-                                                        paddingAngle={5}
-                                                        dataKey="value"
-                                                    >
-                                                        {analyzerStats.chartData.map((entry, index) => (
-                                                            <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                                                        ))}
-                                                    </Pie>
-                                                    <Tooltip
-                                                        formatter={(value: number, name: string, props: any) => [`${value} (${props.payload.percentage}%)`, name]}
-                                                    />
-                                                    <Legend
-                                                        verticalAlign="middle"
-                                                        align="right"
-                                                        layout="vertical"
-                                                        formatter={(value: string, entry: any) => (
-                                                            <span className="text-xs font-bold text-slate-600">
-                                                                {value}: {entry.payload.percentage}%
-                                                            </span>
-                                                        )}
-                                                    />
-                                                </PieChart>
-                                            </ResponsiveContainer>
-                                            <div className="text-center px-8 border-l-2 border-slate-50">
-                                                <div className="text-3xl font-black text-indigo-600">{analyzerStats.total}</div>
-                                                <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Total Blocked</div>
-                                            </div>
-                                        </div>
-                                    </Card>
+                        <button
+                            onClick={() => setActiveSubTab('recheck')}
+                            className={`flex items-center justify-center gap-2 px-4 sm:px-6 py-2.5 rounded-xl text-xs sm:text-sm font-bold transition-all ${activeSubTab === 'recheck' ? 'bg-[#5c7cfa] text-white shadow-lg shadow-indigo-100' : 'text-gray-500 hover:bg-gray-50'}`}
+                        >
+                            <RefreshCw size={18} />
+                            Recheck Blocked
+                        </button>
+                    </div>
+                </div>
 
-                                    <Card>
-                                        <div className="flex justify-between items-center mb-4">
-                                            <SectionTitle icon={List} color="text-indigo-600">All Blocked Emails</SectionTitle>
-                                            <div className="flex gap-2">
-                                                <span className="bg-indigo-600 text-white px-3 py-1 rounded-full text-[10px] font-black">{analyzerResults.length}</span>
-                                                <button
-                                                    onClick={() => copyToClipboard(analyzerResults.map(r => r.email).join('\n'), 'All emails')}
-                                                    className="bg-red-500 text-white px-3 py-1 rounded-lg text-[10px] font-black uppercase flex items-center gap-1 hover:bg-red-600 transition-all"
-                                                >
-                                                    <Copy size={12} /> Copy All
-                                                </button>
-                                            </div>
-                                        </div>
-                                        <div className="h-[300px] overflow-y-auto space-y-2 pr-2 scrollbar-thin">
-                                            {analyzerResults.map((item, i) => (
-                                                <div key={i} className="flex justify-between items-center p-3 bg-slate-50 rounded-xl border border-slate-100">
-                                                    <span className="text-xs font-bold text-slate-600 truncate max-w-[200px]">{item.email}</span>
-                                                    <span className={`text-[10px] font-black uppercase px-2 py-1 rounded-md ${item.status === 'Disconnected' ? 'bg-red-100 text-red-600' : 'bg-orange-100 text-orange-600'}`}>
-                                                        {item.status}
-                                                    </span>
-                                                </div>
-                                            ))}
-                                        </div>
-                                    </Card>
+                {/* Content Area */}
+                <div className="space-y-6">
+                    {activeSubTab === 'analyzer' && (
+                        <div className="space-y-6">
+                            <ExcelCard>
+                                <ExcelSectionTitle icon={AlignLeft}>Data Input</ExcelSectionTitle>
+                                <textarea
+                                    value={analyzerInput}
+                                    onChange={(e) => setAnalyzerInput(e.target.value)}
+                                    placeholder='"CMH1_P_IP_5,2704,Disconnected,email@gmail.com,email@gmail.com ,27-01-2026 11-5"'
+                                    className="w-full h-32 sm:h-48 p-3 sm:p-4 text-xs sm:text-sm font-medium text-gray-600 border border-gray-200 rounded-xl focus:outline-none focus:border-indigo-500 resize-none bg-white placeholder-gray-300 leading-relaxed mb-4"
+                                />
+                                <div className="flex justify-center">
+                                    <Button
+                                        onClick={handleAnalyze}
+                                        className="bg-indigo-600 hover:bg-indigo-700 px-6 sm:px-8 py-2.5 h-auto text-xs sm:text-sm font-bold w-full sm:w-auto"
+                                        leftIcon={<Zap size={18} />}
+                                    >
+                                        Analyze Blocked Emails
+                                    </Button>
                                 </div>
+                            </ExcelCard>
 
-                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                                    {Object.entries(analyzerStats.groups).map(([status, items]) => (
-                                        <Card key={status} className="border-t-4 border-t-indigo-500">
+                            {analyzerResults.length > 0 && (
+                                <>
+                                    <div className="grid grid-cols-1 lg:grid-cols-[1fr_400px] gap-4 sm:gap-6">
+                                        <ExcelCard>
+                                            <ExcelSectionTitle icon={PieIcon}>Distribution</ExcelSectionTitle>
+                                            <div className="h-[350px] flex items-center">
+                                                <ResponsiveContainer width="100%" height="100%">
+                                                    <PieChart>
+                                                        <Pie
+                                                            data={analyzerStats.chartData}
+                                                            cx="50%"
+                                                            cy="50%"
+                                                            innerRadius={60}
+                                                            outerRadius={100}
+                                                            paddingAngle={5}
+                                                            dataKey="value"
+                                                        >
+                                                            {analyzerStats.chartData.map((entry, index) => (
+                                                                <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                                                            ))}
+                                                        </Pie>
+                                                        <Tooltip
+                                                            formatter={(value: number, name: string, props: any) => [`${value} (${props.payload.percentage}%)`, name]}
+                                                        />
+                                                        <Legend verticalAlign="middle" align="right" layout="vertical" />
+                                                    </PieChart>
+                                                </ResponsiveContainer>
+                                                <div className="text-center px-8 border-l border-gray-100">
+                                                    <div className="text-3xl font-black text-[#5c7cfa]">{analyzerStats.total}</div>
+                                                    <div className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Total Blocked</div>
+                                                </div>
+                                            </div>
+                                        </ExcelCard>
+
+                                        <ExcelCard>
                                             <div className="flex justify-between items-center mb-4">
-                                                <h4 className="font-black text-slate-800 uppercase tracking-tight">{status}</h4>
-                                                <span className="bg-indigo-100 text-indigo-600 px-2 py-1 rounded-lg text-xs font-black">{(items as BlockedEmail[]).length}</span>
-                                            </div>
-                                            <div className="h-48 overflow-y-auto bg-slate-50 rounded-xl p-3 font-mono text-[10px] text-slate-500 space-y-1 mb-4">
-                                                {(items as BlockedEmail[]).map((it, idx) => <div key={idx}>{it.email}</div>)}
-                                            </div>
-                                            <button
-                                                onClick={() => copyToClipboard((items as BlockedEmail[]).map(it => it.email).join('\n'), `${status} list`)}
-                                                className="w-full py-2 bg-slate-900 text-white rounded-lg text-[10px] font-black uppercase flex items-center justify-center gap-2 hover:bg-slate-800 transition-all"
-                                            >
-                                                <Copy size={12} /> Copy List
-                                            </button>
-                                        </Card>
-                                    ))}
-                                </div>
-                            </>
-                        )}
-                    </div>
-                )}
-
-                {activeSubTab === 'consumption' && (
-                    <div className="space-y-8 animate-in slide-in-from-bottom-4 duration-500">
-                        <Card className="border-t-4 border-t-indigo-500">
-                            <div className="text-center mb-8">
-                                <h2 className="text-2xl font-black text-indigo-600 uppercase italic tracking-tighter">Consumption Report Generator</h2>
-                                <p className="text-xs font-bold text-slate-400">{new Date().toLocaleDateString()}</p>
-                            </div>
-
-                            {/* Filters & Config */}
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
-                                <div className="space-y-4">
-                                    <SectionTitle icon={Settings} color="text-slate-600">Report Context</SectionTitle>
-                                    <div className="grid grid-cols-2 gap-4">
-                                        <div className="space-y-1">
-                                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Select Entity</label>
-                                            <select
-                                                value={selectedEntityId}
-                                                onChange={(e) => setSelectedEntityId(e.target.value)}
-                                                className="w-full p-3 bg-slate-50 border-2 border-slate-100 rounded-xl text-sm font-bold text-slate-700 focus:border-indigo-500 outline-none"
-                                            >
-                                                <option value="">Choose Entity...</option>
-                                                {entities.map(e => <option key={e.id} value={e.id}>{e.name}</option>)}
-                                            </select>
-                                        </div>
-                                        <div className="space-y-1">
-                                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Select Category</label>
-                                            <select
-                                                value={selectedCategoryId}
-                                                onChange={(e) => setSelectedCategoryId(e.target.value)}
-                                                disabled={!selectedEntityId}
-                                                className="w-full p-3 bg-slate-50 border-2 border-slate-100 rounded-xl text-sm font-bold text-slate-700 focus:border-indigo-500 outline-none disabled:opacity-50"
-                                            >
-                                                <option value="">Choose Category...</option>
-                                                {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-                                            </select>
-                                        </div>
-                                    </div>
-                                </div>
-
-                                <div className="space-y-4">
-                                    <SectionTitle icon={Globe} color="text-slate-600">Bot Configuration</SectionTitle>
-                                    <div className="grid grid-cols-2 gap-4">
-                                        <div className="space-y-1">
-                                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Bot Token</label>
-                                            <input
-                                                type="password"
-                                                value={botToken}
-                                                onChange={(e) => setBotToken(e.target.value)}
-                                                disabled={!isAdmin}
-                                                placeholder={isAdmin ? "7798410..." : "Configured by Admin"}
-                                                className="w-full p-3 bg-slate-50 border-2 border-slate-100 rounded-xl text-xs font-mono focus:border-indigo-500 outline-none disabled:bg-slate-100 disabled:cursor-not-allowed"
-                                            />
-                                        </div>
-                                        <div className="space-y-1">
-                                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Chat ID</label>
-                                            <div className="flex gap-2">
-                                                <input
-                                                    type="text"
-                                                    value={chatId}
-                                                    onChange={(e) => setChatId(e.target.value)}
-                                                    disabled={!isAdmin}
-                                                    placeholder={isAdmin ? "-100..." : "Configured by Admin"}
-                                                    className="w-full p-3 bg-slate-50 border-2 border-slate-100 rounded-xl text-xs font-mono focus:border-indigo-500 outline-none disabled:bg-slate-100 disabled:cursor-not-allowed"
-                                                />
-                                                {isAdmin && (
+                                                <ExcelSectionTitle icon={List}>Blocked Feed</ExcelSectionTitle>
+                                                <div className="flex gap-2">
+                                                    <span className="px-2 py-0.5 bg-gray-100 text-gray-500 text-[10px] font-bold rounded-full">
+                                                        {analyzerResults.length}
+                                                    </span>
                                                     <button
-                                                        onClick={handleSaveBotConfig}
-                                                        disabled={!selectedEntityId || isSavingConfig}
-                                                        className="p-3 bg-slate-900 text-white rounded-xl hover:bg-slate-800 transition-all disabled:opacity-50"
-                                                        title="Save Config"
+                                                        onClick={() => copyToClipboard(analyzerResults.map(r => r.email).join('\n'), 'All emails')}
+                                                        className="text-[#5c7cfa] hover:text-indigo-700 transition-colors"
+                                                        title="Copy All"
                                                     >
-                                                        <Save size={18} />
+                                                        <Copy size={16} />
                                                     </button>
-                                                )}
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-                                <div className="space-y-2">
-                                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Consommation Seeds (Active + Blocked)</label>
-                                    <textarea
-                                        value={consumptionSeeds}
-                                        onChange={(e) => setConsumptionSeeds(e.target.value)}
-                                        placeholder="99&#10;99&#10;99"
-                                        className="w-full h-48 p-4 bg-slate-50 border-2 border-slate-100 rounded-2xl focus:border-indigo-500 focus:ring-0 transition-all font-mono text-xs resize-none"
-                                    />
-                                </div>
-                                <div className="space-y-2">
-                                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Nbr Boites Active/Drop</label>
-                                    <textarea
-                                        value={consumptionMailboxes}
-                                        onChange={(e) => setConsumptionMailboxes(e.target.value)}
-                                        placeholder="80&#10;97&#10;83"
-                                        className="w-full h-48 p-4 bg-slate-50 border-2 border-slate-100 rounded-2xl focus:border-indigo-500 focus:ring-0 transition-all font-mono text-xs resize-none"
-                                    />
-                                </div>
-                                <div className="space-y-2">
-                                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Sessions Out (text for all drops)</label>
-                                    <textarea
-                                        placeholder="0&#10;0&#10;0"
-                                        className="w-full h-48 p-4 bg-slate-50 border-2 border-slate-100 rounded-2xl focus:border-indigo-500 focus:ring-0 transition-all font-mono text-xs resize-none"
-                                    />
-                                </div>
-                            </div>
-
-                            <div className="flex justify-center gap-4">
-                                <button
-                                    onClick={handleGenerateConsumption}
-                                    className="bg-indigo-600 text-white px-8 py-3 rounded-xl font-black uppercase tracking-widest hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-100 flex items-center gap-2"
-                                >
-                                    Generate Table & Chart
-                                </button>
-                                <button
-                                    onClick={() => { setConsumptionSeeds(''); setConsumptionMailboxes(''); setConsumptionResults([]); }}
-                                    className="bg-red-600 text-white px-8 py-3 rounded-xl font-black uppercase tracking-widest hover:bg-red-700 transition-all shadow-lg shadow-red-100"
-                                >
-                                    Clear
-                                </button>
-                            </div>
-                        </Card>
-
-                        {consumptionResults.length > 0 && (
-                            <>
-                                <Card>
-                                    <div className="flex justify-between items-start mb-8">
-                                        <SectionTitle icon={Activity} color="text-indigo-600">Consumption Overview</SectionTitle>
-                                        <div className="flex gap-4">
-                                            <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100 grid grid-cols-3 gap-8">
-                                                <div className="text-center">
-                                                    <div className="text-xs font-bold text-slate-400 uppercase">Total</div>
-                                                    <div className="text-xl font-black text-indigo-600">{consumptionTotals.total}</div>
-                                                </div>
-                                                <div className="text-center">
-                                                    <div className="text-xs font-bold text-slate-400 uppercase">Active</div>
-                                                    <div className="text-xl font-black text-emerald-500">{consumptionTotals.active}</div>
-                                                </div>
-                                                <div className="text-center">
-                                                    <div className="text-xs font-bold text-slate-400 uppercase">Blocked</div>
-                                                    <div className="text-xl font-black text-red-500">{consumptionTotals.blocked}</div>
                                                 </div>
                                             </div>
-                                            <button
-                                                onClick={handleSendToBot}
-                                                className="bg-emerald-500 text-white px-6 rounded-2xl font-black uppercase tracking-widest hover:bg-emerald-600 transition-all shadow-lg shadow-emerald-100 flex flex-col items-center justify-center gap-1"
-                                            >
-                                                <Send size={20} />
-                                                <span className="text-[10px]">Send to Bot</span>
-                                            </button>
-                                        </div>
-                                    </div>
-                                    <div className="h-[400px]">
-                                        <ResponsiveContainer width="100%" height="100%">
-                                            <BarChart data={consumptionResults}>
-                                                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                                                <XAxis dataKey="drop" axisLine={false} tickLine={false} tick={{ fontSize: 10, fontWeight: 'bold' }} />
-                                                <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 10, fontWeight: 'bold' }} />
-                                                <Tooltip
-                                                    contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)' }}
-                                                    cursor={{ fill: '#f8fafc' }}
-                                                />
-                                                <Legend verticalAlign="top" align="center" iconType="circle" wrapperStyle={{ paddingBottom: '20px' }} />
-                                                <Bar dataKey="seedsActive" name="Seeds Active" fill="#10B981" radius={[4, 4, 0, 0]} />
-                                                <Bar dataKey="seedsBlocked" name="Seeds Blocked" fill="#EF4444" radius={[4, 4, 0, 0]} />
-                                            </BarChart>
-                                        </ResponsiveContainer>
-                                    </div>
-                                </Card>
-
-                                <Card className="overflow-hidden p-0">
-                                    <div className="p-6 border-b border-slate-100">
-                                        <SectionTitle icon={ClipboardList} color="text-indigo-600">Detailed Data</SectionTitle>
-                                    </div>
-                                    <div className="overflow-x-auto">
-                                        <table className="w-full text-left border-collapse">
-                                            <thead>
-                                                <tr className="bg-indigo-600 text-white">
-                                                    <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest">Drop N°</th>
-                                                    <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest">Consommation Seeds</th>
-                                                    <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest">Nbr Boites Active</th>
-                                                    <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest">Nbr Boites Blocked</th>
-                                                    <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest">Sessions Out</th>
-                                                </tr>
-                                            </thead>
-                                            <tbody className="divide-y divide-slate-100">
-                                                {consumptionResults.map((row, i) => (
-                                                    <tr key={i} className="hover:bg-slate-50 transition-colors">
-                                                        <td className="px-6 py-4 text-xs font-bold text-slate-600">{row.drop}</td>
-                                                        <td className="px-6 py-4 text-xs font-medium text-slate-500">{row.seedsActive + row.seedsBlocked}</td>
-                                                        <td className="px-6 py-4 text-xs font-medium text-slate-500">{row.seedsActive}</td>
-                                                        <td className="px-6 py-4 text-xs font-bold text-red-500">{row.seedsBlocked}</td>
-                                                        <td className="px-6 py-4 text-xs font-medium text-slate-500">{row.sessionsOut}</td>
-                                                    </tr>
+                                            <div className="h-[300px] overflow-y-auto space-y-2 pr-2 scrollbar-thin">
+                                                {analyzerResults.map((item, i) => (
+                                                    <div key={i} className="flex justify-between items-center p-3 bg-gray-50 rounded-xl border border-gray-100">
+                                                        <span className="text-xs font-bold text-gray-600 truncate max-w-[200px]">{item.email}</span>
+                                                        <span className={`text-[10px] font-black uppercase px-2 py-1 rounded-md ${item.status === 'Disconnected' ? 'bg-red-50 text-red-600' : 'bg-orange-50 text-orange-600'}`}>
+                                                            {item.status}
+                                                        </span>
+                                                    </div>
                                                 ))}
-                                            </tbody>
-                                            <tfoot>
-                                                <tr className="bg-slate-50 font-black text-[10px] uppercase tracking-widest text-slate-900">
-                                                    <td className="px-6 py-4">Total</td>
-                                                    <td className="px-6 py-4">{consumptionTotals.total}</td>
-                                                    <td className="px-6 py-4 text-emerald-600">{consumptionTotals.active}</td>
-                                                    <td className="px-6 py-4 text-red-600">{consumptionTotals.blocked}</td>
-                                                    <td className="px-6 py-4">0</td>
-                                                </tr>
-                                            </tfoot>
-                                        </table>
+                                            </div>
+                                        </ExcelCard>
                                     </div>
-                                </Card>
-                            </>
-                        )}
-                    </div>
-                )}
 
-                {activeSubTab === 'recheck' && (
-                    <div className="space-y-8 animate-in slide-in-from-bottom-4 duration-500">
-                        <Card>
-                            <textarea
-                                value={recheckInput}
-                                onChange={(e) => setRecheckInput(e.target.value)}
-                                placeholder='"CMH1_P_IP_5,2978,Disconnected,email@gmail.com..."'
-                                className="w-full h-48 p-4 bg-slate-50 border-2 border-slate-100 rounded-2xl focus:border-indigo-500 focus:ring-0 transition-all font-mono text-xs resize-none mb-4"
-                            />
-                            <div className="flex justify-center gap-4">
-                                <button
-                                    onClick={handleProcessRecheck}
-                                    className="bg-indigo-600 text-white px-8 py-3 rounded-xl font-black uppercase tracking-widest hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-100 flex items-center gap-2"
-                                >
-                                    <RefreshCw size={18} /> Process Data
-                                </button>
-                                <button
-                                    onClick={() => {
-                                        const profiles = recheckInput.split('\n').filter(l => l.trim()).map(l => l.split(',')[1]?.trim().replace(/"/g, '')).filter(Boolean).join('\n');
-                                        copyToClipboard(profiles, 'Profile IDs');
-                                    }}
-                                    className="bg-emerald-500 text-white px-8 py-3 rounded-xl font-black uppercase tracking-widest hover:bg-emerald-600 transition-all shadow-lg shadow-emerald-100 flex items-center gap-2"
-                                >
-                                    <Copy size={18} /> Copy Profiles
-                                </button>
-                                <button onClick={() => setRecheckInput('')} className="bg-red-600 text-white px-8 py-3 rounded-xl font-black uppercase tracking-widest hover:bg-red-700 transition-all shadow-lg shadow-red-100 flex items-center gap-2">
-                                    <Trash size={18} /> Clear
-                                </button>
-                            </div>
-                        </Card>
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
+                                        {Object.entries(analyzerStats.groups).map(([status, items]) => (
+                                            <ExcelCard key={status} className="border-t-4 border-t-[#5c7cfa]">
+                                                <div className="flex justify-between items-center mb-4">
+                                                    <h4 className="font-bold text-gray-700 uppercase text-sm">{status}</h4>
+                                                    <span className="bg-indigo-50 text-[#5c7cfa] px-2 py-0.5 rounded-lg text-xs font-bold">{(items as BlockedEmail[]).length}</span>
+                                                </div>
+                                                <div className="h-48 overflow-y-auto bg-gray-50 rounded-xl p-3 font-mono text-[10px] text-gray-500 space-y-1 mb-4 border border-gray-100">
+                                                    {(items as BlockedEmail[]).map((it, idx) => <div key={idx}>{it.email}</div>)}
+                                                </div>
+                                                <button
+                                                    onClick={() => copyToClipboard((items as BlockedEmail[]).map(it => it.email).join('\n'), `${status} list`)}
+                                                    className="w-full py-2 bg-gray-900 text-white rounded-xl text-[10px] font-bold uppercase flex items-center justify-center gap-2 hover:bg-gray-800 transition-all"
+                                                >
+                                                    <Copy size={12} /> Copy List
+                                                </button>
+                                            </ExcelCard>
+                                        ))}
+                                    </div>
+                                </>
+                            )}
+                        </div>
+                    )}
 
-                        {Object.keys(recheckGroups).length > 0 && (
-                            <div className="space-y-6">
-                                <SectionTitle icon={LayoutDashboard} color="text-indigo-600">Session Groups</SectionTitle>
-                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+
+
+                    {activeSubTab === 'recheck' && (
+                        <div className="space-y-6">
+                            <ExcelCard>
+                                <ExcelSectionTitle icon={RefreshCw}>Recheck Processor</ExcelSectionTitle>
+                                <textarea
+                                    value={recheckInput}
+                                    onChange={(e) => setRecheckInput(e.target.value)}
+                                    placeholder='"CMH1_P_IP_5,2978,Disconnected,email@gmail.com..."'
+                                    className="w-full h-48 p-4 text-sm font-medium text-gray-600 border border-gray-200 rounded-xl focus:outline-none focus:border-indigo-500 resize-none bg-white placeholder-gray-300 leading-relaxed mb-4"
+                                />
+                                <div className="flex flex-col sm:flex-row flex-wrap justify-center gap-3 sm:gap-4">
+                                    <Button
+                                        onClick={handleProcessRecheck}
+                                        className="bg-indigo-600 hover:bg-indigo-700 px-8 py-2.5 h-auto text-sm font-bold"
+                                        leftIcon={<Zap size={18} />}
+                                    >
+                                        Process Batches
+                                    </Button>
+                                    <Button
+                                        onClick={() => {
+                                            const profiles = recheckInput.split('\n').filter(l => l.trim()).map(l => l.split(',')[1]?.trim().replace(/"/g, '')).filter(Boolean).join('\n');
+                                            copyToClipboard(profiles, 'Profile IDs');
+                                        }}
+                                        className="bg-emerald-600 hover:bg-emerald-700 px-8 py-2.5 h-auto text-sm font-bold"
+                                        leftIcon={<Copy size={18} />}
+                                    >
+                                        Copy Profiles Only
+                                    </Button>
+                                    <Button
+                                        variant="outline"
+                                        onClick={() => setRecheckInput('')}
+                                        className="border-gray-200 text-gray-500 hover:bg-gray-50 px-8 py-2.5 h-auto text-sm font-bold"
+                                    >
+                                        Reset
+                                    </Button>
+                                </div>
+                            </ExcelCard>
+
+                            {Object.keys(recheckGroups).length > 0 && (
+                                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
                                     {Object.entries(recheckGroups).map(([session, chunks]) => (
-                                        <Card key={session} className="border-t-4 border-t-red-500">
+                                        <ExcelCard key={session} className="border-t-4 border-t-red-500">
                                             <div className="flex justify-between items-center mb-6">
-                                                <h4 className="font-black text-slate-800 uppercase tracking-tight flex items-center gap-2">
-                                                    <div className="w-1 h-4 bg-red-500 rounded-full"></div>
-                                                    {session}
-                                                </h4>
-                                                <span className="bg-red-500 text-white px-2 py-1 rounded-full text-[10px] font-black">
-                                                    {(chunks as string[][]).flat().length}
+                                                <h4 className="font-bold text-gray-700 uppercase text-sm">{session}</h4>
+                                                <span className="bg-red-50 text-red-600 px-2 py-0.5 rounded-lg text-[10px] font-bold">
+                                                    {(chunks as string[][]).flat().length} PROFILES
                                                 </span>
                                             </div>
 
                                             <div className="space-y-4">
-                                                {chunks.map((chunk, idx) => (
-                                                    <div key={idx} className="bg-slate-50 rounded-2xl p-4 border border-slate-100">
-                                                        <div className="text-center text-[10px] font-black text-indigo-600 uppercase mb-3">Group {idx + 1}</div>
-                                                        <div className="grid grid-cols-3 gap-2">
+                                                {(chunks as string[][]).map((chunk, idx) => (
+                                                    <div key={idx} className="bg-gray-50 rounded-xl p-4 border border-gray-100">
+                                                        <div className="text-[10px] font-bold text-indigo-600 uppercase mb-3">Batch {idx + 1}</div>
+                                                        <div className="grid grid-cols-4 gap-2">
                                                             {chunk.map(id => (
-                                                                <div key={id} className="bg-white border border-slate-200 p-2 rounded-lg text-center font-mono text-[10px] font-bold text-slate-600 shadow-sm">
+                                                                <div key={id} className="bg-white border border-gray-200 p-1.5 rounded-lg text-center font-mono text-[10px] font-bold text-gray-600 shadow-sm">
                                                                     {id}
                                                                 </div>
                                                             ))}
@@ -676,25 +350,19 @@ export const ReporterHelper: React.FC = () => {
 
                                             <div className="mt-6 space-y-2">
                                                 <button
-                                                    onClick={() => copyToClipboard(chunks[0]?.join('\n') || '', 'Current group')}
-                                                    className="w-full py-3 bg-red-500 text-white rounded-xl text-[10px] font-black uppercase flex items-center justify-center gap-2 hover:bg-red-600 transition-all shadow-md shadow-red-100"
-                                                >
-                                                    <Copy size={14} /> Copy Current Group
-                                                </button>
-                                                <button
                                                     onClick={() => copyToClipboard((chunks as string[][]).flat().join('\n'), 'All intervals')}
-                                                    className="w-full py-3 bg-red-600 text-white rounded-xl text-[10px] font-black uppercase flex items-center justify-center gap-2 hover:bg-red-700 transition-all shadow-md shadow-red-100"
+                                                    className="w-full py-2.5 bg-gray-900 text-white rounded-xl text-[10px] font-bold uppercase flex items-center justify-center gap-2 hover:bg-gray-800 transition-all shadow-sm"
                                                 >
-                                                    <Copy size={14} /> Copy All Intervals
+                                                    <Copy size={14} /> Copy All Session IDs
                                                 </button>
                                             </div>
-                                        </Card>
+                                        </ExcelCard>
                                     ))}
                                 </div>
-                            </div>
-                        )}
-                    </div>
-                )}
+                            )}
+                        </div>
+                    )}
+                </div>
             </div>
         </div>
     );

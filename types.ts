@@ -89,6 +89,10 @@ export interface Entity {
   enabledMethods?: MethodType[];
   // Method-specific data - FULLY SEPARATED
   methodsData?: Partial<Record<MethodType, MethodData>>;
+  botConfig?: {
+    token: string;
+    chatId: string;
+  };
   // Legacy: kept for backward compatibility (will be migrated to methodsData.desktop)
   reporting: {
     parentCategories: ParentCategory[];

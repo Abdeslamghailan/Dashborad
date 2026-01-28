@@ -357,6 +357,7 @@ export const DayPlan: React.FC<Props> = ({ entity }) => {
     const [isLoading, setIsLoading] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
     const [selectedHistoryDate, setSelectedHistoryDate] = useState<string>(''); // Date filter for historical view
+    const [activeView, setActiveView] = useState<'calculator' | 'history'>('calculator'); // Toggle between calculator and history
 
     // Editable overrides: key = "categoryId:sessionIndex", value = custom value
     const [customSteps, setCustomSteps] = useState<Record<string, string | number>>({});
@@ -366,11 +367,17 @@ export const DayPlan: React.FC<Props> = ({ entity }) => {
 
     const [calcSteps, setCalcSteps] = useState<Record<string, string | number>>({});
     const [calcStarts, setCalcStarts] = useState<Record<string, string | number>>({});
-    const [showCalculatePlan, setShowCalculatePlan] = useState(false);
-    const [showHistory, setShowHistory] = useState(false);
 
     // Historical plans: DateString -> CategoryId -> SessionIdx -> { step, start }
     const [historyPlans, setHistoryPlans] = useState<Record<string, Record<string, Record<number, { step: string | number; start: string | number }>>>>({});
+
+    // Sync calculator with current plan when switching to calculator view
+    useEffect(() => {
+        if (activeView === 'calculator') {
+            setCalcSteps(prev => Object.keys(prev).length === 0 ? customSteps : prev);
+            setCalcStarts(prev => Object.keys(prev).length === 0 ? customStarts : prev);
+        }
+    }, [activeView, customSteps, customStarts]);
 
     // Helper: Get categories that contain a session with the given profileName
     const getCategoriesForSession = (profileName: string): { id: string; name: string }[] => {
@@ -1138,16 +1145,6 @@ export const DayPlan: React.FC<Props> = ({ entity }) => {
         );
     };
 
-
-    const toggleCalculatePlan = () => {
-        if (!showCalculatePlan) {
-            // Opening: sync with current custom values
-            setCalcSteps(customSteps);
-            setCalcStarts(customStarts);
-        }
-        setShowCalculatePlan(!showCalculatePlan);
-    };
-
     return (
         <div className="space-y-6">
             {/* Header Card */}
@@ -1197,84 +1194,116 @@ export const DayPlan: React.FC<Props> = ({ entity }) => {
 
             {/* Tables */}
             <div className="bg-white rounded-lg border border-gray-200 p-5">
-                {/* Calculate Plan Section - Always Visible with distinct style */}
-                <div className="bg-amber-50/20 rounded-xl p-5 border-2 border-dashed border-amber-200 mb-8 relative overflow-hidden">
-                    {/* Watermark/Badge */}
-                    <div className="absolute top-0 right-0 bg-amber-100 text-amber-700 text-[10px] font-black px-3 py-1 rounded-bl-lg uppercase tracking-widest shadow-sm">
-                        Simulation Mode
-                    </div>
-
-                    <div className="flex items-center gap-2 mb-4">
-                        <div className="p-1.5 bg-amber-100 rounded-lg">
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="text-amber-600">
+                {/* Navigation Switch */}
+                <div className="flex items-center justify-center mb-6">
+                    <div className="inline-flex items-center bg-gray-100 rounded-xl p-1 shadow-sm">
+                        <button
+                            onClick={() => setActiveView('history')}
+                            className={`flex items-center gap-2 px-6 py-2.5 rounded-lg text-sm font-semibold transition-all duration-200 ${activeView === 'history'
+                                ? 'bg-white text-indigo-700 shadow-md'
+                                : 'text-gray-600 hover:text-gray-900'
+                                }`}
+                        >
+                            <Calendar size={16} />
+                            Plan History
+                        </button>
+                        <button
+                            onClick={() => setActiveView('calculator')}
+                            className={`flex items-center gap-2 px-6 py-2.5 rounded-lg text-sm font-semibold transition-all duration-200 ${activeView === 'calculator'
+                                ? 'bg-white text-amber-700 shadow-md'
+                                : 'text-gray-600 hover:text-gray-900'
+                                }`}
+                        >
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
                                 <rect x="4" y="2" width="16" height="20" rx="2" />
                                 <line x1="8" y1="6" x2="16" y2="6" />
                                 <line x1="8" y1="10" x2="16" y2="10" />
                                 <line x1="8" y1="14" x2="16" y2="14" />
                                 <line x1="8" y1="18" x2="16" y2="18" />
                             </svg>
-                        </div>
-                        <div>
-                            <h3 className="text-sm font-black text-amber-800 uppercase tracking-tight">Plan Calculator</h3>
-                            <p className="text-[11px] text-amber-600 font-medium">Test configurations without affecting the live plan</p>
-                        </div>
+                            Plan Calculator
+                        </button>
                     </div>
+                </div>
 
-                    <div className="bg-white/60 border border-amber-100 rounded-lg p-3 mb-5 text-[11px] text-amber-800 shadow-sm">
-                        <div className="flex items-start gap-2">
-                            <div className="mt-0.5 text-amber-500 font-bold">💡</div>
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                <div>
-                                    <span className="font-bold underline decoration-amber-200">Variable Step:</span>
-                                    <span className="font-mono bg-amber-100/50 px-1 rounded ml-1">1-3:10, 4:20</span>
-                                    <p className="text-amber-600/80 mt-0.5 italic">Drops 1-3 use step 10, Drop 4 uses 20.</p>
+                {/* Conditional Content Based on Active View */}
+                <AnimatePresence mode="wait">
+                    {activeView === 'calculator' ? (
+                        <motion.div
+                            key="calculator"
+                            initial={{ opacity: 0, y: 10 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            exit={{ opacity: 0, y: -10 }}
+                            transition={{ duration: 0.2 }}
+                        >
+                            {/* Calculate Plan Section */}
+                            <div className="bg-amber-50/20 rounded-xl p-5 border-2 border-dashed border-amber-200 mb-8 relative overflow-hidden">
+                                {/* Watermark/Badge */}
+                                <div className="absolute top-0 right-0 bg-amber-100 text-amber-700 text-[10px] font-black px-3 py-1 rounded-bl-lg uppercase tracking-widest shadow-sm">
+                                    Simulation Mode
                                 </div>
-                                <div>
-                                    <span className="font-bold underline decoration-amber-200">Variable Start:</span>
-                                    <span className="font-mono bg-amber-100/50 px-1 rounded ml-1">1:100, 5:500</span>
-                                    <p className="text-amber-600/80 mt-0.5 italic">Drop 1 starts at 100, Drop 5 jumps to 500.</p>
+
+                                <div className="flex items-center gap-2 mb-4">
+                                    <div className="p-1.5 bg-amber-100 rounded-lg">
+                                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="text-amber-600">
+                                            <rect x="4" y="2" width="16" height="20" rx="2" />
+                                            <line x1="8" y1="6" x2="16" y2="6" />
+                                            <line x1="8" y1="10" x2="16" y2="10" />
+                                            <line x1="8" y1="14" x2="16" y2="14" />
+                                            <line x1="8" y1="18" x2="16" y2="18" />
+                                        </svg>
+                                    </div>
+                                    <div>
+                                        <h3 className="text-sm font-black text-amber-800 uppercase tracking-tight">Plan Calculator</h3>
+                                        <p className="text-[11px] text-amber-600 font-medium">Test configurations without affecting the live plan</p>
+                                    </div>
+                                </div>
+
+                                <div className="bg-white/60 border border-amber-100 rounded-lg p-3 mb-5 text-[11px] text-amber-800 shadow-sm">
+                                    <div className="flex items-start gap-2">
+                                        <div className="mt-0.5 text-amber-500 font-bold">💡</div>
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                            <div>
+                                                <span className="font-bold underline decoration-amber-200">Variable Step:</span>
+                                                <span className="font-mono bg-amber-100/50 px-1 rounded ml-1">1-3:10, 4:20</span>
+                                                <p className="text-amber-600/80 mt-0.5 italic">Drops 1-3 use step 10, Drop 4 uses 20.</p>
+                                            </div>
+                                            <div>
+                                                <span className="font-bold underline decoration-amber-200">Variable Start:</span>
+                                                <span className="font-mono bg-amber-100/50 px-1 rounded ml-1">1:100, 5:500</span>
+                                                <p className="text-amber-600/80 mt-0.5 italic">Drop 1 starts at 100, Drop 5 jumps to 500.</p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div className="opacity-90">
+                                    {renderDaySection(today, 0, true, 'Calculate Plan', true)}
                                 </div>
                             </div>
-                        </div>
-                    </div>
 
-                    <div className="opacity-90">
-                        {renderDaySection(today, 0, true, 'Calculate Plan', true)}
-                    </div>
-                </div>
-
-                {/* Today */}
-                <div className="bg-indigo-50/30 rounded-xl p-5 border border-indigo-100 mb-8 relative overflow-hidden">
-                    <div className="flex items-center gap-2 mb-4">
-                        <div className="flex items-center gap-1.5 bg-indigo-600 text-white text-[10px] font-black px-2 py-1 rounded uppercase tracking-widest shadow-sm">
-                            <span className="w-1.5 h-1.5 bg-white rounded-full animate-pulse"></span>
-                            Live / Active Plan
-                        </div>
-                        <span className="text-[11px] text-indigo-400 font-bold uppercase tracking-tighter">Current Configuration</span>
-                    </div>
-                    {renderDaySection(today, 0, true)}
-                </div>
-
-
-                {/* History - Date Filter */}
-                <div className="bg-gray-50/50 rounded-xl p-4 border border-gray-100">
-                    <button
-                        onClick={() => setShowHistory(!showHistory)}
-                        className="flex items-center gap-2 text-sm font-bold text-gray-600 hover:text-indigo-600 transition-colors mb-2"
-                    >
-                        {showHistory ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
-                        {showHistory ? 'HIDE HISTORICAL DATA' : 'SHOW HISTORICAL DATA'}
-                    </button>
-
-                    <AnimatePresence>
-                        {showHistory && (
-                            <motion.div
-                                initial={{ height: 0, opacity: 0 }}
-                                animate={{ height: 'auto', opacity: 1 }}
-                                exit={{ height: 0, opacity: 0 }}
-                                transition={{ duration: 0.2 }}
-                                className="overflow-hidden"
-                            >
+                        </motion.div>
+                    ) : (
+                        <motion.div
+                            key="history"
+                            initial={{ opacity: 0, y: 10 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            exit={{ opacity: 0, y: -10 }}
+                            transition={{ duration: 0.2 }}
+                        >
+                            {/* Today */}
+                            <div className="bg-indigo-50/30 rounded-xl p-5 border border-indigo-100 mb-8 relative overflow-hidden">
+                                <div className="flex items-center gap-2 mb-4">
+                                    <div className="flex items-center gap-1.5 bg-indigo-600 text-white text-[10px] font-black px-2 py-1 rounded uppercase tracking-widest shadow-sm">
+                                        <span className="w-1.5 h-1.5 bg-white rounded-full animate-pulse"></span>
+                                        Live / Active Plan
+                                    </div>
+                                    <span className="text-[11px] text-indigo-400 font-bold uppercase tracking-tighter">Current Configuration</span>
+                                </div>
+                                {renderDaySection(today, 0, true)}
+                            </div>
+                            {/* History - Date Filter */}
+                            <div className="bg-gray-50/50 rounded-xl p-4 border border-gray-100">
                                 <div className="pt-4 border-t border-gray-200/50 mt-2">
                                     <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
                                         <div>
@@ -1346,10 +1375,10 @@ export const DayPlan: React.FC<Props> = ({ entity }) => {
                                         return renderDaySection(selectedDate, daysDiff, false);
                                     })()}
                                 </div>
-                            </motion.div>
-                        )}
-                    </AnimatePresence>
-                </div>
+                            </div>
+                        </motion.div>
+                    )}
+                </AnimatePresence>
             </div>
         </div>
     );

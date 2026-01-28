@@ -180,7 +180,7 @@ export const GlobalDashboard: React.FC = () => {
         <div className="bg-white rounded-2xl border border-gray-200 p-1.5 shadow-sm flex items-center gap-1 overflow-x-auto scrollbar-hide">
           <button
             onClick={() => setActiveMethod('all')}
-            className={`flex items-center gap-2 px-4 py-2 rounded-xl font-semibold transition-all duration-200 whitespace-nowrap ${activeMethod === 'all'
+            className={`flex items-center gap-2 px-3 sm:px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold transition-all duration-200 whitespace-nowrap ${activeMethod === 'all'
               ? 'bg-gray-900 text-white shadow-lg'
               : 'text-gray-600 hover:bg-gray-100'
               }`}
@@ -212,7 +212,7 @@ export const GlobalDashboard: React.FC = () => {
               <button
                 key={method.id}
                 onClick={() => setActiveMethod(method.id)}
-                className={`flex items-center gap-2 px-4 py-2 rounded-xl font-semibold transition-all duration-200 whitespace-nowrap ${isActive
+                className={`flex items-center gap-2 px-3 sm:px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold transition-all duration-200 whitespace-nowrap ${isActive
                   ? `bg-gradient-to-r ${method.gradient} text-white shadow-lg`
                   : 'text-gray-600 hover:bg-gray-100'
                   }`}
@@ -268,7 +268,7 @@ export const GlobalDashboard: React.FC = () => {
           <h3 className="font-semibold text-gray-800 mb-4">
             Overall seeds {activeMethod !== 'all' && `(${currentMethodConfig?.name})`}
           </h3>
-          <div className="h-[240px] relative">
+          <div className="h-[200px] sm:h-[240px] relative">
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
                 <Pie
@@ -300,7 +300,7 @@ export const GlobalDashboard: React.FC = () => {
             </div>
           </div>
 
-          <div className="flex justify-center items-center gap-12 mt-2">
+          <div className="flex justify-center items-center gap-6 sm:gap-12 mt-2">
             <div className="flex flex-col items-center">
               <div className="flex items-center gap-2 mb-1">
                 <div className="w-3 h-3 rounded-full bg-red-500"></div>
@@ -329,7 +329,7 @@ export const GlobalDashboard: React.FC = () => {
           <h3 className="font-semibold text-gray-800 mb-4">
             Performance by Entity {activeMethod !== 'all' && `(${currentMethodConfig?.name})`}
           </h3>
-          <div className="h-[300px]">
+          <div className="h-[250px] sm:h-[300px]">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={entityPerformanceData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
@@ -410,7 +410,7 @@ export const GlobalDashboard: React.FC = () => {
             <div className="p-6 border-b border-gray-100">
               <h3 className="font-semibold text-gray-800">Methods Breakdown</h3>
             </div>
-            <div className="overflow-x-auto">
+            <div className="overflow-x-auto -mx-2 sm:mx-0">
               <table className="w-full text-left">
                 <thead className="bg-gray-50 text-gray-500 text-xs uppercase tracking-wider">
                   <tr>
@@ -440,7 +440,7 @@ export const GlobalDashboard: React.FC = () => {
 
                     return (
                       <tr key={m.id} className="hover:bg-gray-50 transition-colors">
-                        <td className="px-6 py-4">
+                        <td className="px-4 sm:px-6 py-4">
                           <div className="flex items-center gap-3">
                             <div className={`p-2 rounded-lg bg-gradient-to-r ${m.gradient} text-white`}>
                               {(() => {
@@ -479,10 +479,10 @@ export const GlobalDashboard: React.FC = () => {
 
       {/* Seeds by Entity List */}
       <div className="space-y-4">
-        <h3 className="text-lg font-semibold text-gray-800">
+        <h3 className="text-base sm:text-lg lg:text-xl font-semibold text-gray-800">
           Seeds by Entity {activeMethod !== 'all' && `(${currentMethodConfig?.name})`}
         </h3>
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6">
           {entityPerformanceData.map((ent, idx) => (
             <motion.div
               key={`${ent.fullName}-${activeMethod}`}
@@ -543,7 +543,7 @@ const StatCard = ({ label, value, subValue, icon, bgIcon }: { label: string, val
     </div>
     <div>
       <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-1">{label}</p>
-      <h3 className="text-2xl font-bold text-gray-900 leading-none">{value}</h3>
+      <h3 className="text-xl sm:text-2xl font-bold text-gray-900 leading-none">{value}</h3>
       {subValue && <p className="text-xs text-gray-500 mt-2 font-medium">{subValue}</p>}
     </div>
   </div>

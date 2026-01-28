@@ -111,7 +111,7 @@ router.get('/:id', authenticateToken, async (req: AuthRequest, res) => {
 // Create entity (Admin only)
 router.post('/', authenticateToken, requireAdmin, async (req: AuthRequest, res) => {
   try {
-    const { name, status, reporting, limitsConfiguration, notes, noteCards, enabledMethods, methodsData } = req.body;
+    const { name, status, reporting, limitsConfiguration, notes, noteCards, enabledMethods, methodsData, botConfig } = req.body;
 
     // Enforce ID format: ent_{name} (lowercase, spaces replaced by underscores)
     const id = `ent_${name.toLowerCase().trim().replace(/\s+/g, '_')}`;
@@ -132,7 +132,8 @@ router.post('/', authenticateToken, requireAdmin, async (req: AuthRequest, res) 
       notes: notes || '',
       noteCards: noteCards || [],
       enabledMethods: enabledMethods || ['desktop'],
-      methodsData: methodsData || {}
+      methodsData: methodsData || {},
+      botConfig: botConfig || { token: '', chatId: '' }
     };
 
     const entity = await prisma.entity.create({
@@ -168,7 +169,7 @@ router.put('/:id', authenticateToken, async (req: AuthRequest, res) => {
     const { id } = req.params;
     const userId = req.user!.id;
     const userRole = req.user!.role;
-    const { name, status, reporting, limitsConfiguration, notes, noteCards, enabledMethods, methodsData } = req.body;
+    const { name, status, reporting, limitsConfiguration, notes, noteCards, enabledMethods, methodsData, botConfig } = req.body;
     
     // DEBUG LOGGING
     if (reporting && reporting.parentCategories) {
@@ -252,7 +253,8 @@ router.put('/:id', authenticateToken, async (req: AuthRequest, res) => {
       notes: notes !== undefined ? notes : '',
       noteCards: noteCards !== undefined ? noteCards : existingData.noteCards || [],
       enabledMethods: enabledMethods !== undefined ? enabledMethods : existingData.enabledMethods || ['desktop'],
-      methodsData: methodsData !== undefined ? methodsData : existingData.methodsData || {}
+      methodsData: methodsData !== undefined ? methodsData : existingData.methodsData || {},
+      botConfig: botConfig !== undefined ? botConfig : existingData.botConfig || { token: '', chatId: '' }
     };
 
     const entity = await prisma.entity.update({

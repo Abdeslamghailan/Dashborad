@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Responsive Design Test - Dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+
+        .device-frame {
+            border: 3px solid #334155;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+        }
+
+        .device-header {
+            background: #1e293b;
+            color: white;
+            padding: 8px 16px;
+            font-size: 12px;
+            font-weight: bold;
+        }
+    </style>
+</head>
+
+<body class="bg-gray-100 p-8">
+    <div class="max-w-7xl mx-auto">
+        <h1 class="text-4xl font-bold text-gray-900 mb-2">Responsive Design Test</h1>
+        <p class="text-gray-600 mb-8">Visual reference for testing responsive breakpoints</p>
+
+        <!-- Breakpoint Reference -->
+        <div class="bg-white rounded-xl p-6 mb-8 shadow-sm border border-gray-200">
+            <h2 class="text-2xl font-bold text-gray-900 mb-4">Tailwind Breakpoints</h2>
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                <div class="bg-gray-50 p-4 rounded-lg border-l-4 border-gray-500">
+                    <div class="text-xs font-bold text-gray-500 uppercase mb-1">Mobile (Base)</div>
+                    <div class="text-2xl font-bold text-gray-900">
+                        < 640px</div>
+                            <div class="text-sm text-gray-600 mt-1">Default styles</div>
+                    </div>
+                    <div class="bg-blue-50 p-4 rounded-lg border-l-4 border-blue-500">
+                        <div class="text-xs font-bold text-blue-500 uppercase mb-1">Tablet (sm:)</div>
+                        <div class="text-2xl font-bold text-gray-900">≥ 640px</div>
+                        <div class="text-sm text-gray-600 mt-1">Small devices</div>
+                    </div>
+                    <div class="bg-green-50 p-4 rounded-lg border-l-4 border-green-500">
+                        <div class="text-xs font-bold text-green-500 uppercase mb-1">Desktop (lg:)</div>
+                        <div class="text-2xl font-bold text-gray-900">≥ 1024px</div>
+                        <div class="text-sm text-gray-600 mt-1">Large screens</div>
+                    </div>
+                    <div class="bg-purple-50 p-4 rounded-lg border-l-4 border-purple-500">
+                        <div class="text-xs font-bold text-purple-500 uppercase mb-1">Large (xl:)</div>
+                        <div class="text-2xl font-bold text-gray-900">≥ 1280px</div>
+                        <div class="text-sm text-gray-600 mt-1">Extra large</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Device Previews -->
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-8">
+                <!-- Mobile -->
+                <div>
+                    <h3 class="text-lg font-bold text-gray-900 mb-4">📱 Mobile (375px)</h3>
+                    <div class="device-frame" style="width: 375px; margin: 0 auto;">
+                        <div class="device-header">iPhone SE / 12 Mini</div>
+                        <div class="bg-white" style="height: 667px; overflow-y: auto;">
+                            <div class="p-4">
+                                <div class="bg-indigo-600 text-white p-3 rounded-lg mb-3">
+                                    <div class="text-xs font-bold uppercase mb-1">Mobile View</div>
+                                    <div class="text-sm">Single column layout</div>
+                                </div>
+                                <div class="grid grid-cols-1 gap-3">
+                                    <div class="bg-gray-100 p-3 rounded-lg">Card 1</div>
+                                    <div class="bg-gray-100 p-3 rounded-lg">Card 2</div>
+                                    <div class="bg-gray-100 p-3 rounded-lg">Card 3</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Tablet -->
+                <div>
+                    <h3 class="text-lg font-bold text-gray-900 mb-4">📱 Tablet (768px)</h3>
+                    <div class="device-frame" style="width: 100%; max-width: 768px; margin: 0 auto;">
+                        <div class="device-header">iPad / Tablet</div>
+                        <div class="bg-white" style="height: 500px; overflow-y: auto;">
+                            <div class="p-6">
+                                <div class="bg-blue-600 text-white p-4 rounded-lg mb-4">
+                                    <div class="text-xs font-bold uppercase mb-1">Tablet View</div>
+                                    <div class="text-sm">2-column layout</div>
+                                </div>
+                                <div class="grid grid-cols-2 gap-4">
+                                    <div class="bg-gray-100 p-4 rounded-lg">Card 1</div>
+                                    <div class="bg-gray-100 p-4 rounded-lg">Card 2</div>
+                                    <div class="bg-gray-100 p-4 rounded-lg">Card 3</div>
+                                    <div class="bg-gray-100 p-4 rounded-lg">Card 4</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Desktop -->
+                <div>
+                    <h3 class="text-lg font-bold text-gray-900 mb-4">💻 Desktop (1024px+)</h3>
+                    <div class="device-frame" style="width: 100%;">
+                        <div class="device-header">Desktop / Laptop</div>
+                        <div class="bg-white" style="height: 400px; overflow-y: auto;">
+                            <div class="p-8">
+                                <div class="bg-green-600 text-white p-4 rounded-lg mb-4">
+                                    <div class="text-xs font-bold uppercase mb-1">Desktop View</div>
+                                    <div class="text-sm">3+ column layout</div>
+                                </div>
+                                <div class="grid grid-cols-3 gap-6">
+                                    <div class="bg-gray-100 p-4 rounded-lg">Card 1</div>
+                                    <div class="bg-gray-100 p-4 rounded-lg">Card 2</div>
+                                    <div class="bg-gray-100 p-4 rounded-lg">Card 3</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Testing Checklist -->
+            <div class="bg-white rounded-xl p-6 shadow-sm border border-gray-200">
+                <h2 class="text-2xl font-bold text-gray-900 mb-4">✅ Testing Checklist</h2>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                        <h3 class="font-bold text-gray-900 mb-3">Mobile (< 640px)</h3>
+                                <ul class="space-y-2 text-sm text-gray-700">
+                                    <li class="flex items-start gap-2">
+                                        <span class="text-green-600 mt-0.5">✓</span>
+                                        <span>Hamburger menu visible and functional</span>
+                                    </li>
+                                    <li class="flex items-start gap-2">
+                                        <span class="text-green-600 mt-0.5">✓</span>
+                                        <span>Sidebar slides in from left</span>
+                                    </li>
+                                    <li class="flex items-start gap-2">
+                                        <span class="text-green-600 mt-0.5">✓</span>
+                                        <span>No horizontal scrolling</span>
+                                    </li>
+                                    <li class="flex items-start gap-2">
+                                        <span class="text-green-600 mt-0.5">✓</span>
+                                        <span>Buttons are full width</span>
+                                    </li>
+                                    <li class="flex items-start gap-2">
+                                        <span class="text-green-600 mt-0.5">✓</span>
+                                        <span>Text is readable (min 14px)</span>
+                                    </li>
+                                    <li class="flex items-start gap-2">
+                                        <span class="text-green-600 mt-0.5">✓</span>
+                                        <span>Touch targets are 44x44px+</span>
+                                    </li>
+                                </ul>
+                    </div>
+                    <div>
+                        <h3 class="font-bold text-gray-900 mb-3">Tablet & Desktop</h3>
+                        <ul class="space-y-2 text-sm text-gray-700">
+                            <li class="flex items-start gap-2">
+                                <span class="text-green-600 mt-0.5">✓</span>
+                                <span>Sidebar always visible</span>
+                            </li>
+                            <li class="flex items-start gap-2">
+                                <span class="text-green-600 mt-0.5">✓</span>
+                                <span>Multi-column layouts work</span>
+                            </li>
+                            <li class="flex items-start gap-2">
+                                <span class="text-green-600 mt-0.5">✓</span>
+                                <span>Charts display correctly</span>
+                            </li>
+                            <li class="flex items-start gap-2">
+                                <span class="text-green-600 mt-0.5">✓</span>
+                                <span>Tables are readable</span>
+                            </li>
+                            <li class="flex items-start gap-2">
+                                <span class="text-green-600 mt-0.5">✓</span>
+                                <span>Proper spacing maintained</span>
+                            </li>
+                            <li class="flex items-start gap-2">
+                                <span class="text-green-600 mt-0.5">✓</span>
+                                <span>No content overflow</span>
+                            </li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+
+            <!-- How to Test -->
+            <div class="bg-gradient-to-r from-indigo-600 to-blue-600 rounded-xl p-6 mt-8 text-white">
+                <h2 class="text-2xl font-bold mb-4">🔍 How to Test Your Dashboard</h2>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <div>
+                        <div class="bg-white/20 rounded-lg p-4 mb-2">
+                            <div class="text-3xl mb-2">1️⃣</div>
+                            <div class="font-bold mb-1">Open DevTools</div>
+                            <div class="text-sm opacity-90">Press F12 in Chrome</div>
+                        </div>
+                    </div>
+                    <div>
+                        <div class="bg-white/20 rounded-lg p-4 mb-2">
+                            <div class="text-3xl mb-2">2️⃣</div>
+                            <div class="font-bold mb-1">Toggle Device Mode</div>
+                            <div class="text-sm opacity-90">Click device toolbar icon</div>
+                        </div>
+                    </div>
+                    <div>
+                        <div class="bg-white/20 rounded-lg p-4 mb-2">
+                            <div class="text-3xl mb-2">3️⃣</div>
+                            <div class="font-bold mb-1">Test Devices</div>
+                            <div class="text-sm opacity-90">Select different devices</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+</body>
+
+</html>

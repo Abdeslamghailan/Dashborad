@@ -8,32 +8,32 @@ const router = Router();
 // Send report to Telegram bot
 router.post('/send-to-bot', authenticateToken, async (req, res) => {
     try {
-        const { entityId, htmlReport, botToken, chatId } = req.body;
+        const { entityId, htmlReport, botToken, chatId, fileName } = req.body;
 
         if (!botToken || !chatId) {
             return res.status(400).json({ error: 'Bot token and Chat ID are required' });
         }
 
-        // Telegram API URL for sending messages
-        const telegramUrl = `https://api.telegram.org/bot${botToken}/sendMessage`;
+        // Create a Blob from the HTML content
+        const blob = new Blob([htmlReport], { type: 'text/html' });
+        const formData = new FormData();
+        formData.append('chat_id', chatId);
+        formData.append('document', blob, fileName || 'report.html');
+        formData.append('caption', `📊 Consumption Report - ${new Date().toLocaleDateString()}`);
+
+        // Telegram API URL for sending documents
+        const telegramUrl = `https://api.telegram.org/bot${botToken}/sendDocument`;
 
         const response = await fetch(telegramUrl, {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-                chat_id: chatId,
-                text: htmlReport,
-                parse_mode: 'HTML',
-            }),
+            body: formData,
         });
 
         const data = await response.json();
 
         if (!data.ok) {
             logger.error('Telegram API error:', data);
-            return res.status(500).json({ error: data.description || 'Failed to send message to Telegram' });
+            return res.status(500).json({ error: data.description || 'Failed to send document to Telegram' });
         }
 
         res.json({ success: true, message: 'Report sent to Telegram successfully' });

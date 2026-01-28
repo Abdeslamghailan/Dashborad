@@ -6,7 +6,8 @@ import { Button } from './ui/Button';
 import { service } from '../services';
 import { SimulationExcel } from './SimulationExcel';
 import { ReporterHelper } from './ReporterHelper';
-import { FileSpreadsheet, ClipboardCheck } from 'lucide-react';
+import { FileSpreadsheet, ClipboardCheck, Activity } from 'lucide-react';
+import { ConsumptionHelper } from './ConsumptionHelper';
 
 const WowAnimations = () => (
     <style dangerouslySetInnerHTML={{
@@ -479,7 +480,7 @@ const DNSChecker = () => {
 };
 
 export const ToolsPage: React.FC = () => {
-    const [activeTab, setActiveTab] = useState<'gFilter' | 'dns' | 'excel' | 'reporter'>('gFilter');
+    const [activeTab, setActiveTab] = useState<'gFilter' | 'dns' | 'excel' | 'reporter' | 'consumption'>('gFilter');
 
     return (
         <div className="min-h-screen bg-slate-50/50 pb-20">
@@ -524,6 +525,15 @@ export const ToolsPage: React.FC = () => {
                             >
                                 <ClipboardCheck size={16} /> Reporter
                             </button>
+                            <button
+                                onClick={() => setActiveTab('consumption')}
+                                className={`px-4 py-2 rounded-xl text-sm font-black uppercase tracking-widest transition-all flex items-center gap-2 ${activeTab === 'consumption'
+                                    ? 'bg-indigo-600 text-white shadow-[4px_4px_0px_0px_rgba(15,23,42,1)] -translate-y-0.5'
+                                    : 'text-slate-400 hover:text-slate-600 hover:bg-slate-50'
+                                    }`}
+                            >
+                                <Activity size={16} /> Consumption
+                            </button>
                         </nav>
                     </div>
                 </div>
@@ -533,7 +543,8 @@ export const ToolsPage: React.FC = () => {
                 {activeTab === 'gFilter' ? <GmailFilterGenerator /> :
                     activeTab === 'dns' ? <DNSChecker /> :
                         activeTab === 'excel' ? <SimulationExcel /> :
-                            <ReporterHelper />}
+                            activeTab === 'reporter' ? <ReporterHelper /> :
+                                <ConsumptionHelper />}
             </div>
         </div>
     );

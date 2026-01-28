@@ -152,6 +152,41 @@ export const EntityFormModal: React.FC<EntityFormModalProps> = ({ isOpen, onClos
                             </select>
                         </div>
 
+                        {/* Bot Configuration */}
+                        <div className="col-span-2 pt-4 border-t border-gray-100">
+                            <label className="block text-sm font-bold text-gray-700 mb-3 uppercase tracking-wider">
+                                Telegram Bot Configuration
+                            </label>
+                            <div className="grid grid-cols-2 gap-4">
+                                <div className="space-y-1">
+                                    <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider ml-1">Bot Token</label>
+                                    <input
+                                        type="password"
+                                        value={formData.botConfig?.token || ''}
+                                        onChange={(e) => setFormData({
+                                            ...formData,
+                                            botConfig: { ...(formData.botConfig || { chatId: '' }), token: e.target.value }
+                                        })}
+                                        placeholder="7798410..."
+                                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all text-xs font-mono"
+                                    />
+                                </div>
+                                <div className="space-y-1">
+                                    <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider ml-1">Chat ID</label>
+                                    <input
+                                        type="text"
+                                        value={formData.botConfig?.chatId || ''}
+                                        onChange={(e) => setFormData({
+                                            ...formData,
+                                            botConfig: { ...(formData.botConfig || { token: '' }), chatId: e.target.value }
+                                        })}
+                                        placeholder="-100..."
+                                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all text-xs font-mono"
+                                    />
+                                </div>
+                            </div>
+                        </div>
+
                         {/* Methods Selection */}
                         <div className="col-span-2">
                             <label className="block text-sm font-medium text-gray-700 mb-3">
