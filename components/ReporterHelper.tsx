@@ -6,7 +6,7 @@ import {
 import {
     ShieldAlert, Activity, RefreshCw, FileText, Download, Trash2, Copy, Check,
     ChevronLeft, ChevronRight, LayoutDashboard, PieChart as PieIcon, List,
-    ClipboardList, Send, Trash, Moon, Sun
+    ClipboardList, Send, Trash
 } from 'lucide-react';
 import { Button } from './ui/Button';
 
@@ -49,7 +49,6 @@ const SectionTitle = ({ children, icon: Icon, color = "text-slate-900" }: { chil
 
 export const ReporterHelper: React.FC = () => {
     const [activeSubTab, setActiveSubTab] = useState<SubTab>('analyzer');
-    const [isDarkMode, setIsDarkMode] = useState(false);
 
     // --- Feature 1: Analyzer State ---
     const [analyzerInput, setAnalyzerInput] = useState('');
@@ -151,7 +150,7 @@ export const ReporterHelper: React.FC = () => {
     const COLORS = ['#4F46E5', '#EF4444', '#10B981', '#F59E0B', '#6366F1'];
 
     return (
-        <div className={`space-y-8 animate-in fade-in duration-500 ${isDarkMode ? 'dark' : ''}`}>
+        <div className="space-y-8 animate-in fade-in duration-500">
             {/* Header */}
             <div className="bg-white border-2 border-slate-100 rounded-3xl p-8 shadow-xl text-center relative overflow-hidden">
                 <div className="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500"></div>
@@ -181,12 +180,6 @@ export const ReporterHelper: React.FC = () => {
                     <RefreshCw size={18} /> Recheck Blocked Emails
                 </button>
                 <div className="h-10 w-px bg-slate-200 mx-2"></div>
-                <button
-                    onClick={() => setIsDarkMode(!isDarkMode)}
-                    className="p-3 rounded-2xl bg-white border-2 border-slate-100 text-slate-400 hover:text-indigo-600 transition-all flex items-center gap-2 font-bold text-xs uppercase"
-                >
-                    {isDarkMode ? <Sun size={18} /> : <Moon size={18} />} {isDarkMode ? 'Light Mode' : 'Dark Mode'}
-                </button>
             </div>
 
             {/* Content Area */}
