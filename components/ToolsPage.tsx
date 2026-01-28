@@ -5,7 +5,8 @@ import { Mail, Globe, Search, Copy, Download, Trash2, Check, Clock, ShieldAlert,
 import { Button } from './ui/Button';
 import { service } from '../services';
 import { SimulationExcel } from './SimulationExcel';
-import { FileSpreadsheet } from 'lucide-react';
+import { ReporterHelper } from './ReporterHelper';
+import { FileSpreadsheet, ClipboardCheck } from 'lucide-react';
 
 const WowAnimations = () => (
     <style dangerouslySetInnerHTML={{
@@ -478,7 +479,7 @@ const DNSChecker = () => {
 };
 
 export const ToolsPage: React.FC = () => {
-    const [activeTab, setActiveTab] = useState<'gFilter' | 'dns' | 'excel'>('gFilter');
+    const [activeTab, setActiveTab] = useState<'gFilter' | 'dns' | 'excel' | 'reporter'>('gFilter');
 
     return (
         <div className="min-h-screen bg-slate-50/50 pb-20">
@@ -514,13 +515,25 @@ export const ToolsPage: React.FC = () => {
                             >
                                 <FileSpreadsheet size={16} /> Excel
                             </button>
+                            <button
+                                onClick={() => setActiveTab('reporter')}
+                                className={`px-4 py-2 rounded-xl text-sm font-black uppercase tracking-widest transition-all flex items-center gap-2 ${activeTab === 'reporter'
+                                    ? 'bg-rose-500 text-white shadow-[4px_4px_0px_0px_rgba(15,23,42,1)] -translate-y-0.5'
+                                    : 'text-slate-400 hover:text-slate-600 hover:bg-slate-50'
+                                    }`}
+                            >
+                                <ClipboardCheck size={16} /> Reporter
+                            </button>
                         </nav>
                     </div>
                 </div>
             </div>
 
             <div className="max-w-7xl mx-auto px-8 pt-4 pb-12">
-                {activeTab === 'gFilter' ? <GmailFilterGenerator /> : activeTab === 'dns' ? <DNSChecker /> : <SimulationExcel />}
+                {activeTab === 'gFilter' ? <GmailFilterGenerator /> :
+                    activeTab === 'dns' ? <DNSChecker /> :
+                        activeTab === 'excel' ? <SimulationExcel /> :
+                            <ReporterHelper />}
             </div>
         </div>
     );
