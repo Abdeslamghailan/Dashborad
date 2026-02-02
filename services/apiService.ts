@@ -1,57 +1,230 @@
 import { Entity, DataService } from '../types';
+import { API_URL } from '../config';
 
-// This is a stub for future MySQL API integration
+// Helper function to get auth token
+const getAuthToken = () => {
+  return localStorage.getItem('token');
+};
+
+// Helper function to make authenticated API calls
+const apiCall = async (endpoint: string, options: RequestInit = {}) => {
+  const token = getAuthToken();
+  const headers: HeadersInit = {
+    'Content-Type': 'application/json',
+    ...(token && { 'Authorization': `Bearer ${token}` }),
+    ...options.headers,
+  };
+
+  const url = `${API_URL}/api${endpoint}`;
+  
+  const response = await fetch(url, {
+    ...options,
+    headers,
+  });
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({ error: 'Request failed' }));
+    throw new Error(error.error || `HTTP ${response.status}`);
+  }
+
+  return response.json();
+};
+
 export const apiService: DataService = {
+  // Entity management
   getEntities: async () => {
-    console.log('API: getEntities called');
-    return [];
+    try {
+      return await apiCall('/entities');
+    } catch (error) {
+      console.error('API: getEntities error:', error);
+      return [];
+    }
   },
+
   getEntity: async (id: string) => {
-    console.log(`API: getEntity ${id} called`);
-    return undefined;
+    try {
+      return await apiCall(`/entities/${id}`);
+    } catch (error) {
+      console.error(`API: getEntity ${id} error:`, error);
+      return undefined;
+    }
   },
+
   saveEntity: async (entity: Entity) => {
-    console.log(`API: saveEntity ${entity.id} called`);
+    try {
+      await apiCall(`/entities/${entity.id}`, {
+        method: 'PUT',
+        body: JSON.stringify(entity),
+      });
+    } catch (error) {
+      console.error(`API: saveEntity ${entity.id} error:`, error);
+      throw error;
+    }
   },
+
   deleteEntity: async (id: string) => {
-    console.log(`API: deleteEntity ${id} called`);
+    try {
+      await apiCall(`/entities/${id}`, {
+        method: 'DELETE',
+      });
+    } catch (error) {
+      console.error(`API: deleteEntity ${id} error:`, error);
+      throw error;
+    }
   },
+
   resetDatabase: async () => {
-    console.log('API: resetDatabase called');
+    try {
+      await apiCall('/admin/reset', {
+        method: 'POST',
+      });
+    } catch (error) {
+      console.error('API: resetDatabase error:', error);
+      throw error;
+    }
   },
+
+  // History management
   getEntityHistory: async (entityId: string, limit?: number) => {
-    console.log(`API: getEntityHistory ${entityId} called`);
-    return [];
+    try {
+      const params = new URLSearchParams();
+      params.append('entityId', entityId);
+      if (limit) params.append('limit', limit.toString());
+      
+      return await apiCall(`/history?${params.toString()}`);
+    } catch (error) {
+      console.error(`API: getEntityHistory ${entityId} error:`, error);
+      return [];
+    }
   },
+
   getHistoryByType: async (entityType: string, limit?: number) => {
-    console.log(`API: getHistoryByType ${entityType} called`);
-    return [];
+    try {
+      const params = new URLSearchParams();
+      params.append('entityType', entityType);
+      if (limit) params.append('limit', limit.toString());
+      
+      return await apiCall(`/history?${params.toString()}`);
+    } catch (error) {
+      console.error(`API: getHistoryByType ${entityType} error:`, error);
+      return [];
+    }
   },
+
   getRecentChanges: async (limit?: number) => {
-    console.log('API: getRecentChanges called');
-    return [];
+    try {
+      const params = new URLSearchParams();
+      if (limit) params.append('limit', limit.toString());
+      
+      return await apiCall(`/history/recent?${params.toString()}`);
+    } catch (error) {
+      console.error('API: getRecentChanges error:', error);
+      return [];
+    }
   },
+
   getAllHistory: async (filters?: any) => {
-    console.log('API: getAllHistory called', filters);
-    return [];
+    try {
+      const params = new URLSearchParams();
+      
+      if (filters) {
+        Object.entries(filters).forEach(([key, value]) => {
+          if (value !== undefined && value !== null && value !== '') {
+            params.append(key, String(value));
+          }
+        });
+      }
+      
+      return await apiCall(`/history?${params.toString()}`);
+    } catch (error) {
+      console.error('API: getAllHistory error:', error);
+      return [];
+    }
   },
+
+  getIntervalPauseHistory: async (filters?: any) => {
+    try {
+      const params = new URLSearchParams();
+      
+      if (filters) {
+        Object.entries(filters).forEach(([key, value]) => {
+          if (value !== undefined && value !== null && value !== '') {
+            params.append(key, String(value));
+          }
+        });
+      }
+      
+      return await apiCall(`/history/interval-pause?${params.toString()}`);
+    } catch (error) {
+      console.error('API: getIntervalPauseHistory error:', error);
+      return [];
+    }
+  },
+
   deleteHistoryEntry: async (id: number) => {
-    console.log(`API: deleteHistoryEntry ${id} called`);
+    try {
+      await apiCall(`/history/${id}`, {
+        method: 'DELETE',
+      });
+    } catch (error) {
+      console.error(`API: deleteHistoryEntry ${id} error:`, error);
+      throw error;
+    }
   },
+
   deleteAllHistory: async () => {
-    console.log('API: deleteAllHistory called');
+    try {
+      await apiCall('/history', {
+        method: 'DELETE',
+      });
+    } catch (error) {
+      console.error('API: deleteAllHistory error:', error);
+      throw error;
+    }
   },
+
+  // Day plan management
   getDayPlan: async (entityId: string, date: string) => {
-    console.log(`API: getDayPlan ${entityId} ${date} called`);
-    return {};
+    try {
+      return await apiCall(`/dayplan/${entityId}/${date}`);
+    } catch (error) {
+      console.error(`API: getDayPlan ${entityId} ${date} error:`, error);
+      return {};
+    }
   },
+
   saveDayPlan: async (entityId: string, date: string, categoryId: string, sessionData: any) => {
-    console.log(`API: saveDayPlan ${entityId} ${date} called`);
+    try {
+      await apiCall(`/dayplan/${entityId}/${date}/${categoryId}`, {
+        method: 'PUT',
+        body: JSON.stringify(sessionData),
+      });
+    } catch (error) {
+      console.error(`API: saveDayPlan ${entityId} ${date} error:`, error);
+      throw error;
+    }
   },
+
   saveDayPlanBulk: async (entityId: string, date: string, plans: any) => {
-    console.log(`API: saveDayPlanBulk ${entityId} ${date} called`);
+    try {
+      await apiCall(`/dayplan/${entityId}/${date}/bulk`, {
+        method: 'PUT',
+        body: JSON.stringify(plans),
+      });
+    } catch (error) {
+      console.error(`API: saveDayPlanBulk ${entityId} ${date} error:`, error);
+      throw error;
+    }
   },
+
   deleteDayPlan: async (entityId: string, categoryId: string, date: string) => {
-    console.log(`API: deleteDayPlan ${entityId} ${categoryId} ${date} called`);
+    try {
+      await apiCall(`/dayplan/${entityId}/${date}/${categoryId}`, {
+        method: 'DELETE',
+      });
+    } catch (error) {
+      console.error(`API: deleteDayPlan ${entityId} ${categoryId} ${date} error:`, error);
+      throw error;
+    }
   }
 };

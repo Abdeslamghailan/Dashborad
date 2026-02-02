@@ -2,6 +2,6 @@ import { dataService } from './dataService';
 import { apiService } from './apiService';
 
 // Toggle this to switch between LocalStorage and API
-const USE_API = false;
+const USE_API = true;
 
 export const service = USE_API ? apiService : dataService;
