@@ -27,7 +27,7 @@ export const HistoryPage: React.FC = () => {
     const [fieldChangedFilter, setFieldChangedFilter] = useState('');
     const [startDateFilter, setStartDateFilter] = useState(() => {
         const d = new Date();
-        d.setDate(d.getDate() - 7);
+        d.setDate(d.getDate() - 30); // Default to 30 days
         return d.toISOString().split('T')[0];
     });
     const [endDateFilter, setEndDateFilter] = useState(() => new Date().toISOString().split('T')[0]);
@@ -52,6 +52,7 @@ export const HistoryPage: React.FC = () => {
         usernameFilter,
         changeTypeFilter,
         methodIdFilter,
+        categoryIdFilter,
         fieldChangedFilter,
         startDateFilter,
         endDateFilter
@@ -155,11 +156,8 @@ export const HistoryPage: React.FC = () => {
         setMethodIdFilter('');
         setCategoryIdFilter('');
         setFieldChangedFilter('');
-
-        const d = new Date();
-        d.setDate(d.getDate() - 7);
-        setStartDateFilter(d.toISOString().split('T')[0]);
-        setEndDateFilter(new Date().toISOString().split('T')[0]);
+        setStartDateFilter('');
+        setEndDateFilter('');
     };
 
     if (user?.role !== 'ADMIN' && user?.role !== 'MAILER') {
