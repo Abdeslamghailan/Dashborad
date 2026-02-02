@@ -16,20 +16,20 @@ export const LoginPage: React.FC = () => {
 
     React.useEffect(() => {
         const checkHealth = async () => {
+            // Use relative path to ensure we hit the same origin
+            const url = '/api/test';
             try {
-                const url = `${import.meta.env.VITE_API_URL || ''}/api/test`;
                 console.log(`[LoginPage] Pinging health check at: ${url}`);
                 const res = await fetch(url);
                 if (res.ok) {
                     const data = await res.json();
-                    console.log('[LoginPage] Server is online:', data);
                     setServerStatus('online');
                 } else {
                     console.error(`[LoginPage] Server status check failed: ${res.status}`);
                     setServerStatus('offline');
                 }
             } catch (err) {
-                console.error('[LoginPage] Health check failed:', err);
+                console.error(`[LoginPage] Health check failed at ${url}:`, err);
                 setServerStatus('offline');
             }
         };
