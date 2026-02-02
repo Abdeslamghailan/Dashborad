@@ -563,7 +563,7 @@ export const HistoryPage: React.FC = () => {
                     </div>
                 </>
             ) : (
-                <IntervalPausedHistoryView initialHistory={[]} isAdmin={user?.role === 'ADMIN'} />
+                <IntervalPausedHistoryView initialHistory={intervalHistory} isAdmin={user?.role === 'ADMIN'} />
             )}
 
             {/* Delete Confirmation Modal */}

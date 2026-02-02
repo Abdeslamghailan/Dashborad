@@ -3,7 +3,7 @@ import { API_URL } from '../config';
 
 // Helper function to get auth token
 const getAuthToken = () => {
-  return localStorage.getItem('token');
+  return localStorage.getItem('auth_token');
 };
 
 // Helper function to make authenticated API calls
