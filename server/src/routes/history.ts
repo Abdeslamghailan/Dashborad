@@ -48,12 +48,17 @@ router.get('/interval-pause', authenticateToken, requireAdminOrMailer, async (re
       };
     }
 
-    // 1. Fetch from new specialized table
-    const newHistory = await (prisma as any).intervalPauseHistory.findMany({
-      where,
-      orderBy: { createdAt: 'desc' },
-      take: parseInt(limit as string)
-    });
+    // 1. Fetch from new specialized table (Safe Fetch)
+    let newHistory: any[] = [];
+    try {
+      newHistory = await (prisma as any).intervalPauseHistory.findMany({
+        where,
+        orderBy: { createdAt: 'desc' },
+        take: parseInt(limit as string)
+      });
+    } catch (e) {
+      console.warn('Specialized IntervalPauseHistory table not found or query failed, falling back to legacy only.');
+    }
 
     // 2. Fetch from legacy ChangeHistory table
     const legacyWhere: any = {
