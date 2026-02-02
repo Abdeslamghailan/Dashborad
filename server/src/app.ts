@@ -142,25 +142,31 @@ app.use('/api/reporter', reporterRoutes);
 // Health check
 app.get('/api/health', async (req, res) => {
   try {
-    // Simple query to check DB connection
-    const userCount = await prisma.user.count().catch(err => {
-      console.error('Prisma connection error during health check:', err);
-      return -1;
-    });
+    // Check various tables
+    const userCount = await prisma.user.count().catch(() => -1);
+    const historyCount = await prisma.changeHistory.count().catch(() => -1);
+    let intervalCount = -1;
+    try {
+      intervalCount = await (prisma as any).intervalPauseHistory.count();
+    } catch (e) {
+      // Table might not exist yet
+    }
     
     res.json({ 
       status: 'ok', 
       env: process.env.NODE_ENV,
-      db: userCount >= 0 ? 'connected' : 'error',
-      userCount: userCount >= 0 ? userCount : undefined,
+      db: {
+        users: userCount,
+        history: historyCount,
+        intervalHistory: intervalCount
+      },
       timestamp: new Date().toISOString()
     });
   } catch (error) {
     logger.error('Health check error', error);
     res.status(500).json({ 
       status: 'error', 
-      env: process.env.NODE_ENV,
-      db: 'unknown'
+      env: process.env.NODE_ENV
     });
   }
 });
