@@ -21,7 +21,7 @@ export const IntervalPausedHistoryView: React.FC<IntervalPausedHistoryViewProps>
     const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
     const [startDate, setStartDate] = useState<string>(() => {
         const d = new Date();
-        d.setDate(d.getDate() - 7);
+        d.setDate(d.getDate() - 30); // Default to 30 days
         return d.toISOString().split('T')[0];
     });
     const [endDate, setEndDate] = useState<string>(() => new Date().toISOString().split('T')[0]);
@@ -137,6 +137,7 @@ export const IntervalPausedHistoryView: React.FC<IntervalPausedHistoryViewProps>
     const groupedHistory = useMemo(() => {
         const groups: Record<string, Record<string, Record<string, any[]>>> = {};
         history.forEach(entry => {
+            if (!entry || !entry.createdAt) return;
             const date = new Date(entry.createdAt).toLocaleDateString('en-GB');
             const category = entry.categoryName || 'General';
             const pauseType = entry.pauseType || 'Update';
@@ -150,6 +151,14 @@ export const IntervalPausedHistoryView: React.FC<IntervalPausedHistoryViewProps>
         });
         return groups;
     }, [history]);
+
+    const sortedDates = useMemo(() => {
+        return Object.entries(groupedHistory).sort((a, b) => {
+            const dateA = a[0].split('/').reverse().join('-');
+            const dateB = b[0].split('/').reverse().join('-');
+            return dateB.localeCompare(dateA);
+        });
+    }, [groupedHistory]);
 
     const getPauseTypeStyles = (type: string) => {
         switch (type.toLowerCase()) {
@@ -325,10 +334,8 @@ export const IntervalPausedHistoryView: React.FC<IntervalPausedHistoryViewProps>
 
                     <button
                         onClick={() => {
-                            const d = new Date();
-                            d.setDate(d.getDate() - 7);
-                            setStartDate(d.toISOString().split('T')[0]);
-                            setEndDate(new Date().toISOString().split('T')[0]);
+                            setStartDate('');
+                            setEndDate('');
                             setSelectedEntityId('');
                             setSelectedMethods([]);
                             setSelectedCategories([]);
@@ -341,7 +348,6 @@ export const IntervalPausedHistoryView: React.FC<IntervalPausedHistoryViewProps>
                 </div>
             </div>
 
-            {/* Content Section */}
             <div className="space-y-10">
                 {loading ? (
                     <div className="py-32 text-center">
@@ -351,7 +357,7 @@ export const IntervalPausedHistoryView: React.FC<IntervalPausedHistoryViewProps>
                         </div>
                         <p className="text-xs font-black text-slate-400 uppercase tracking-[0.3em]">Synchronizing Database...</p>
                     </div>
-                ) : Object.keys(groupedHistory).length === 0 ? (
+                ) : sortedDates.length === 0 ? (
                     <div className="bg-white rounded-[2rem] border-2 border-dashed border-slate-200 p-24 text-center">
                         <div className="w-20 h-20 bg-slate-50 rounded-3xl flex items-center justify-center mx-auto mb-6">
                             <Search size={40} className="text-slate-200" />
@@ -360,7 +366,7 @@ export const IntervalPausedHistoryView: React.FC<IntervalPausedHistoryViewProps>
                         <p className="text-slate-500 font-medium max-w-xs mx-auto">Try adjusting your filters or expanding the date range to find what you're looking for.</p>
                     </div>
                 ) : (
-                    Object.entries(groupedHistory).sort((a, b) => b[0].split('/').reverse().join('-').localeCompare(a[0].split('/').reverse().join('-'))).map(([date, categories]) => (
+                    sortedDates.map(([date, categories]) => (
                         <div key={date} className="space-y-6">
                             <div className="flex items-center gap-4">
                                 <div className="px-5 py-2 bg-slate-900 text-white rounded-2xl text-xs font-black tracking-[0.2em] shadow-lg shadow-slate-200">
@@ -369,7 +375,7 @@ export const IntervalPausedHistoryView: React.FC<IntervalPausedHistoryViewProps>
                                 <div className="h-px flex-1 bg-gradient-to-r from-slate-200 to-transparent"></div>
                             </div>
 
-                            {Object.entries(categories).map(([category, typeGroups]) => (
+                            {Object.entries(categories as Record<string, Record<string, any[]>>).map(([category, typeGroups]) => (
                                 <div key={category} className="space-y-4">
                                     <div className="flex items-center gap-3 px-2">
                                         <div className="w-1.5 h-5 bg-indigo-500 rounded-full shadow-[0_0_10px_rgba(99,102,241,0.5)]"></div>
@@ -377,7 +383,7 @@ export const IntervalPausedHistoryView: React.FC<IntervalPausedHistoryViewProps>
                                     </div>
 
                                     <div className={viewMode === 'grid' ? "grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5" : "space-y-4"}>
-                                        {Object.entries(typeGroups).map(([groupKey, entries]) => {
+                                        {Object.entries(typeGroups as Record<string, any[]>).map(([groupKey, entries]) => {
                                             const [pauseType, interval] = groupKey.split('|');
                                             return (
                                                 <div key={groupKey} className="bg-white rounded-3xl border border-slate-200 overflow-hidden shadow-sm hover:shadow-xl hover:border-indigo-200 transition-all duration-500 group/card">
