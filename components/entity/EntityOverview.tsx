@@ -1,7 +1,8 @@
 import React from 'react';
 import { Entity } from '../../types';
 import {
-  PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend
+  PieChart, Pie, Cell, ResponsiveContainer, Tooltip,
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Legend
 } from 'recharts';
 import { AlignLeft, CheckCircle2, XCircle, Users, Server } from 'lucide-react';
 import { motion } from 'framer-motion';
@@ -53,12 +54,10 @@ export const EntityOverview: React.FC<Props> = ({ entity }) => {
   });
 
   // 2. Aggregate Globals - Deduplicate by profileName to avoid counting same session multiple times
-  // Get all unique sessions across all categories (by profileName)
   const allProfiles = entity.reporting.parentCategories.flatMap(cat =>
     cat.profiles.filter(p => !p.isMirror)
   );
 
-  // Deduplicate by profileName - keep the first occurrence
   const uniqueProfileMap = new Map<string, typeof allProfiles[0]>();
   allProfiles.forEach(profile => {
     if (!uniqueProfileMap.has(profile.profileName)) {
@@ -76,22 +75,30 @@ export const EntityOverview: React.FC<Props> = ({ entity }) => {
   const blockedRate = totalSeeds > 0 ? ((totalBlocked / totalSeeds) * 100).toFixed(2) : '0.00';
 
   // 3. Chart Data
-  const connectedVsBlockedData = [
-    { name: 'Connected', value: totalConnected },
-    { name: 'Blocked', value: totalBlocked }
-  ];
-
-  // Connected by Type (Category)
-  const connectedByTypeData = categoryStats.map(cat => ({
-    name: cat.name.replace(' REPORTING', ''), // Clean up name for chart
-    value: cat.connectedCount
-  })).filter(d => d.value > 0);
-
   const COLORS = {
     connected: '#22c55e', // Green
     blocked: '#ef4444',   // Red
+    total: '#3b82f6',     // Blue
     types: ['#22c55e', '#3b82f6', '#f59e0b', '#8b5cf6'] // Green, Blue, Amber, Purple
   };
+
+  const pendingCount = Math.max(0, totalSeeds - totalConnected - totalBlocked);
+  const overallPieData = [
+    { name: 'Blocked', value: totalBlocked },
+    { name: 'Connected', value: totalConnected },
+    { name: 'Pending', value: pendingCount }
+  ].filter(d => d.value > 0);
+
+  const isPieEmpty = overallPieData.length === 0;
+  const pieChartData = isPieEmpty ? [{ name: 'Empty', value: 1 }] : overallPieData;
+
+  // Performance by Category
+  const performanceByCategoryData = categoryStats.map(cat => ({
+    name: cat.name.replace(' REPORTING', '').replace(' Configuration', ''),
+    Count: cat.totalCount,
+    Connected: cat.connectedCount,
+    Blocked: cat.blockedCount
+  }));
 
   return (
     <div className="space-y-6">
@@ -128,114 +135,128 @@ export const EntityOverview: React.FC<Props> = ({ entity }) => {
       {/* Charts Row */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
 
-        {/* Connected vs Blocked Donut */}
+        {/* Overall Seeds Donut */}
         <motion.div
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
-          className="bg-white p-6 rounded-xl shadow-sm border border-gray-200"
+          className="bg-white p-6 rounded-xl shadow-sm border border-gray-200 flex flex-col"
+          style={{ minHeight: '500px' }}
         >
-          <h3 className="font-semibold text-gray-800 mb-4">Connected vs Blocked</h3>
-          <div className="h-[240px] relative">
-            <ResponsiveContainer width="100%" height="100%">
+          <h3 className="font-bold text-gray-800 mb-8 text-lg">Connected vs Blocked</h3>
+          <div className="relative flex-1 flex justify-center items-center">
+            <ResponsiveContainer width="100%" height={300}>
               <PieChart>
                 <Pie
-                  data={connectedVsBlockedData}
+                  data={pieChartData}
                   cx="50%"
                   cy="50%"
-                  innerRadius={80}
-                  outerRadius={100}
-                  paddingAngle={5}
+                  innerRadius={85}
+                  outerRadius={115}
+                  paddingAngle={pieChartData.length > 1 ? 4 : 0}
                   dataKey="value"
                   startAngle={90}
                   endAngle={-270}
                   cornerRadius={10}
+                  stroke="none"
+                  isAnimationActive={true}
                 >
-                  <Cell fill={COLORS.connected} />
-                  <Cell fill={COLORS.blocked} />
+                  {pieChartData.map((entry, index) => (
+                    <Cell
+                      key={`cell-${index}`}
+                      fill={
+                        entry.name === 'Connected' ? COLORS.connected :
+                          entry.name === 'Blocked' ? COLORS.blocked :
+                            'transparent' // Match background for Pending/Empty
+                      }
+                    />
+                  ))}
                 </Pie>
-
-                <Tooltip
-                  formatter={(value: number) => value.toLocaleString()}
-                  contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
-                />
+                {!isPieEmpty && (
+                  <Tooltip
+                    formatter={(value: number, name: string) => name === 'Pending' ? null : value.toLocaleString()}
+                    contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)' }}
+                  />
+                )}
               </PieChart>
             </ResponsiveContainer>
             {/* Center Label */}
             <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-              <span className="text-3xl font-bold text-gray-800">{totalSeeds.toLocaleString()}</span>
-              <span className="text-xs text-gray-500 font-medium uppercase tracking-wide">SEEDS</span>
+              <span className="text-4xl font-bold text-gray-800 tracking-tight">{totalSeeds.toLocaleString().replace(/,/g, ' ')}</span>
+              <span className="text-xs text-gray-400 font-bold uppercase tracking-widest mt-1">TOTAL SEEDS</span>
             </div>
           </div>
 
-          <div className="flex justify-center items-center gap-12 mt-2">
+          <div className="flex justify-center items-center gap-16 mt-8 pb-4">
             <div className="flex flex-col items-center">
               <div className="flex items-center gap-2 mb-1">
                 <div className="w-3 h-3 rounded-full bg-red-500"></div>
-                <span className="text-sm text-gray-600 font-medium">Blocked</span>
+                <span className="text-sm text-gray-500 font-bold">Blocked</span>
               </div>
-              <span className="text-xl font-bold text-red-500">{totalBlocked.toLocaleString()}</span>
+              <span className="text-2xl font-bold text-red-500">{totalBlocked.toLocaleString()}</span>
             </div>
             <div className="flex flex-col items-center">
               <div className="flex items-center gap-2 mb-1">
                 <div className="w-3 h-3 rounded-full bg-green-500"></div>
-                <span className="text-sm text-gray-600 font-medium">Connected</span>
+                <span className="text-sm text-gray-500 font-bold">Connected</span>
               </div>
-              <span className="text-xl font-bold text-green-600">{totalConnected.toLocaleString()}</span>
+              <span className="text-2xl font-bold text-green-500">{totalConnected.toLocaleString()}</span>
             </div>
           </div>
         </motion.div>
 
-        {/* Connected by Type Donut */}
+        {/* Performance by Category Bar Chart */}
         <motion.div
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.1 }}
-          className="bg-white p-6 rounded-xl shadow-sm border border-gray-200"
+          className="bg-white p-6 rounded-xl shadow-sm border border-gray-200 flex flex-col"
+          style={{ minHeight: '500px' }}
         >
-          <h3 className="font-semibold text-gray-800 mb-4">Connected by Type</h3>
-          <div className="h-[240px] relative">
-            <ResponsiveContainer width="100%" height="100%">
-              <PieChart>
-                <Pie
-                  data={connectedByTypeData}
-                  cx="50%"
-                  cy="50%"
-                  innerRadius={80}
-                  outerRadius={100}
-                  paddingAngle={5}
-                  dataKey="value"
-                  startAngle={90}
-                  endAngle={-270}
-                  cornerRadius={10}
-                >
-                  {connectedByTypeData.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={COLORS.types[index % COLORS.types.length]} />
-                  ))}
-                </Pie>
-
-                <Tooltip
-                  formatter={(value: number) => value.toLocaleString()}
-                  contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
+          <h3 className="font-bold text-gray-800 mb-8 text-lg">Performance by Category</h3>
+          <div className="flex-1 w-full">
+            <ResponsiveContainer width="100%" height={350}>
+              <BarChart
+                data={performanceByCategoryData}
+                margin={{ top: 10, right: 10, left: 10, bottom: 10 }}
+                barGap={8}
+                barCategoryGap="25%"
+              >
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                <XAxis
+                  dataKey="name"
+                  axisLine={false}
+                  tickLine={false}
+                  tick={{ fill: '#64748b', fontSize: 12, fontWeight: 600 }}
+                  dy={10}
                 />
-              </PieChart>
+                <YAxis
+                  axisLine={false}
+                  tickLine={false}
+                  tick={{ fill: '#64748b', fontSize: 11, fontWeight: 600 }}
+                />
+                <Tooltip
+                  cursor={{ fill: '#f8fafc' }}
+                  contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)' }}
+                  formatter={(value: number) => value.toLocaleString()}
+                />
+                <Legend
+                  verticalAlign="bottom"
+                  align="center"
+                  iconType="rect"
+                  iconSize={14}
+                  wrapperStyle={{ paddingTop: '30px' }}
+                  payload={[
+                    { value: 'Blocked', type: 'rect', id: 'Blocked', color: COLORS.blocked },
+                    { value: 'Connected', type: 'rect', id: 'Connected', color: COLORS.connected },
+                    { value: 'Count', type: 'rect', id: 'Count', color: COLORS.total },
+                  ]}
+                  formatter={(value) => <span className="text-gray-600 font-bold text-sm ml-2">{value}</span>}
+                />
+                <Bar dataKey="Count" fill={COLORS.total} radius={[4, 4, 0, 0]} barSize={35} />
+                <Bar dataKey="Blocked" fill={COLORS.blocked} radius={[4, 4, 0, 0]} barSize={35} />
+                <Bar dataKey="Connected" fill={COLORS.connected} radius={[4, 4, 0, 0]} barSize={35} />
+              </BarChart>
             </ResponsiveContainer>
-            {/* Center Label */}
-            <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-              <span className="text-3xl font-bold text-gray-800">{totalConnected.toLocaleString()}</span>
-              <span className="text-xs text-gray-500 font-medium uppercase tracking-wide">Total Connected</span>
-            </div>
-          </div>
-
-          <div className="flex justify-center items-center gap-8 mt-2 flex-wrap">
-            {connectedByTypeData.map((item, index) => (
-              <div key={item.name} className="flex flex-col items-center">
-                <div className="flex items-center gap-2 mb-1">
-                  <div className="w-3 h-3 rounded-full" style={{ backgroundColor: COLORS.types[index % COLORS.types.length] }}></div>
-                  <span className="text-sm text-gray-600 font-medium">{item.name}</span>
-                </div>
-                <span className="text-xl font-bold text-gray-800">{item.value.toLocaleString()}</span>
-              </div>
-            ))}
           </div>
         </motion.div>
 

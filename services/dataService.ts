@@ -300,5 +300,37 @@ export const dataService: DataService = {
       console.error('Delete day plan error:', error);
       throw error;
     }
+  },
+
+  getIntervalPauseHistory: async (filters?: {
+    entityId?: string;
+    methodId?: string;
+    categoryId?: string;
+    startDate?: string;
+    endDate?: string;
+    limit?: number;
+  }): Promise<any[]> => {
+    const queryParams = new URLSearchParams();
+    if (filters) {
+      if (filters.entityId) queryParams.append('entityId', filters.entityId);
+      if (filters.methodId) queryParams.append('methodId', filters.methodId);
+      if (filters.categoryId) queryParams.append('categoryId', filters.categoryId);
+      if (filters.startDate) queryParams.append('startDate', filters.startDate);
+      if (filters.endDate) queryParams.append('endDate', filters.endDate);
+      if (filters.limit) queryParams.append('limit', filters.limit.toString());
+    }
+
+    try {
+      const response = await fetch(`${API_URL}/api/history/interval-pause?${queryParams.toString()}`, {
+        headers: getAuthHeaders()
+      });
+      if (!response.ok) {
+        throw new Error('Failed to fetch interval history');
+      }
+      return await response.json();
+    } catch (error) {
+      console.error('Get interval history error:', error);
+      return [];
+    }
   }
 };

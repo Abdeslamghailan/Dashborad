@@ -4,7 +4,7 @@ import { service } from '../services';
 import { Entity, ParentCategory, MethodType, MethodData, LimitConfig } from '../types';
 import { EntityOverview } from './entity/EntityOverview';
 import { ReportingView } from './entity/ReportingView';
-import { PlanConfig } from './entity/PlanConfig';
+import { PlanConfigWithHistory } from './entity/PlanConfigWithHistory';
 import { LimitsConfig } from './entity/LimitsConfig';
 import { GlobalLimitsConfig } from './entity/GlobalLimitsConfig';
 import {
@@ -17,7 +17,6 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { ReportingEditor } from './entity/ReportingEditor';
 import { ProxyManager } from './ProxyManager';
 import { EntityNotes } from './entity/EntityNotes';
-import { ChangeHistory } from './history/ChangeHistory';
 import { useAuth } from '../contexts/AuthContext';
 import { DayPlan } from './entity/DayPlan';
 import { Button } from './ui/Button';
@@ -417,7 +416,6 @@ export const EntityDashboard: React.FC = () => {
           {activeTab === 'overview' && (
             <div className="space-y-6">
               <EntityOverview entity={methodEntity} />
-              <ChangeHistory entityId={entity.id} limit={50} showExpanded={false} />
             </div>
           )}
 
@@ -466,7 +464,7 @@ export const EntityDashboard: React.FC = () => {
                     await fetchEntity();
                   }}
                 />
-                <PlanConfig
+                <PlanConfigWithHistory
                   entity={methodEntity}
                   category={tab.category}
                   onUpdate={fetchEntity}

@@ -79,6 +79,10 @@ router.get('/', authenticateToken, requireAdminOrMailer, async (req: AuthRequest
     let start = startDate ? new Date(startDate as string) : threeMonthsAgo;
     let end = endDate ? new Date(endDate as string) : undefined;
 
+    if (end) {
+      end.setHours(23, 59, 59, 999);
+    }
+
     if (isNaN(start.getTime())) start = threeMonthsAgo;
     if (end && isNaN(end.getTime())) end = undefined;
 
@@ -127,6 +131,122 @@ router.delete('/', authenticateToken, requireAdmin, async (req: AuthRequest, res
   } catch (error) {
     console.error('Delete all history error:', error);
     res.status(500).json({ error: 'Failed to delete all history' });
+  }
+});
+
+// Cleanup old history (Admin only) - Enforces 3-month retention policy
+router.post('/cleanup', authenticateToken, requireAdmin, async (req: AuthRequest, res) => {
+  try {
+    const threeMonthsAgo = new Date();
+    threeMonthsAgo.setMonth(threeMonthsAgo.getMonth() - 3);
+
+    const result = await prisma.changeHistory.deleteMany({
+      where: {
+        createdAt: {
+          lt: threeMonthsAgo
+        }
+      }
+    });
+
+    res.json({ 
+      message: 'History cleanup completed',
+      deletedCount: result.count,
+      retentionPolicy: '3 months for Audit Log, unlimited for Interval Paused History'
+    });
+  } catch (error) {
+    console.error('Cleanup history error:', error);
+    res.status(500).json({ error: 'Failed to cleanup history' });
+  }
+});
+
+// Get specialized interval pause history
+router.get('/interval-pause', authenticateToken, requireAdminOrMailer, async (req: AuthRequest, res) => {
+  try {
+    const {
+      entityId,
+      methodId,
+      categoryId,
+      startDate,
+      endDate,
+      limit = '2000'
+    } = req.query;
+
+    const where: any = {};
+    if (entityId) where.entityId = entityId as string;
+    if (methodId) where.methodId = methodId as string;
+    if (categoryId) where.categoryId = categoryId as string;
+
+    if (startDate || endDate) {
+      const start = startDate ? new Date(startDate as string) : null;
+      const end = endDate ? new Date(endDate as string) : null;
+      
+      if (end) {
+        end.setHours(23, 59, 59, 999);
+      }
+
+      where.createdAt = {
+        ...(start && { gte: start }),
+        ...(end && { lte: end })
+      };
+    }
+
+    // 1. Fetch from new specialized table
+    const newHistory = await (prisma as any).intervalPauseHistory.findMany({
+      where,
+      orderBy: { createdAt: 'desc' },
+      take: parseInt(limit as string)
+    });
+
+    // 2. Fetch from legacy ChangeHistory table
+    const legacyWhere: any = {
+      entityType: 'limits',
+      fieldChanged: { startsWith: 'intervals' }
+    };
+    if (entityId) legacyWhere.entityId = entityId as string;
+    if (methodId) legacyWhere.methodId = methodId as string;
+    if (categoryId) legacyWhere.categoryId = categoryId as string;
+    if (startDate || endDate) {
+      legacyWhere.createdAt = where.createdAt;
+    }
+
+    const legacyHistory = await prisma.changeHistory.findMany({
+      where: legacyWhere,
+      orderBy: { createdAt: 'desc' },
+      take: parseInt(limit as string)
+    });
+
+    // 3. Map legacy history to new format
+    const mappedLegacy = legacyHistory.map(h => {
+      let action = 'UPDATE';
+      if (h.oldValue === 'NO' && h.newValue !== 'NO') action = 'PAUSE';
+      if (h.oldValue !== 'NO' && h.newValue === 'NO') action = 'UNPAUSE';
+
+      return {
+        id: `legacy-${h.id}`,
+        entityId: h.entityId,
+        methodId: h.methodId || 'desktop',
+        categoryId: h.categoryId,
+        categoryName: h.categoryName,
+        profileName: h.profileName,
+        pauseType: h.fieldChanged?.replace('intervals', '') || 'Update',
+        interval: h.newValue || 'NO',
+        action,
+        userId: h.userId,
+        username: h.username,
+        createdAt: h.createdAt,
+        isLegacy: true
+      };
+    });
+
+    // 4. Merge and sort
+    const combined = [...newHistory, ...mappedLegacy]
+      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+      .slice(0, parseInt(limit as string));
+
+    res.json(combined);
+  } catch (error) {
+    console.error('Get interval pause history error:', error);
+    res.status(500).json({ error: 'Failed to fetch interval history' });
   }
 });
 

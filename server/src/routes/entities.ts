@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import prisma from '../db.js';
 import { authenticateToken, requireAdmin, AuthRequest } from '../middleware/auth.js';
-import { logChange } from '../services/historyService.js';
+import { logChange, logIntervalPause } from '../services/historyService.js';
 
 function generateBatchId() {
   return Date.now().toString(36) + Math.random().toString(36).substr(2);
@@ -529,7 +529,109 @@ router.put('/:id', authenticateToken, async (req: AuthRequest, res) => {
       }
     }
 
-    // 3. Check Top Level Fields
+    // 4. Check Limits Configuration (Legacy & Methods Data)
+    const logLimitChanges = async (methodId: string, newLimits: any[], oldLimits: any[], currentReporting: any) => {
+      const getCatName = (catId: string) => {
+        if (!currentReporting || !currentReporting.parentCategories) return null;
+        const cat = currentReporting.parentCategories.find((c: any) => c.id === catId);
+        return cat ? cat.name : null;
+      };
+
+      for (const newLimit of newLimits) {
+        const oldLimit = oldLimits.find((l: any) =>
+          l.profileName === newLimit.profileName &&
+          (l.categoryId === newLimit.categoryId || (!l.categoryId && !newLimit.categoryId))
+        );
+
+        if (oldLimit) {
+          const intervalFields = ['intervalsQuality', 'intervalsPausedSearch', 'intervalsToxic', 'intervalsOther', 'limitActiveSession'];
+          for (const field of intervalFields) {
+            if (newLimit[field] !== oldLimit[field]) {
+              // Log to general audit
+              await logChange(req, {
+                entityId: id,
+                entityType: 'limits',
+                changeType: 'update',
+                fieldChanged: field,
+                methodId,
+                categoryId: newLimit.categoryId,
+                categoryName: getCatName(newLimit.categoryId),
+                profileName: newLimit.profileName,
+                description: `Changed ${field} for "${newLimit.profileName}" (${methodId})`,
+                oldValue: oldLimit[field],
+                newValue: newLimit[field],
+                batchId
+              });
+
+              // Log to specialized interval history (if it's an interval field)
+              if (field.startsWith('intervals')) {
+                let action = 'UPDATE';
+                if (oldLimit[field] === 'NO' && newLimit[field] !== 'NO') action = 'PAUSE';
+                if (oldLimit[field] !== 'NO' && newLimit[field] === 'NO') action = 'UNPAUSE';
+
+                await logIntervalPause(req, {
+                  entityId: id,
+                  methodId,
+                  categoryId: newLimit.categoryId,
+                  categoryName: getCatName(newLimit.categoryId),
+                  profileName: newLimit.profileName,
+                  pauseType: field.replace('intervals', ''),
+                  interval: newLimit[field] || 'NO',
+                  action
+                });
+              }
+            }
+          }
+        } else if (newLimit.intervalsQuality || newLimit.intervalsPausedSearch || newLimit.intervalsToxic || newLimit.intervalsOther) {
+          await logChange(req, {
+            entityId: id,
+            entityType: 'limits',
+            changeType: 'create',
+            methodId,
+            categoryId: newLimit.categoryId,
+            categoryName: getCatName(newLimit.categoryId),
+            profileName: newLimit.profileName,
+            description: `Added limits configuration for "${newLimit.profileName}" (${methodId})`,
+            newValue: newLimit,
+            batchId
+          });
+          
+          // Log initial pauses if any
+          const intervalFields = ['intervalsQuality', 'intervalsPausedSearch', 'intervalsToxic', 'intervalsOther'];
+          for (const field of intervalFields) {
+            if (newLimit[field] && newLimit[field] !== 'NO') {
+              await logIntervalPause(req, {
+                entityId: id,
+                methodId,
+                categoryId: newLimit.categoryId,
+                categoryName: getCatName(newLimit.categoryId),
+                profileName: newLimit.profileName,
+                pauseType: field.replace('intervals', ''),
+                interval: newLimit[field],
+                action: 'PAUSE'
+              });
+            }
+          }
+        }
+      }
+    };
+
+    // Check legacy limits
+    if (limitsConfiguration && existingData.limitsConfiguration) {
+      await logLimitChanges('desktop', limitsConfiguration, existingData.limitsConfiguration, reporting);
+    }
+
+    // Check methodsData limits
+    if (methodsData && existingData.methodsData) {
+      for (const [mId, mData] of Object.entries(methodsData)) {
+        const oldMData = existingData.methodsData[mId];
+        if (oldMData && (mData as any).limitsConfiguration && oldMData.limitsConfiguration) {
+          await logLimitChanges(mId, (mData as any).limitsConfiguration, oldMData.limitsConfiguration, (mData as any).reporting || reporting);
+        }
+      }
+    }
+
+    // 5. Check Top Level Fields
     let topLevelChanges = [];
     if (existingData.notes !== notes) topLevelChanges.push('notes');
     if (existingData.status !== status) topLevelChanges.push('status');

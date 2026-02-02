@@ -29,6 +29,11 @@ export const HistoryTable: React.FC<HistoryTableProps> = ({ history, onDelete, i
             .trim();
     };
 
+    const formatEntityId = (id: string | null) => {
+        if (!id) return '-';
+        return id.replace(/^ent_/, '').toUpperCase();
+    };
+
     const formatValue = (val: any, entry?: ChangeHistoryEntry) => {
         if (val === null || val === undefined || val === '') return <span className="text-gray-400 italic">empty</span>;
 
@@ -45,6 +50,18 @@ export const HistoryTable: React.FC<HistoryTableProps> = ({ history, onDelete, i
         const type = entry?.entityType?.toLowerCase();
         if (type === 'dayplan' || entry?.fieldChanged === 'Day Plan') {
             return renderDayPlanData(data);
+        }
+
+        if (type === 'limits' && entry?.fieldChanged?.startsWith('intervals')) {
+            const reason = entry.fieldChanged.replace('intervals', '').replace('Paused', ' ');
+            return (
+                <div className="flex items-center gap-2">
+                    <span className="px-2 py-0.5 bg-orange-100 text-orange-700 rounded text-[10px] font-bold border border-orange-200 uppercase">
+                        {reason}
+                    </span>
+                    <span className="font-mono font-bold text-indigo-600">{String(data)}</span>
+                </div>
+            );
         }
 
         if (typeof data === 'object' && data !== null) {
@@ -217,7 +234,7 @@ export const HistoryTable: React.FC<HistoryTableProps> = ({ history, onDelete, i
                                 </td>
                                 <td className="px-4 py-3 whitespace-nowrap">
                                     <div className="text-[11px] text-gray-600">
-                                        <span className="text-gray-400 font-medium">ID:</span> {entry.entityId || '-'}
+                                        <span className="text-gray-400 font-medium">Name:</span> {formatEntityId(entry.entityId)}
                                     </div>
                                     {entry.methodId && (
                                         <div className="text-[11px] text-indigo-600 font-medium">

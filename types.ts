@@ -128,4 +128,12 @@ export interface DataService {
   saveDayPlan: (entityId: string, date: string, categoryId: string, sessionData: Record<number, { step: string | number; start: string | number }>) => Promise<void>;
   saveDayPlanBulk: (entityId: string, date: string, plans: Record<string, Record<number, { step: string | number; start: string | number }>>) => Promise<void>;
   deleteDayPlan: (entityId: string, categoryId: string, date: string) => Promise<void>;
+  getIntervalPauseHistory: (filters?: {
+    entityId?: string;
+    methodId?: string;
+    categoryId?: string;
+    startDate?: string;
+    endDate?: string;
+    limit?: number;
+  }) => Promise<any[]>;
 }

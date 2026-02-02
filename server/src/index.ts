@@ -1,5 +1,6 @@
 import { app, ensureAdminUser } from './app.js';
 import dotenv from 'dotenv';
+import { scheduleHistoryCleanup } from './services/historyCleanup.js';
 
 dotenv.config();
 
@@ -11,6 +12,9 @@ const startServer = async () => {
   // Ensure admin user exists before starting
   await ensureAdminUser();
 
+  // Schedule history cleanup (3-month retention for Audit Log)
+  scheduleHistoryCleanup();
+
   app.listen(PORT, () => {
     console.log(`Server running on http://localhost:${PORT}`);
     console.log(`Environment: ${isProduction ? 'production' : 'development'}`);
@@ -18,3 +22,4 @@ const startServer = async () => {
 };
 
 startServer();
+

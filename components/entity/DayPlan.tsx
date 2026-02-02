@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { Entity, ParentCategory, LimitConfig } from '../../types';
-import { Calendar, ChevronDown, ChevronUp, Copy, Check, FileSpreadsheet, Lock } from 'lucide-react';
+import { Calendar, ChevronDown, ChevronUp, Copy, Check, FileSpreadsheet, Lock, FileText, Calculator, Activity, Clock, TrendingUp, AlertTriangle, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '../../contexts/AuthContext';
 import { dataService } from '../../services/dataService';
@@ -8,6 +8,16 @@ import * as XLSX from 'xlsx';
 
 interface Props {
     entity: Entity;
+}
+
+type LimitHandlingOption = 'ignore' | 'this_drop' | 'next_drop' | 'split_today' | 'dismissed' | undefined;
+
+interface SessionLimitAlert {
+    sessionId: string;
+    sessionName: string;
+    limit: number;
+    lastInterval: string;
+    remainingSeeds: number;
 }
 
 // Helper: Parse string ranges into array of [start, end]
@@ -357,27 +367,24 @@ export const DayPlan: React.FC<Props> = ({ entity }) => {
     const [isLoading, setIsLoading] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
     const [selectedHistoryDate, setSelectedHistoryDate] = useState<string>(''); // Date filter for historical view
-    const [activeView, setActiveView] = useState<'calculator' | 'history'>('calculator'); // Toggle between calculator and history
 
     // Editable overrides: key = "categoryId:sessionIndex", value = custom value
     const [customSteps, setCustomSteps] = useState<Record<string, string | number>>({});
     const [customStarts, setCustomStarts] = useState<Record<string, string | number>>({});
+    const [limitHandling, setLimitHandling] = useState<Record<string, LimitHandlingOption>>({});
 
     // Calculate Plan State
 
     const [calcSteps, setCalcSteps] = useState<Record<string, string | number>>({});
     const [calcStarts, setCalcStarts] = useState<Record<string, string | number>>({});
+    const [calcLimitHandling, setCalcLimitHandling] = useState<Record<string, LimitHandlingOption>>({});
+    const [detectedAlerts, setDetectedAlerts] = useState<SessionLimitAlert[]>([]);
+    const [showCalculatePlan, setShowCalculatePlan] = useState(false);
+    const [showHistory, setShowHistory] = useState(false);
+    const [activeView, setActiveView] = useState<'history' | 'calculator'>('history');
 
     // Historical plans: DateString -> CategoryId -> SessionIdx -> { step, start }
     const [historyPlans, setHistoryPlans] = useState<Record<string, Record<string, Record<number, { step: string | number; start: string | number }>>>>({});
-
-    // Sync calculator with current plan when switching to calculator view
-    useEffect(() => {
-        if (activeView === 'calculator') {
-            setCalcSteps(prev => Object.keys(prev).length === 0 ? customSteps : prev);
-            setCalcStarts(prev => Object.keys(prev).length === 0 ? customStarts : prev);
-        }
-    }, [activeView, customSteps, customStarts]);
 
     // Helper: Get categories that contain a session with the given profileName
     const getCategoriesForSession = (profileName: string): { id: string; name: string }[] => {
@@ -639,25 +646,45 @@ export const DayPlan: React.FC<Props> = ({ entity }) => {
     const handleCalcStepChange = (categoryId: string, sessionIdx: number, value: string) => {
         // Try to parse as simple number first
         const numValue = parseInt(value);
+        const sessionKey = `${categoryId}:${sessionIdx}`;
+
         if (!isNaN(numValue) && value.trim() === numValue.toString()) {
-            setCalcSteps(prev => ({ ...prev, [`${categoryId}:${sessionIdx}`]: numValue }));
+            setCalcSteps(prev => ({ ...prev, [sessionKey]: numValue }));
         } else {
-            setCalcSteps(prev => ({ ...prev, [`${categoryId}:${sessionIdx}`]: value }));
+            setCalcSteps(prev => ({ ...prev, [sessionKey]: value }));
         }
+
+        // Clear any previous limit handling for this session to allow re-detection
+        setCalcLimitHandling(prev => {
+            const next = { ...prev };
+            delete next[sessionKey];
+            return next;
+        });
     };
 
     const handleCalcStartChange = (categoryId: string, sessionIdx: number, value: string) => {
         const numValue = parseInt(value);
+        const sessionKey = `${categoryId}:${sessionIdx}`;
+
         if (!isNaN(numValue) && value.trim() === numValue.toString()) {
-            setCalcStarts(prev => ({ ...prev, [`${categoryId}:${sessionIdx}`]: numValue }));
+            setCalcStarts(prev => ({ ...prev, [sessionKey]: numValue }));
         } else {
-            setCalcStarts(prev => ({ ...prev, [`${categoryId}:${sessionIdx}`]: value }));
+            setCalcStarts(prev => ({ ...prev, [sessionKey]: value }));
         }
+
+        // Clear any previous limit handling for this session to allow re-detection
+        setCalcLimitHandling(prev => {
+            const next = { ...prev };
+            delete next[sessionKey];
+            return next;
+        });
     };
 
     const applyCalculatePlan = () => {
         setCustomSteps(calcSteps);
         setCustomStarts(calcStarts);
+        // Also copy limit handling choices to apply them to the live plan
+        setLimitHandling(calcLimitHandling);
     };
 
     const toggleDay = (dayKey: string) => {
@@ -734,27 +761,47 @@ export const DayPlan: React.FC<Props> = ({ entity }) => {
         XLSX.writeFile(wb, `DayPlan_${entity.name}_${dateStr}.xlsx`);
     };
 
-    const copyTableToClipboard = async (dateKey: string, dateIdx: number) => {
+    const copyTableToClipboard = async (dayKey: string, dateIdx: number) => {
+        // Determine if we're in calculator mode
+        const isCalculateMode = dayKey === 'calculate-plan';
+
         let tableText = '';
-        categoryData.forEach((catData, catIdx) => {
+        filteredCategoryData.forEach((catData, catIdx) => {
             // Header: TIME followed by profile names
             tableText += `TIME\t${catData.sessions.map(s => s.profileName).join('\t')}\n`;
 
-            // Use effective values for today
-            const steps = catData.sessions.map((s, i) =>
-                dateIdx === 0 ? getEffectiveStep(catData.category.id, i, s.stepPerSession) : s.stepPerSession
-            );
-            const starts = catData.sessions.map((s, i) =>
-                dateIdx === 0 ? getEffectiveStart(catData, i) : s.startValue
-            );
+            // Determine which data source to use
+            let stepsSource = isCalculateMode ? calcSteps : customSteps;
+            let startsSource = isCalculateMode ? calcStarts : customStarts;
 
             catData.drops.forEach((drop, dropIdx) => {
                 const intervals = catData.sessions.map((s, i) => {
-                    if (dateIdx === 0) {
-                        const defaultStart = getDefaultStart(catData, i);
-                        return calculateDropIntervalWithStart(dropIdx, steps[i], s.intervalsInRepo, starts[i], defaultStart);
+                    const effectiveStep = getEffectiveStep(catData.category.id, i, s.stepPerSession, stepsSource);
+                    const effectiveStart = getEffectiveStart(catData, i, startsSource, stepsSource);
+
+                    let interval = '-';
+
+                    if (isCalculateMode) {
+                        // In calculator mode, use the pre-calculated day plan for this session
+                        const sessionPlan = calculateSessionPlan(
+                            catData,
+                            i,
+                            stepsSource,
+                            startsSource,
+                            calcLimitHandling[`${catData.category.id}:${i}`] || 'ignore'
+                        );
+                        interval = sessionPlan.intervals[dropIdx] || '-';
+                    } else {
+                        // Normal mode
+                        if (dateIdx === 0) {
+                            const defaultStart = getDefaultStart(catData, i, stepsSource);
+                            interval = calculateDropIntervalWithStart(dropIdx, effectiveStep, s.intervalsInRepo, effectiveStart, defaultStart);
+                        } else {
+                            interval = calculateDropInterval(dateIdx * catData.numDrops + dropIdx, effectiveStep, s.intervalsInRepo, catData.numDrops);
+                        }
                     }
-                    return calculateDropInterval(dateIdx * catData.numDrops + dropIdx, s.stepPerSession, s.intervalsInRepo, catData.numDrops);
+
+                    return interval;
                 });
                 // Row: time followed by intervals
                 tableText += `${drop.time}\t${intervals.join('\t')}\n`;
@@ -764,7 +811,7 @@ export const DayPlan: React.FC<Props> = ({ entity }) => {
 
         try {
             await navigator.clipboard.writeText(tableText.trim());
-            setCopiedTable(dateKey);
+            setCopiedTable(dayKey);
             setTimeout(() => setCopiedTable(null), 2000);
         } catch (err) {
             console.error('Failed to copy', err);
@@ -946,12 +993,58 @@ export const DayPlan: React.FC<Props> = ({ entity }) => {
                                         const dateStr = date.toISOString().split('T')[0];
                                         const hasSavedPlan = !isToday && !isCalculateMode && !!historyPlans[dateStr];
 
-                                        const interval = (isEditable || hasSavedPlan)
-                                            ? calculateDropIntervalWithStart(dropIdx, effectiveStep, s.intervalsInRepo, effectiveStart, getDefaultStart(catData, i))
-                                            : calculateDropInterval(dateIdx * catData.numDrops + dropIdx, effectiveStep, s.intervalsInRepo, catData.numDrops);
+                                        let interval = '-';
+                                        let actualStep: number | null = null;
+                                        let isLimitAlert = false;
+
+                                        if (isCalculateMode) {
+                                            // In calculator mode, we use the pre-calculated day plan for this session
+                                            const sessionPlan = calculateSessionPlan(
+                                                catData,
+                                                i,
+                                                stepsSource,
+                                                startsSource,
+                                                calcLimitHandling[`${catData.category.id}:${i}`] || 'ignore'
+                                            );
+                                            interval = sessionPlan.intervals[dropIdx] || '-';
+                                            actualStep = sessionPlan.actualSteps[dropIdx] || null;
+                                            if (sessionPlan.alert && dropIdx === sessionPlan.alertDropIdx) {
+                                                isLimitAlert = true;
+                                            }
+                                        } else if (isToday && limitHandling[`${catData.category.id}:${i}`] && limitHandling[`${catData.category.id}:${i}`] !== 'dismissed') {
+                                            // In live plan mode, if limit handling is active for this session, use calculateSessionPlan
+                                            const sessionPlan = calculateSessionPlan(
+                                                catData,
+                                                i,
+                                                stepsSource,
+                                                startsSource,
+                                                limitHandling[`${catData.category.id}:${i}`]
+                                            );
+                                            interval = sessionPlan.intervals[dropIdx] || '-';
+                                            actualStep = sessionPlan.actualSteps[dropIdx] || null;
+                                        } else {
+                                            interval = (isEditable || hasSavedPlan)
+                                                ? calculateDropIntervalWithStart(dropIdx, effectiveStep, s.intervalsInRepo, effectiveStart, getDefaultStart(catData, i))
+                                                : calculateDropInterval(dateIdx * catData.numDrops + dropIdx, effectiveStep, s.intervalsInRepo, catData.numDrops);
+                                        }
+
+                                        const normalStep = getStepForDrop(dropIdx, effectiveStep);
+
                                         return (
-                                            <td key={i} className="py-1.5 px-3 border border-gray-300 text-center font-mono text-gray-800 bg-white">
-                                                {interval}
+                                            <td key={i} className={`py-1.5 px-3 border border-gray-300 text-center font-mono bg-white ${isLimitAlert ? 'text-amber-600 font-bold bg-amber-50' : 'text-gray-800'}`}>
+                                                <div className="flex flex-col items-center">
+                                                    <div className="flex items-center justify-center gap-1.5">
+                                                        <span>{interval}</span>
+                                                        {isCalculateMode && actualStep !== null && actualStep !== normalStep && (
+                                                            <span className="text-[9px] text-indigo-500 font-bold whitespace-nowrap">
+                                                                (stp: {actualStep})
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                    {isLimitAlert && (
+                                                        <div className="text-[9px] text-amber-500 mt-0.5">Limit Reached</div>
+                                                    )}
+                                                </div>
                                             </td>
                                         );
                                     })}
@@ -962,6 +1055,157 @@ export const DayPlan: React.FC<Props> = ({ entity }) => {
                 </table>
             </div>
         );
+    };
+
+    // New helper to calculate the entire day's plan for a session with limit handling
+    const calculateSessionPlan = (
+        catData: CategoryData,
+        sessionIdx: number,
+        stepsSource: Record<string, string | number>,
+        startsSource: Record<string, string | number>,
+        handling: LimitHandlingOption
+    ): { intervals: string[], actualSteps: number[], alert?: SessionLimitAlert, alertDropIdx?: number } => {
+        const session = catData.sessions[sessionIdx];
+        const ranges = parseRanges(session.intervalsInRepo);
+        if (ranges.length === 0) return { intervals: Array(catData.numDrops).fill('-'), actualSteps: Array(catData.numDrops).fill(0) };
+
+        const stepConfig = getEffectiveStep(catData.category.id, sessionIdx, session.stepPerSession, stepsSource);
+        const startConfig = getEffectiveStart(catData, sessionIdx, startsSource, stepsSource);
+        const defaultStart = getDefaultStart(catData, sessionIdx, stepsSource);
+
+        // --- PHASE 1: DETECTION (Simulate with 'ignore' to find the wrap point) ---
+        let detectPos = typeof startConfig === 'number' ? startConfig : defaultStart;
+        let alert: SessionLimitAlert | undefined;
+        let alertDropIdx: number | undefined;
+
+        for (let drop = 0; drop < catData.numDrops; drop++) {
+            const override = getStartOverride(drop, startConfig);
+            if (override !== null) detectPos = override;
+
+            let rIdx = ranges.findIndex(([s, e]) => detectPos >= s && detectPos <= e);
+            if (rIdx === -1) {
+                rIdx = ranges.findIndex(([s]) => s > detectPos);
+                if (rIdx === -1) rIdx = 0;
+                detectPos = ranges[rIdx][0];
+            }
+
+            const [rStart, rEnd] = ranges[rIdx];
+            const avail = rEnd - detectPos + 1;
+            const step = getStepForDrop(drop, stepConfig);
+
+            if (step > 0 && avail < step) {
+                // This drop WRAPS in 'ignore' mode
+                alert = {
+                    sessionId: `${catData.category.id}:${sessionIdx}`,
+                    sessionName: session.profileName,
+                    limit: rEnd,
+                    lastInterval: `${detectPos}-${rEnd}`,
+                    remainingSeeds: avail
+                };
+                alertDropIdx = drop;
+                break;
+            }
+
+            if (step > 0) {
+                detectPos += step;
+                if (detectPos > rEnd) {
+                    const nextRIdx = (rIdx + 1) % ranges.length;
+                    detectPos = ranges[nextRIdx][0];
+                }
+            }
+        }
+
+        // --- PHASE 2: CALCULATION (Apply handling options) ---
+        let currentPosition = typeof startConfig === 'number' ? startConfig : defaultStart;
+        const intervals: string[] = [];
+        const actualSteps: number[] = [];
+
+        // Pre-calculate split for 'split_today'
+        let extraPerDrop = 0;
+        let splitRemainder = 0;
+        if (handling === 'split_today' && alert && alertDropIdx > 0) {
+            extraPerDrop = Math.floor(alert.remainingSeeds / alertDropIdx);
+            splitRemainder = alert.remainingSeeds % alertDropIdx;
+        }
+
+        for (let drop = 0; drop < catData.numDrops; drop++) {
+            const override = getStartOverride(drop, startConfig);
+            if (override !== null) currentPosition = override;
+
+            let rangeIdx = ranges.findIndex(([start, end]) => currentPosition >= start && currentPosition <= end);
+            if (rangeIdx === -1) {
+                rangeIdx = ranges.findIndex(([start]) => start > currentPosition);
+                if (rangeIdx === -1) rangeIdx = 0;
+                currentPosition = ranges[rangeIdx][0];
+            }
+
+            const [rangeStart, rangeEnd] = ranges[rangeIdx];
+            const availableInRange = rangeEnd - currentPosition + 1;
+            let currentStep = getStepForDrop(drop, stepConfig);
+
+            // Option: Split Today (Distribute across PRECEDING drops)
+            if (handling === 'split_today' && alert && drop < alertDropIdx) {
+                currentStep += extraPerDrop;
+                if (drop < splitRemainder) currentStep += 1;
+            }
+
+            // Option: Use This Drop (Add remaining seeds to the drop BEFORE it would wrap)
+            if (handling === 'this_drop' && alert && drop === alertDropIdx - 1) {
+                intervals.push(`${currentPosition}-${rangeEnd}`);
+                actualSteps.push(availableInRange);
+                const nextRangeIdx = (rangeIdx + 1) % ranges.length;
+                currentPosition = ranges[nextRangeIdx][0];
+                continue;
+            }
+
+            // Option: Use Next Drop (Create a short drop for the leftovers)
+            if (handling === 'next_drop' && alert && drop === alertDropIdx) {
+                intervals.push(`${currentPosition}-${rangeEnd}`);
+                actualSteps.push(availableInRange);
+                const nextRangeIdx = (rangeIdx + 1) % ranges.length;
+                currentPosition = ranges[nextRangeIdx][0];
+                continue;
+            }
+
+            // Normal calculation (with wrap)
+            if (currentStep <= 0) {
+                intervals.push('-');
+                actualSteps.push(0);
+            } else if (availableInRange >= currentStep) {
+                const endVal = currentPosition + currentStep - 1;
+                intervals.push(`${currentPosition}-${endVal}`);
+                actualSteps.push(currentStep);
+                currentPosition = endVal + 1;
+                if (currentPosition > rangeEnd) {
+                    const nextRangeIdx = (rangeIdx + 1) % ranges.length;
+                    currentPosition = ranges[nextRangeIdx][0];
+                }
+            } else {
+                // Wrap condition: availableInRange < currentStep
+                if (handling === 'ignore' || handling === undefined) {
+                    // Skip leftovers and wrap immediately
+                    const nextRangeIdx = (rangeIdx + 1) % ranges.length;
+                    currentPosition = ranges[nextRangeIdx][0];
+
+                    // Calculate from the new start position
+                    const endVal = currentPosition + currentStep - 1;
+                    intervals.push(`${currentPosition}-${endVal}`);
+                    actualSteps.push(currentStep);
+                    currentPosition = endVal + 1;
+                } else {
+                    // Default wrap behavior: split the drop
+                    const firstPartEnd = rangeEnd;
+                    const nextRangeIdx = (rangeIdx + 1) % ranges.length;
+                    const nextStart = ranges[nextRangeIdx][0];
+                    const secondPartEnd = nextStart + (currentStep - availableInRange) - 1;
+                    intervals.push(`${currentPosition}-${firstPartEnd}, ${nextStart}-${secondPartEnd}`);
+                    actualSteps.push(currentStep);
+                    currentPosition = secondPartEnd + 1;
+                }
+            }
+        }
+
+        return { intervals, actualSteps, alert, alertDropIdx };
     };
 
     const renderDaySection = (
@@ -1145,242 +1389,413 @@ export const DayPlan: React.FC<Props> = ({ entity }) => {
         );
     };
 
+
+    const toggleCalculatePlan = () => {
+        if (!showCalculatePlan) {
+            // Opening: sync with current custom values
+            setCalcSteps(customSteps);
+            setCalcStarts(customStarts);
+        }
+        setShowCalculatePlan(!showCalculatePlan);
+    };
+
+
+
     return (
         <div className="space-y-6">
-            {/* Header Card */}
-            <div className="bg-white rounded-lg border border-gray-200 p-5">
-                <div className="flex items-center justify-between mb-4">
-                    <div className="flex items-center gap-3">
-                        <div className="p-2 bg-indigo-50 rounded-lg">
-                            <Calendar className="text-indigo-600" size={20} />
+            {/* Compact & Modern Header Card */}
+            <div className="bg-white rounded-2xl border border-slate-100 shadow-xl shadow-slate-200/40 overflow-hidden">
+                <div className="bg-[#f8faff] border-b border-slate-100 px-6 py-4">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                        <div className="flex items-center gap-4">
+                            <div className="w-10 h-10 flex items-center justify-center bg-indigo-600 rounded-xl shadow-md shadow-indigo-100">
+                                <Calendar className="text-white" size={20} />
+                            </div>
+                            <div>
+                                <h2 className="text-lg font-black text-slate-800 tracking-tight">Day Plan</h2>
+                                <p className="text-slate-500 text-xs font-medium">Daily task intervals for <span className="text-indigo-600 font-bold">{entity.name}</span></p>
+                            </div>
                         </div>
-                        <div>
-                            <h2 className="text-lg font-bold text-gray-900">Day Plan</h2>
-                            <p className="text-sm text-gray-500">Daily task intervals for {entity.name}</p>
+
+                        {/* Compact Filter */}
+                        <div className="flex items-center gap-2 bg-white p-1 rounded-lg border border-slate-200 shadow-sm">
+                            <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-2">Filter</span>
+                            <select
+                                value={selectedCategory}
+                                onChange={(e) => setSelectedCategory(e.target.value)}
+                                className="px-3 py-1.5 text-xs font-bold bg-transparent text-slate-700 border-none focus:ring-0 cursor-pointer min-w-[140px]"
+                            >
+                                <option value="all">All Categories</option>
+                                {entity.reporting.parentCategories.map(cat => (
+                                    <option key={cat.id} value={cat.id}>{cat.name}</option>
+                                ))}
+                            </select>
                         </div>
-                    </div>
-                    {/* Category Filter */}
-                    <div className="flex items-center gap-2">
-                        <label className="text-sm text-gray-500 font-medium">Filter Category:</label>
-                        <select
-                            value={selectedCategory}
-                            onChange={(e) => setSelectedCategory(e.target.value)}
-                            className="px-3 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-white"
-                        >
-                            <option value="all">All Categories</option>
-                            {entity.reporting.parentCategories.map(cat => (
-                                <option key={cat.id} value={cat.id}>{cat.name}</option>
-                            ))}
-                        </select>
                     </div>
                 </div>
 
-                {/* Quick Stats */}
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                    {filteredCategoryData.map(catData => (
-                        <div key={catData.category.id} className="bg-gray-50 rounded-lg p-3">
-                            <div className="text-xs text-gray-500 mb-1">{catData.category.name.replace(' REPORTING', '')}</div>
-                            <div className="flex items-baseline gap-2">
-                                <span className="text-lg font-bold text-gray-800">{catData.sessions.length}</span>
-                                <span className="text-xs text-gray-400">sessions</span>
+                {/* Compact Stats Grid */}
+                <div className="p-6 bg-white">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                        {filteredCategoryData.map((catData, idx) => (
+                            <div
+                                key={catData.category.id}
+                                className="group bg-white rounded-xl p-4 border border-slate-100 shadow-sm hover:shadow-md transition-all duration-300 relative flex flex-col"
+                            >
+                                {/* Left Accent Bar */}
+                                <div className="absolute top-4 bottom-4 left-0 w-1 bg-indigo-500 rounded-r-full" />
+
+                                <div className="flex justify-between items-start mb-2 pl-3">
+                                    <div className="text-base font-black text-slate-800 uppercase tracking-tight truncate max-w-[150px]">
+                                        {catData.category.name.replace(' REPORTING', '')}
+                                    </div>
+                                    <div className="text-indigo-600 opacity-40 group-hover:opacity-100 transition-opacity">
+                                        <Activity size={14} />
+                                    </div>
+                                </div>
+
+                                <div className="flex items-baseline gap-2 mb-3 pl-3">
+                                    <span className="text-3xl font-black text-slate-900 tracking-tighter">{catData.sessions.length}</span>
+                                    <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Sessions</span>
+                                </div>
+
+                                <div className="flex items-center gap-3 text-[10px] font-bold text-slate-500 bg-slate-50 rounded-lg px-3 py-2 mt-auto group-hover:bg-indigo-50 transition-colors">
+                                    <div className="flex items-center gap-1.5">
+                                        <Clock size={12} className="text-slate-400" />
+                                        <span>{catData.numDrops} Drops</span>
+                                    </div>
+                                    <div className="w-1 h-1 bg-slate-300 rounded-full" />
+                                    <div className="flex items-center gap-1.5">
+                                        <TrendingUp size={12} className="text-slate-400" />
+                                        <span>Seeds/drop: <span className="text-slate-900 font-black">{catData.totalStep}</span></span>
+                                    </div>
+                                </div>
                             </div>
-                            <div className="text-xs text-gray-500 mt-1">
-                                {catData.numDrops} drops · Step: <span className="font-mono text-indigo-600">{catData.totalStep}</span>
-                            </div>
-                        </div>
-                    ))}
+                        ))}
+                    </div>
+                </div>
+            </div>
+
+            {/* Navigation Tabs */}
+            <div className="flex items-center justify-center -my-2 z-10 relative">
+                <div className="inline-flex items-center gap-1 p-1 bg-slate-100 rounded-xl border border-slate-200 shadow-sm">
+                    <button
+                        onClick={() => setActiveView('history')}
+                        className={`flex items-center gap-2 px-6 py-2 rounded-lg text-xs font-bold uppercase tracking-wider transition-all duration-200 ${activeView === 'history'
+                            ? 'bg-white text-indigo-600 shadow-sm ring-1 ring-slate-200/50'
+                            : 'text-slate-500 hover:text-slate-700'
+                            }`}
+                    >
+                        <FileText size={14} />
+                        Plan History
+                    </button>
+                    <button
+                        onClick={() => setActiveView('calculator')}
+                        className={`flex items-center gap-2 px-6 py-2 rounded-lg text-xs font-bold uppercase tracking-wider transition-all duration-200 ${activeView === 'calculator'
+                            ? 'bg-white text-indigo-600 shadow-sm ring-1 ring-slate-200/50'
+                            : 'text-slate-500 hover:text-slate-700'
+                            }`}
+                    >
+                        <Calculator size={14} />
+                        Plan Calculator
+                    </button>
                 </div>
             </div>
 
             {/* Tables */}
             <div className="bg-white rounded-lg border border-gray-200 p-5">
-                {/* Navigation Switch */}
-                <div className="flex items-center justify-center mb-6">
-                    <div className="inline-flex items-center bg-gray-100 rounded-xl p-1 shadow-sm">
-                        <button
-                            onClick={() => setActiveView('history')}
-                            className={`flex items-center gap-2 px-6 py-2.5 rounded-lg text-sm font-semibold transition-all duration-200 ${activeView === 'history'
-                                ? 'bg-white text-indigo-700 shadow-md'
-                                : 'text-gray-600 hover:text-gray-900'
-                                }`}
-                        >
-                            <Calendar size={16} />
-                            Plan History
-                        </button>
-                        <button
-                            onClick={() => setActiveView('calculator')}
-                            className={`flex items-center gap-2 px-6 py-2.5 rounded-lg text-sm font-semibold transition-all duration-200 ${activeView === 'calculator'
-                                ? 'bg-white text-amber-700 shadow-md'
-                                : 'text-gray-600 hover:text-gray-900'
-                                }`}
-                        >
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                                <rect x="4" y="2" width="16" height="20" rx="2" />
-                                <line x1="8" y1="6" x2="16" y2="6" />
-                                <line x1="8" y1="10" x2="16" y2="10" />
-                                <line x1="8" y1="14" x2="16" y2="14" />
-                                <line x1="8" y1="18" x2="16" y2="18" />
-                            </svg>
-                            Plan Calculator
-                        </button>
-                    </div>
-                </div>
+                {activeView === 'calculator' ? (
+                    /* Plan Calculator Section (Simulation Mode) */
+                    <div className="bg-amber-50/20 rounded-xl p-5 border-2 border-dashed border-amber-200 relative overflow-hidden">
+                        {/* Watermark/Badge */}
+                        <div className="absolute top-0 right-0 bg-amber-100 text-amber-700 text-[10px] font-black px-3 py-1 rounded-bl-lg uppercase tracking-widest shadow-sm">
+                            Simulation Mode
+                        </div>
 
-                {/* Conditional Content Based on Active View */}
-                <AnimatePresence mode="wait">
-                    {activeView === 'calculator' ? (
-                        <motion.div
-                            key="calculator"
-                            initial={{ opacity: 0, y: 10 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            exit={{ opacity: 0, y: -10 }}
-                            transition={{ duration: 0.2 }}
-                        >
-                            {/* Calculate Plan Section */}
-                            <div className="bg-amber-50/20 rounded-xl p-5 border-2 border-dashed border-amber-200 mb-8 relative overflow-hidden">
-                                {/* Watermark/Badge */}
-                                <div className="absolute top-0 right-0 bg-amber-100 text-amber-700 text-[10px] font-black px-3 py-1 rounded-bl-lg uppercase tracking-widest shadow-sm">
-                                    Simulation Mode
-                                </div>
+                        <div className="flex items-center gap-2 mb-4">
+                            <div className="p-1.5 bg-amber-100 rounded-lg">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="text-amber-600">
+                                    <rect x="4" y="2" width="16" height="20" rx="2" />
+                                    <line x1="8" y1="6" x2="16" y2="6" />
+                                    <line x1="8" y1="10" x2="16" y2="10" />
+                                    <line x1="8" y1="14" x2="16" y2="14" />
+                                    <line x1="8" y1="18" x2="16" y2="18" />
+                                </svg>
+                            </div>
+                            <div>
+                                <h3 className="text-sm font-black text-amber-800 uppercase tracking-tight">Plan Calculator</h3>
+                                <p className="text-[11px] text-amber-600 font-medium">Test configurations without affecting the live plan</p>
+                            </div>
+                        </div>
 
-                                <div className="flex items-center gap-2 mb-4">
-                                    <div className="p-1.5 bg-amber-100 rounded-lg">
-                                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="text-amber-600">
-                                            <rect x="4" y="2" width="16" height="20" rx="2" />
-                                            <line x1="8" y1="6" x2="16" y2="6" />
-                                            <line x1="8" y1="10" x2="16" y2="10" />
-                                            <line x1="8" y1="14" x2="16" y2="14" />
-                                            <line x1="8" y1="18" x2="16" y2="18" />
-                                        </svg>
+                        <div className="bg-white/60 border border-amber-100 rounded-lg p-3 mb-5 text-[11px] text-amber-800 shadow-sm">
+                            <div className="flex items-start gap-2">
+                                <div className="mt-0.5 text-amber-500 font-bold">💡</div>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div>
+                                        <span className="font-bold underline decoration-amber-200">Variable Step:</span>
+                                        <span className="font-mono bg-amber-100/50 px-1 rounded ml-1">1-3:10, 4:20</span>
+                                        <p className="text-amber-600/80 mt-0.5 italic">Drops 1-3 use step 10, Drop 4 uses 20.</p>
                                     </div>
                                     <div>
-                                        <h3 className="text-sm font-black text-amber-800 uppercase tracking-tight">Plan Calculator</h3>
-                                        <p className="text-[11px] text-amber-600 font-medium">Test configurations without affecting the live plan</p>
+                                        <span className="font-bold underline decoration-amber-200">Variable Start:</span>
+                                        <span className="font-mono bg-amber-100/50 px-1 rounded ml-1">1:100, 5:500</span>
+                                        <p className="text-amber-600/80 mt-0.5 italic">Drop 1 starts at 100, Drop 5 jumps to 500.</p>
                                     </div>
-                                </div>
-
-                                <div className="bg-white/60 border border-amber-100 rounded-lg p-3 mb-5 text-[11px] text-amber-800 shadow-sm">
-                                    <div className="flex items-start gap-2">
-                                        <div className="mt-0.5 text-amber-500 font-bold">💡</div>
-                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                            <div>
-                                                <span className="font-bold underline decoration-amber-200">Variable Step:</span>
-                                                <span className="font-mono bg-amber-100/50 px-1 rounded ml-1">1-3:10, 4:20</span>
-                                                <p className="text-amber-600/80 mt-0.5 italic">Drops 1-3 use step 10, Drop 4 uses 20.</p>
-                                            </div>
-                                            <div>
-                                                <span className="font-bold underline decoration-amber-200">Variable Start:</span>
-                                                <span className="font-mono bg-amber-100/50 px-1 rounded ml-1">1:100, 5:500</span>
-                                                <p className="text-amber-600/80 mt-0.5 italic">Drop 1 starts at 100, Drop 5 jumps to 500.</p>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-
-                                <div className="opacity-90">
-                                    {renderDaySection(today, 0, true, 'Calculate Plan', true)}
                                 </div>
                             </div>
+                        </div>
 
-                        </motion.div>
-                    ) : (
-                        <motion.div
-                            key="history"
-                            initial={{ opacity: 0, y: 10 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            exit={{ opacity: 0, y: -10 }}
-                            transition={{ duration: 0.2 }}
-                        >
-                            {/* Today */}
-                            <div className="bg-indigo-50/30 rounded-xl p-5 border border-indigo-100 mb-8 relative overflow-hidden">
-                                <div className="flex items-center gap-2 mb-4">
-                                    <div className="flex items-center gap-1.5 bg-indigo-600 text-white text-[10px] font-black px-2 py-1 rounded uppercase tracking-widest shadow-sm">
-                                        <span className="w-1.5 h-1.5 bg-white rounded-full animate-pulse"></span>
-                                        Live / Active Plan
-                                    </div>
-                                    <span className="text-[11px] text-indigo-400 font-bold uppercase tracking-tighter">Current Configuration</span>
-                                </div>
-                                {renderDaySection(today, 0, true)}
-                            </div>
-                            {/* History - Date Filter */}
-                            <div className="bg-gray-50/50 rounded-xl p-4 border border-gray-100">
-                                <div className="pt-4 border-t border-gray-200/50 mt-2">
-                                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
-                                        <div>
-                                            <h4 className="text-sm font-bold text-gray-800">Historical Data</h4>
-                                            <p className="text-xs text-gray-500">View and export plans from previous days</p>
-                                        </div>
-                                        <div className="flex items-center gap-3">
-                                            <span className="text-xs text-gray-400 font-medium">Select Date:</span>
-                                            <input
-                                                type="date"
-                                                value={selectedHistoryDate}
-                                                onChange={(e) => {
-                                                    const dateStr = e.target.value;
-                                                    setSelectedHistoryDate(dateStr);
-                                                    if (dateStr) {
-                                                        fetchDayPlanForDate(dateStr);
-                                                        setExpandedDays(prev => new Set([...prev, dateStr]));
-                                                    }
-                                                }}
-                                                max={new Date(today.getTime() - 86400000).toISOString().split('T')[0]}
-                                                className="px-3 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-white"
-                                            />
-                                            {selectedHistoryDate && (
-                                                <button
-                                                    onClick={() => setSelectedHistoryDate('')}
-                                                    className="text-xs text-indigo-600 hover:text-indigo-800 font-medium"
-                                                >
-                                                    Clear
-                                                </button>
-                                            )}
-                                        </div>
-                                    </div>
+                        {/* Session Limit Alerts */}
+                        {(() => {
+                            const alerts: SessionLimitAlert[] = [];
+                            filteredCategoryData.forEach(catData => {
+                                catData.sessions.forEach((_, i) => {
+                                    const sessionId = `${catData.category.id}:${i}`;
+                                    // If dismissed, don't even add to the alerts list
+                                    if (calcLimitHandling[sessionId] === 'dismissed') return;
 
-                                    {/* Recent History Quick Access */}
-                                    <div className="mb-6">
-                                        <div className="text-[10px] uppercase tracking-wider text-gray-400 font-bold mb-2">Recent Days</div>
-                                        <div className="flex flex-wrap gap-2">
-                                            {Array.from({ length: 10 }).map((_, i) => {
-                                                const d = new Date(today);
-                                                d.setDate(today.getDate() - (i + 1));
-                                                const dateStr = d.toISOString().split('T')[0];
-                                                const isActive = selectedHistoryDate === dateStr;
+                                    const plan = calculateSessionPlan(
+                                        catData,
+                                        i,
+                                        calcSteps,
+                                        calcStarts,
+                                        undefined // Detect with no handling
+                                    );
+                                    if (plan.alert) {
+                                        alerts.push(plan.alert);
+                                    }
+                                });
+                            });
+
+                            if (alerts.length === 0) return null;
+
+                            return (
+                                <div className="mb-6 space-y-3">
+                                    <div className="flex items-center gap-2 text-amber-700 font-black text-xs uppercase tracking-wider mb-2">
+                                        <AlertTriangle size={14} />
+                                        Session Limit Alerts ({alerts.length})
+                                    </div>
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                        {alerts.map(alert => {
+                                            const isResolved = !!calcLimitHandling[alert.sessionId];
+                                            const selectedOpt = [
+                                                { id: 'ignore', label: 'Ignore Seeds' },
+                                                { id: 'this_drop', label: 'Use This Drop' },
+                                                { id: 'next_drop', label: 'Use Next Drop' },
+                                                { id: 'split_today', label: 'Split Today' }
+                                            ].find(o => o.id === calcLimitHandling[alert.sessionId]);
+
+                                            if (isResolved) {
                                                 return (
-                                                    <button
-                                                        key={dateStr}
-                                                        onClick={() => {
-                                                            setSelectedHistoryDate(dateStr);
-                                                            fetchDayPlanForDate(dateStr);
-                                                            setExpandedDays(prev => new Set([...prev, dateStr]));
-                                                        }}
-                                                        className={`px-3 py-2 rounded-lg text-xs font-medium transition-all ${isActive
-                                                            ? 'bg-indigo-600 text-white shadow-md ring-2 ring-indigo-200'
-                                                            : 'bg-gray-50 text-gray-600 hover:bg-gray-100 border border-gray-200'
-                                                            }`}
-                                                    >
-                                                        <div className="opacity-70 text-[10px] mb-0.5">
-                                                            {d.toLocaleDateString('en-US', { weekday: 'short' })}
+                                                    <div key={alert.sessionId} className="bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 flex items-center justify-between shadow-sm">
+                                                        <div className="flex items-center gap-3">
+                                                            <div className="bg-green-100 text-green-700 p-1 rounded-full">
+                                                                <Check size={12} />
+                                                            </div>
+                                                            <div>
+                                                                <span className="text-xs font-black text-slate-700">{alert.sessionName}</span>
+                                                                <span className="text-[10px] text-slate-400 ml-2 font-bold uppercase tracking-tighter">
+                                                                    Handled: <span className="text-indigo-600">{selectedOpt?.label}</span>
+                                                                </span>
+                                                            </div>
                                                         </div>
-                                                        <div>{d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</div>
-                                                    </button>
+                                                        <div className="flex items-center gap-2">
+                                                            <button
+                                                                onClick={() => setCalcLimitHandling(prev => {
+                                                                    const next = { ...prev };
+                                                                    delete next[alert.sessionId];
+                                                                    return next;
+                                                                })}
+                                                                className="text-[10px] font-black text-indigo-600 hover:text-indigo-800 uppercase tracking-widest"
+                                                            >
+                                                                Change
+                                                            </button>
+                                                        </div>
+                                                    </div>
                                                 );
-                                            })}
-                                        </div>
-                                    </div>
+                                            }
 
-                                    {selectedHistoryDate && (() => {
-                                        const selectedDate = new Date(selectedHistoryDate);
-                                        const daysDiff = Math.floor((today.getTime() - selectedDate.getTime()) / 86400000);
-                                        return renderDaySection(selectedDate, daysDiff, false);
-                                    })()}
+                                            return (
+                                                <div key={alert.sessionId} className="bg-white border-2 border-amber-200 rounded-2xl p-4 shadow-sm hover:shadow-md transition-shadow relative group">
+                                                    {/* Dismiss Button */}
+                                                    <button
+                                                        onClick={() => setCalcLimitHandling(prev => ({ ...prev, [alert.sessionId]: 'dismissed' }))}
+                                                        className="absolute top-3 right-3 p-1.5 text-slate-300 hover:text-slate-500 hover:bg-slate-50 rounded-lg transition-all opacity-0 group-hover:opacity-100"
+                                                        title="Dismiss Alert"
+                                                    >
+                                                        <X size={16} />
+                                                    </button>
+
+                                                    <div className="flex justify-between items-start mb-3">
+                                                        <div>
+                                                            <div className="text-[10px] font-black text-amber-500 uppercase tracking-widest mb-1">Limit Reached</div>
+                                                            <div className="text-sm font-black text-slate-800">{alert.sessionName}</div>
+                                                        </div>
+                                                        <div className="bg-amber-100 text-amber-700 px-2 py-1 rounded-lg text-[10px] font-bold">
+                                                            {alert.remainingSeeds} seeds unused
+                                                        </div>
+                                                    </div>
+
+                                                    <div className="grid grid-cols-2 gap-4 mb-4 text-[11px]">
+                                                        <div className="bg-slate-50 p-2 rounded-xl">
+                                                            <div className="text-slate-400 font-bold uppercase text-[9px] mb-1">Limit</div>
+                                                            <div className="font-mono font-bold text-slate-700">{alert.limit}</div>
+                                                        </div>
+                                                        <div className="bg-slate-50 p-2 rounded-xl">
+                                                            <div className="text-slate-400 font-bold uppercase text-[9px] mb-1">Last Interval</div>
+                                                            <div className="font-mono font-bold text-slate-700">{alert.lastInterval}</div>
+                                                        </div>
+                                                    </div>
+
+                                                    <div className="space-y-2">
+                                                        <div className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Handling Option</div>
+                                                        <div className="grid grid-cols-2 gap-2">
+                                                            {[
+                                                                { id: 'ignore', label: 'Ignore Seeds', desc: 'Leave them unused' },
+                                                                { id: 'this_drop', label: 'Use This Drop', desc: 'Add to current drop' },
+                                                                { id: 'next_drop', label: 'Use Next Drop', desc: 'Carry over to next' },
+                                                                { id: 'split_today', label: 'Split Today', desc: 'Distribute across day' }
+                                                            ].map(opt => (
+                                                                <button
+                                                                    key={opt.id}
+                                                                    onClick={() => setCalcLimitHandling(prev => ({ ...prev, [alert.sessionId]: opt.id as any }))}
+                                                                    className={`text-left p-2 rounded-xl border transition-all ${calcLimitHandling[alert.sessionId] === opt.id
+                                                                        ? 'bg-indigo-600 border-indigo-600 text-white shadow-md'
+                                                                        : 'bg-white border-slate-100 text-slate-600 hover:border-indigo-200'
+                                                                        }`}
+                                                                >
+                                                                    <div className="text-[10px] font-black leading-tight">{opt.label}</div>
+                                                                    <div className={`text-[8px] opacity-70 leading-tight ${calcLimitHandling[alert.sessionId] === opt.id ? 'text-indigo-100' : 'text-slate-400'
+                                                                        }`}>{opt.desc}</div>
+                                                                </button>
+                                                            ))}
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
                                 </div>
+                            );
+                        })()}
+
+                        <div className="opacity-90">
+                            {renderDaySection(today, 0, true, 'Calculate Plan', true)}
+                        </div>
+                    </div>
+                ) : (
+                    /* Plan History Section (Live + History) */
+                    <>
+                        {/* Today */}
+                        <div className="bg-indigo-50/30 rounded-xl p-5 border border-indigo-100 mb-8 relative overflow-hidden">
+                            <div className="flex items-center gap-2 mb-4">
+                                <div className="flex items-center gap-1.5 bg-indigo-600 text-white text-[10px] font-black px-2 py-1 rounded uppercase tracking-widest shadow-sm">
+                                    <span className="w-1.5 h-1.5 bg-white rounded-full animate-pulse"></span>
+                                    Live / Active Plan
+                                </div>
+                                <span className="text-[11px] text-indigo-400 font-bold uppercase tracking-tighter">Current Configuration</span>
                             </div>
-                        </motion.div>
-                    )}
-                </AnimatePresence>
+                            {renderDaySection(today, 0, true)}
+                        </div>
+
+                        {/* History - Date Filter */}
+                        <div className="bg-gray-50/50 rounded-xl p-4 border border-gray-100">
+                            <button
+                                onClick={() => setShowHistory(!showHistory)}
+                                className="flex items-center gap-2 text-sm font-bold text-gray-600 hover:text-indigo-600 transition-colors mb-2"
+                            >
+                                {showHistory ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+                                {showHistory ? 'HIDE HISTORICAL DATA' : 'SHOW HISTORICAL DATA'}
+                            </button>
+
+                            <AnimatePresence>
+                                {showHistory && (
+                                    <motion.div
+                                        initial={{ height: 0, opacity: 0 }}
+                                        animate={{ height: 'auto', opacity: 1 }}
+                                        exit={{ height: 0, opacity: 0 }}
+                                        transition={{ duration: 0.2 }}
+                                        className="overflow-hidden"
+                                    >
+                                        <div className="pt-4 border-t border-gray-200/50 mt-2">
+                                            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
+                                                <div>
+                                                    <h4 className="text-sm font-bold text-gray-800">Historical Data</h4>
+                                                    <p className="text-xs text-gray-500">View and export plans from previous days</p>
+                                                </div>
+                                                <div className="flex items-center gap-3">
+                                                    <span className="text-xs text-gray-400 font-medium">Select Date:</span>
+                                                    <input
+                                                        type="date"
+                                                        value={selectedHistoryDate}
+                                                        onChange={(e) => {
+                                                            const dateStr = e.target.value;
+                                                            setSelectedHistoryDate(dateStr);
+                                                            if (dateStr) {
+                                                                fetchDayPlanForDate(dateStr);
+                                                                setExpandedDays(prev => new Set([...prev, dateStr]));
+                                                            }
+                                                        }}
+                                                        max={new Date(today.getTime() - 86400000).toISOString().split('T')[0]}
+                                                        className="px-3 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-white"
+                                                    />
+                                                    {selectedHistoryDate && (
+                                                        <button
+                                                            onClick={() => setSelectedHistoryDate('')}
+                                                            className="text-xs text-indigo-600 hover:text-indigo-800 font-medium"
+                                                        >
+                                                            Clear
+                                                        </button>
+                                                    )}
+                                                </div>
+                                            </div>
+
+                                            {/* Recent History Quick Access */}
+                                            <div className="mb-6">
+                                                <div className="text-[10px] uppercase tracking-wider text-gray-400 font-bold mb-2">Recent Days</div>
+                                                <div className="flex flex-wrap gap-2">
+                                                    {Array.from({ length: 10 }).map((_, i) => {
+                                                        const d = new Date(today);
+                                                        d.setDate(today.getDate() - (i + 1));
+                                                        const dateStr = d.toISOString().split('T')[0];
+                                                        const isActive = selectedHistoryDate === dateStr;
+                                                        return (
+                                                            <button
+                                                                key={dateStr}
+                                                                onClick={() => {
+                                                                    setSelectedHistoryDate(dateStr);
+                                                                    fetchDayPlanForDate(dateStr);
+                                                                    setExpandedDays(prev => new Set([...prev, dateStr]));
+                                                                }}
+                                                                className={`px-3 py-2 rounded-lg text-xs font-medium transition-all ${isActive
+                                                                    ? 'bg-indigo-600 text-white shadow-md ring-2 ring-indigo-200'
+                                                                    : 'bg-gray-50 text-gray-600 hover:bg-gray-100 border border-gray-200'
+                                                                    }`}
+                                                            >
+                                                                <div className="opacity-70 text-[10px] mb-0.5">
+                                                                    {d.toLocaleDateString('en-US', { weekday: 'short' })}
+                                                                </div>
+                                                                <div>{d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</div>
+                                                            </button>
+                                                        );
+                                                    })}
+                                                </div>
+                                            </div>
+
+                                            {selectedHistoryDate && (() => {
+                                                const selectedDate = new Date(selectedHistoryDate);
+                                                const daysDiff = Math.floor((today.getTime() - selectedDate.getTime()) / 86400000);
+                                                return renderDaySection(selectedDate, daysDiff, false);
+                                            })()}
+                                        </div>
+                                    </motion.div>
+                                )}
+                            </AnimatePresence>
+                        </div>
+                    </>
+                )}
             </div>
         </div>
     );
 };
-

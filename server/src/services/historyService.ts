@@ -244,3 +244,51 @@ export async function cleanupOldHistory(
     console.error('Failed to cleanup old history:', error);
   }
 }
+/**
+ * Log an interval pause event to the dedicated table
+ */
+export async function logIntervalPause(
+  req: AuthRequest | null,
+  params: {
+    entityId: string;
+    methodId: string;
+    categoryId: string;
+    categoryName?: string;
+    profileName: string;
+    pauseType: string;
+    interval: string;
+    action: string;
+  }
+): Promise<void> {
+  try {
+    if (!req?.user) return;
+
+    const fullUser = await prisma.user.findUnique({
+      where: { id: req.user.id },
+      select: { username: true, firstName: true, lastName: true }
+    });
+
+    let displayName = fullUser?.username;
+    if (!displayName && fullUser?.firstName) {
+      displayName = fullUser.lastName ? `${fullUser.firstName} ${fullUser.lastName}` : fullUser.firstName;
+    }
+    if (!displayName) displayName = `User ${req.user.id}`;
+
+    await (prisma as any).intervalPauseHistory.create({
+      data: {
+        entityId: params.entityId,
+        methodId: params.methodId,
+        categoryId: params.categoryId,
+        categoryName: params.categoryName || null,
+        profileName: params.profileName,
+        pauseType: params.pauseType,
+        interval: params.interval,
+        action: params.action,
+        userId: req.user.id,
+        username: displayName
+      }
+    });
+  } catch (error) {
+    console.error('Failed to log interval pause history:', error);
+  }
+}

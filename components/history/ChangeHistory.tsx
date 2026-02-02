@@ -43,6 +43,7 @@ export const ChangeHistory: React.FC<ChangeHistoryProps> = ({
     const [history, setHistory] = useState<ChangeHistoryEntry[]>([]);
     const [loading, setLoading] = useState(true);
     const [expanded, setExpanded] = useState(showExpanded);
+    const [activeTab, setActiveTab] = useState<'audit' | 'interval'>('audit');
 
     // Only show for admins and mailers
     if (user?.role !== 'ADMIN' && user?.role !== 'MAILER') {
@@ -72,6 +73,16 @@ export const ChangeHistory: React.FC<ChangeHistoryProps> = ({
             setHistory([]);
         } finally {
             setLoading(false);
+        }
+    };
+
+    const getFilteredHistory = () => {
+        switch (activeTab) {
+            case 'interval':
+                return history.filter(h => h.entityType === 'limits' && h.fieldChanged === 'intervalsPausedSearch');
+            case 'audit':
+            default:
+                return history;
         }
     };
 
@@ -130,6 +141,40 @@ export const ChangeHistory: React.FC<ChangeHistoryProps> = ({
 
     // Generate smart change details
     const renderChangeDetails = (entry: ChangeHistoryEntry) => {
+        if (activeTab !== 'audit') {
+            const getReasonLabel = (field: string | null) => {
+                if (!field) return 'Pause';
+                switch (field) {
+                    case 'intervalsQuality': return 'Quality';
+                    case 'intervalsPausedSearch': return 'Paused Search';
+                    case 'intervalsToxic': return 'Toxic';
+                    case 'intervalsOther': return 'Other';
+                    case 'limitActiveSession': return 'Limit Change';
+                    default: return field.replace('intervals', '');
+                }
+            };
+
+            const reason = getReasonLabel(entry.fieldChanged);
+            return (
+                <div className="mt-2 flex flex-wrap gap-2">
+                    <div className="text-sm text-orange-700 bg-orange-50 px-3 py-1.5 rounded-lg border border-orange-200 flex items-center gap-2">
+                        <span className="font-bold uppercase text-[10px] bg-orange-200 px-1.5 py-0.5 rounded">Reason</span>
+                        {reason}
+                    </div>
+                    <div className="text-sm text-blue-700 bg-blue-50 px-3 py-1.5 rounded-lg border border-blue-200 flex items-center gap-2">
+                        <span className="font-bold uppercase text-[10px] bg-blue-200 px-1.5 py-0.5 rounded">Interval</span>
+                        {entry.newValue || 'NO'}
+                    </div>
+                    {entry.categoryName && (
+                        <div className="text-sm text-purple-700 bg-purple-50 px-3 py-1.5 rounded-lg border border-purple-200 flex items-center gap-2">
+                            <span className="font-bold uppercase text-[10px] bg-purple-200 px-1.5 py-0.5 rounded">Category</span>
+                            {entry.categoryName}
+                        </div>
+                    )}
+                </div>
+            );
+        }
+
         if (entry.changeType === 'delete') {
             return (
                 <div className="mt-2 text-sm text-red-700 bg-red-50 px-3 py-2 rounded-lg border border-red-200">
@@ -183,82 +228,97 @@ export const ChangeHistory: React.FC<ChangeHistoryProps> = ({
         );
     }
 
-    if (history.length === 0) {
-        return (
-            <div className="bg-white rounded-lg border border-gray-200 p-4">
-                <div className="flex items-center gap-2 text-sm text-gray-500">
-                    <Clock size={16} />
-                    No change history available
-                </div>
-            </div>
-        );
-    }
+    const filteredHistory = getFilteredHistory();
 
     return (
-        <div className="bg-white rounded-lg border border-gray-200">
+        <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
             {/* Header */}
-            <div className="flex items-center justify-between p-4 border-b border-gray-200 bg-gray-50">
-                <button
-                    onClick={() => setExpanded(!expanded)}
-                    className="flex items-center gap-2 hover:text-indigo-600 transition-colors"
-                >
-                    <Clock size={18} className="text-indigo-600" />
-                    <h3 className="font-semibold text-gray-900">Change History</h3>
-                    <span className="text-xs text-gray-500 bg-white px-2 py-0.5 rounded-full border border-gray-200">
-                        {history.length} changes
-                    </span>
-                    {expanded ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
-                </button>
+            <div className="flex flex-col border-b border-gray-200 bg-gray-50">
+                <div className="flex items-center justify-between p-4">
+                    <button
+                        onClick={() => setExpanded(!expanded)}
+                        className="flex items-center gap-2 hover:text-indigo-600 transition-colors"
+                    >
+                        <Clock size={18} className="text-indigo-600" />
+                        <h3 className="font-semibold text-gray-900">Change History</h3>
+                        <span className="text-xs text-gray-500 bg-white px-2 py-0.5 rounded-full border border-gray-200">
+                            {filteredHistory.length} changes
+                        </span>
+                        {expanded ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
+                    </button>
 
-                <Link
-                    to="/history"
-                    className="flex items-center gap-1.5 text-sm text-indigo-600 hover:text-indigo-700 font-medium"
-                >
-                    View All
-                    <ExternalLink size={14} />
-                </Link>
+                    <Link
+                        to="/history"
+                        className="flex items-center gap-1.5 text-sm text-indigo-600 hover:text-indigo-700 font-medium"
+                    >
+                        View All
+                        <ExternalLink size={14} />
+                    </Link>
+                </div>
+
+                {/* Navigation Switch */}
+                <div className="flex px-4 pb-2 gap-2">
+                    <button
+                        onClick={() => setActiveTab('audit')}
+                        className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-all ${activeTab === 'audit' ? 'bg-indigo-600 text-white shadow-sm' : 'text-gray-600 hover:bg-gray-200'}`}
+                    >
+                        Audit Log & History
+                    </button>
+                    <button
+                        onClick={() => setActiveTab('interval')}
+                        className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-all ${activeTab === 'interval' ? 'bg-indigo-600 text-white shadow-sm' : 'text-gray-600 hover:bg-gray-200'}`}
+                    >
+                        Interval Paused History
+                    </button>
+                </div>
             </div>
 
             {/* History List */}
             {expanded && (
-                <div className="divide-y divide-gray-100">
-                    {history.map((entry) => (
-                        <div key={entry.id} className="p-4 hover:bg-gray-50 transition-colors">
-                            <div className="flex items-start gap-3">
-                                {/* Icon */}
-                                <div className="mt-1 flex-shrink-0">
-                                    {getChangeIcon(entry.changeType)}
-                                </div>
-
-                                {/* Content */}
-                                <div className="flex-1 min-w-0">
-                                    {/* Main description */}
-                                    <div className="flex items-start justify-between gap-2 mb-2">
-                                        <p className="text-sm font-medium text-gray-900">
-                                            {entry.description}
-                                        </p>
-                                        <span className="text-xs text-gray-500 whitespace-nowrap">
-                                            {formatTimestamp(entry.createdAt)}
-                                        </span>
+                <div className="divide-y divide-gray-100 max-h-[600px] overflow-y-auto">
+                    {filteredHistory.length === 0 ? (
+                        <div className="p-8 text-center text-gray-500 text-sm">
+                            No history found for this category
+                        </div>
+                    ) : (
+                        filteredHistory.map((entry) => (
+                            <div key={entry.id} className="p-4 hover:bg-gray-50 transition-colors">
+                                <div className="flex items-start gap-3">
+                                    {/* Icon */}
+                                    <div className="mt-1 flex-shrink-0">
+                                        {getChangeIcon(entry.changeType)}
                                     </div>
 
-                                    {/* User info */}
-                                    <div className="flex items-center gap-2 mb-2">
-                                        <div className="flex items-center gap-1.5 text-xs">
-                                            <User size={12} className="text-gray-400" />
-                                            <span className="font-semibold text-gray-900">{entry.username}</span>
+                                    {/* Content */}
+                                    <div className="flex-1 min-w-0">
+                                        {/* Main description */}
+                                        <div className="flex items-start justify-between gap-2 mb-2">
+                                            <p className="text-sm font-medium text-gray-900">
+                                                {entry.description}
+                                            </p>
+                                            <span className="text-xs text-gray-500 whitespace-nowrap">
+                                                {formatTimestamp(entry.createdAt)}
+                                            </span>
                                         </div>
-                                        <span className={`text-xs px-2 py-0.5 rounded-full ${getRoleBadgeColor(entry.userRole)}`}>
-                                            {entry.userRole}
-                                        </span>
-                                    </div>
 
-                                    {/* Smart change details */}
-                                    {renderChangeDetails(entry)}
+                                        {/* User info */}
+                                        <div className="flex items-center gap-2 mb-2">
+                                            <div className="flex items-center gap-1.5 text-xs">
+                                                <User size={12} className="text-gray-400" />
+                                                <span className="font-semibold text-gray-900">{entry.username}</span>
+                                            </div>
+                                            <span className={`text-xs px-2 py-0.5 rounded-full ${getRoleBadgeColor(entry.userRole)}`}>
+                                                {entry.userRole}
+                                            </span>
+                                        </div>
+
+                                        {/* Smart change details */}
+                                        {renderChangeDetails(entry)}
+                                    </div>
                                 </div>
                             </div>
-                        </div>
-                    ))}
+                        ))
+                    )}
                 </div>
             )}
         </div>
