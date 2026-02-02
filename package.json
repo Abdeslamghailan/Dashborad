@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "node scripts/setup-prisma.js && npm run build:client",
+    "build": "npx prisma generate --schema=server/prisma/schema.postgresql.prisma && vite build",
     "build:client": "vite build",
     "build:server": "node scripts/setup-prisma.js",
     "preview": "vite preview",
