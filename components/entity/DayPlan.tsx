@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { Entity, ParentCategory, LimitConfig } from '../../types';
-import { Calendar, ChevronDown, ChevronUp, Copy, Check, FileSpreadsheet, Lock, FileText, Calculator, Activity, Clock, TrendingUp, AlertTriangle, X } from 'lucide-react';
+import { Calendar, ChevronDown, ChevronUp, Copy, Check, FileSpreadsheet, Lock, FileText, Calculator, Activity, Clock, TrendingUp, AlertTriangle, X, ChevronRight, ArrowLeft, RefreshCw, User } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '../../contexts/AuthContext';
 import { dataService } from '../../services/dataService';
@@ -98,6 +98,13 @@ const calculateIntervalComplement = (totalRange: string, excludedIntervals: stri
     if (complementRanges.length === 0) return '';
 
     return complementRanges.map(([s, e]) => s === e ? `${s}` : `${s}-${e}`).join(',');
+};
+
+// Helper: Merge multiple interval strings into one comma-separated string
+const mergeIntervals = (intervals: string[]): string => {
+    const validIntervals = intervals.filter(i => i && i !== 'NO' && i.trim() !== '');
+    if (validIntervals.length === 0) return 'NO';
+    return validIntervals.join(',');
 };
 
 // Get total count of an interval string
@@ -382,6 +389,12 @@ export const DayPlan: React.FC<Props> = ({ entity }) => {
     const [showCalculatePlan, setShowCalculatePlan] = useState(false);
     const [showHistory, setShowHistory] = useState(false);
     const [activeView, setActiveView] = useState<'history' | 'calculator'>('history');
+    const [selectedPausedIntervalType, setSelectedPausedIntervalType] = useState<'none' | 'quality' | 'search' | 'toxic' | 'other'>('none');
+    const [selectedPausedCategory, setSelectedPausedCategory] = useState<'Quality' | 'PausedSearch' | 'Toxic' | 'Other' | null>(null);
+    const [intervalHistory, setIntervalHistory] = useState<any[]>([]);
+    const [selectedHistoryEntries, setSelectedHistoryEntries] = useState<Set<string>>(new Set());
+    const [isLoadingHistory, setIsLoadingHistory] = useState(false);
+    const [showPausedIntervalsMenu, setShowPausedIntervalsMenu] = useState(false);
 
     // Historical plans: DateString -> CategoryId -> SessionIdx -> { step, start }
     const [historyPlans, setHistoryPlans] = useState<Record<string, Record<string, Record<number, { step: string | number; start: string | number }>>>>({});
@@ -427,27 +440,71 @@ export const DayPlan: React.FC<Props> = ({ entity }) => {
                 } as LimitConfig;
             });
 
+            // Calculate combined intervals from historical selection if active
+            const historicalIntervalsMap: Record<string, string> = {};
+            if (activeView === 'calculator' && selectedPausedCategory && selectedHistoryEntries.size > 0) {
+                principalProfiles.forEach(profile => {
+                    const selectedForProfile = intervalHistory
+                        .filter(h => selectedHistoryEntries.has(h.id) && h.profileName === profile.profileName)
+                        .map(h => h.interval);
+
+                    if (selectedForProfile.length > 0) {
+                        historicalIntervalsMap[profile.profileName] = mergeIntervals(selectedForProfile);
+                    } else {
+                        historicalIntervalsMap[profile.profileName] = 'NO'; // Fallback if no interval selected for this profile
+                    }
+                });
+            }
+
             let totalSeedsConnected = 0;
             effectiveLimits.forEach(limit => {
-                let intervalsInRepo = limit.intervalsInRepo || '';
-                if (!intervalsInRepo) {
-                    intervalsInRepo = calculateIntervalComplement(
-                        limit.limitActiveSession,
-                        [limit.intervalsQuality, limit.intervalsPausedSearch, limit.intervalsToxic, limit.intervalsOther]
-                    );
+                let intervalsInRepo = '';
+
+                // If calculator mode and historical entries are selected, use those
+                if (activeView === 'calculator' && selectedPausedCategory && selectedHistoryEntries.size > 0) {
+                    intervalsInRepo = historicalIntervalsMap[limit.profileName] || 'NO';
+                } else if (activeView === 'calculator' && selectedPausedIntervalType !== 'none') {
+                    // Legacy single category selection
+                    if (selectedPausedIntervalType === 'quality') intervalsInRepo = limit.intervalsQuality;
+                    else if (selectedPausedIntervalType === 'search') intervalsInRepo = limit.intervalsPausedSearch;
+                    else if (selectedPausedIntervalType === 'toxic') intervalsInRepo = limit.intervalsToxic;
+                    else if (selectedPausedIntervalType === 'other') intervalsInRepo = limit.intervalsOther;
+                } else {
+                    // Default behavior
+                    intervalsInRepo = limit.intervalsInRepo || '';
+                    if (!intervalsInRepo) {
+                        intervalsInRepo = calculateIntervalComplement(
+                            limit.limitActiveSession,
+                            [limit.intervalsQuality, limit.intervalsPausedSearch, limit.intervalsToxic, limit.intervalsOther]
+                        );
+                    }
                 }
+
                 totalSeedsConnected += getIntervalCount(intervalsInRepo);
             });
 
             const rotation = totalPerDay > 0 ? totalSeedsConnected / totalPerDay : 1;
 
             const sessions: SessionData[] = effectiveLimits.map(limit => {
-                let intervalsInRepo = limit.intervalsInRepo || '';
-                if (!intervalsInRepo) {
-                    intervalsInRepo = calculateIntervalComplement(
-                        limit.limitActiveSession,
-                        [limit.intervalsQuality, limit.intervalsPausedSearch, limit.intervalsToxic, limit.intervalsOther]
-                    );
+                let intervalsInRepo = '';
+
+                // If calculator mode and historical entries are selected, use those
+                if (activeView === 'calculator' && selectedPausedCategory && selectedHistoryEntries.size > 0) {
+                    intervalsInRepo = historicalIntervalsMap[limit.profileName] || 'NO';
+                } else if (activeView === 'calculator' && selectedPausedIntervalType !== 'none') {
+                    if (selectedPausedIntervalType === 'quality') intervalsInRepo = limit.intervalsQuality;
+                    else if (selectedPausedIntervalType === 'search') intervalsInRepo = limit.intervalsPausedSearch;
+                    else if (selectedPausedIntervalType === 'toxic') intervalsInRepo = limit.intervalsToxic;
+                    else if (selectedPausedIntervalType === 'other') intervalsInRepo = limit.intervalsOther;
+                } else {
+                    // Default behavior
+                    intervalsInRepo = limit.intervalsInRepo || '';
+                    if (!intervalsInRepo) {
+                        intervalsInRepo = calculateIntervalComplement(
+                            limit.limitActiveSession,
+                            [limit.intervalsQuality, limit.intervalsPausedSearch, limit.intervalsToxic, limit.intervalsOther]
+                        );
+                    }
                 }
 
                 const activeInRepoCount = getIntervalCount(intervalsInRepo);
@@ -488,7 +545,7 @@ export const DayPlan: React.FC<Props> = ({ entity }) => {
                 isRequest
             };
         }).filter(catData => catData.category.planConfiguration.status?.toLowerCase() !== 'stopped');
-    }, [entity]);
+    }, [entity, selectedPausedIntervalType, activeView, selectedPausedCategory, selectedHistoryEntries, intervalHistory]);
 
     // Get today's date string for API calls
     const getTodayDateString = () => {
@@ -613,11 +670,12 @@ export const DayPlan: React.FC<Props> = ({ entity }) => {
     };
 
     // Get effective START (custom or calculated from yesterday)
-    const getEffectiveStart = (catData: CategoryData, sessionIdx: number, startsSource: Record<string, string | number> = customStarts, stepsSource: Record<string, string | number> = customSteps): string | number => {
+    const getEffectiveStart = (catData: CategoryData, sessionIdx: number, startsSource: Record<string, string | number> = customStarts, stepsSource: Record<string, string | number> = customSteps, manualDefault?: number): string | number => {
         const key = `${catData.category.id}:${sessionIdx}`;
         if (startsSource[key] !== undefined) {
             return startsSource[key];
         }
+        if (manualDefault !== undefined) return manualDefault;
         return getDefaultStart(catData, sessionIdx, stepsSource);
     };
 
@@ -685,6 +743,54 @@ export const DayPlan: React.FC<Props> = ({ entity }) => {
         setCustomStarts(calcStarts);
         // Also copy limit handling choices to apply them to the live plan
         setLimitHandling(calcLimitHandling);
+    };
+
+    const handleIntervalTypeChange = (type: 'none' | 'quality' | 'search' | 'toxic' | 'other') => {
+        setSelectedPausedIntervalType(type);
+        setSelectedPausedCategory(null);
+        setSelectedHistoryEntries(new Set());
+        setShowPausedIntervalsMenu(false);
+        // Reset simulation values when changing interval source
+        setCalcSteps({});
+        setCalcStarts({});
+        setCalcLimitHandling({});
+    };
+
+    const handleCategorySelect = async (category: 'Quality' | 'PausedSearch' | 'Toxic' | 'Other') => {
+        setIsLoadingHistory(true);
+        setSelectedPausedCategory(category);
+        try {
+            const history = await dataService.getIntervalPauseHistory({
+                entityId: entity.id,
+                limit: 2000
+            });
+            // Filter by selected category (case-insensitive for safety)
+            const filtered = history.filter(h => h.pauseType?.toLowerCase() === category.toLowerCase());
+            setIntervalHistory(filtered);
+        } catch (error) {
+            console.error('Failed to fetch interval history:', error);
+        } finally {
+            setIsLoadingHistory(false);
+        }
+    };
+
+    const handleToggleEntry = (id: string) => {
+        setSelectedHistoryEntries(prev => {
+            const next = new Set(prev);
+            if (next.has(id)) next.delete(id);
+            else next.add(id);
+            return next;
+        });
+    };
+
+    const clearPausedIntervals = () => {
+        setSelectedPausedIntervalType('none');
+        setSelectedPausedCategory(null);
+        setSelectedHistoryEntries(new Set());
+        setIntervalHistory([]);
+        setCalcSteps({});
+        setCalcStarts({});
+        setCalcLimitHandling({});
     };
 
     const toggleDay = (dayKey: string) => {
@@ -945,7 +1051,7 @@ export const DayPlan: React.FC<Props> = ({ entity }) => {
                             <th colSpan={2} className="py-1.5 px-3 border border-gray-300 text-gray-700 font-medium text-center">START</th>
                             {catData.sessions.map((s, i) => {
                                 const isEditable = isCalculateMode;
-                                const effectiveStart = (dateIdx === 0 || isCalculateMode) ? getEffectiveStart(catData, i, startsSource, stepsSource) : s.startValue;
+                                const effectiveStart = (dateIdx === 0 || isCalculateMode) ? getEffectiveStart(catData, i, startsSource, stepsSource, s.startValue) : s.startValue;
 
                                 return (
                                     <th key={i} className="py-1 px-1 border border-gray-300 text-center">
@@ -988,7 +1094,7 @@ export const DayPlan: React.FC<Props> = ({ entity }) => {
                                     {catData.sessions.map((s, i) => {
                                         const isEditable = isToday || isCalculateMode;
                                         const effectiveStep = getEffectiveStep(catData.category.id, i, s.stepPerSession, stepsSource);
-                                        const effectiveStart = getEffectiveStart(catData, i, startsSource, stepsSource);
+                                        const effectiveStart = getEffectiveStart(catData, i, startsSource, stepsSource, s.startValue);
 
                                         const dateStr = date.toISOString().split('T')[0];
                                         const hasSavedPlan = !isToday && !isCalculateMode && !!historyPlans[dateStr];
@@ -1022,6 +1128,9 @@ export const DayPlan: React.FC<Props> = ({ entity }) => {
                                             );
                                             interval = sessionPlan.intervals[dropIdx] || '-';
                                             actualStep = sessionPlan.actualSteps[dropIdx] || null;
+                                            if (sessionPlan.alert && dropIdx === sessionPlan.alertDropIdx) {
+                                                isLimitAlert = true;
+                                            }
                                         } else {
                                             interval = (isEditable || hasSavedPlan)
                                                 ? calculateDropIntervalWithStart(dropIdx, effectiveStep, s.intervalsInRepo, effectiveStart, getDefaultStart(catData, i))
@@ -1042,7 +1151,7 @@ export const DayPlan: React.FC<Props> = ({ entity }) => {
                                                         )}
                                                     </div>
                                                     {isLimitAlert && (
-                                                        <div className="text-[9px] text-amber-500 mt-0.5">Limit Reached</div>
+                                                        <div className="text-[9px] text-amber-500 mt-0.5 font-bold uppercase tracking-tighter">Limit Reached</div>
                                                     )}
                                                 </div>
                                             </td>
@@ -1070,7 +1179,7 @@ export const DayPlan: React.FC<Props> = ({ entity }) => {
         if (ranges.length === 0) return { intervals: Array(catData.numDrops).fill('-'), actualSteps: Array(catData.numDrops).fill(0) };
 
         const stepConfig = getEffectiveStep(catData.category.id, sessionIdx, session.stepPerSession, stepsSource);
-        const startConfig = getEffectiveStart(catData, sessionIdx, startsSource, stepsSource);
+        const startConfig = getEffectiveStart(catData, sessionIdx, startsSource, stepsSource, session.startValue);
         const defaultStart = getDefaultStart(catData, sessionIdx, stepsSource);
 
         // --- PHASE 1: DETECTION (Simulate with 'ignore' to find the wrap point) ---
@@ -1119,6 +1228,8 @@ export const DayPlan: React.FC<Props> = ({ entity }) => {
         let currentPosition = typeof startConfig === 'number' ? startConfig : defaultStart;
         const intervals: string[] = [];
         const actualSteps: number[] = [];
+        let carryOverStep: number | null = null;
+        let plannedDropIdx = 0;
 
         // Pre-calculate split for 'split_today'
         let extraPerDrop = 0;
@@ -1129,8 +1240,11 @@ export const DayPlan: React.FC<Props> = ({ entity }) => {
         }
 
         for (let drop = 0; drop < catData.numDrops; drop++) {
-            const override = getStartOverride(drop, startConfig);
-            if (override !== null) currentPosition = override;
+            // Only apply overrides if we're not in the middle of a carry-over
+            if (carryOverStep === null) {
+                const override = getStartOverride(plannedDropIdx, startConfig);
+                if (override !== null) currentPosition = override;
+            }
 
             let rangeIdx = ranges.findIndex(([start, end]) => currentPosition >= start && currentPosition <= end);
             if (rangeIdx === -1) {
@@ -1141,33 +1255,45 @@ export const DayPlan: React.FC<Props> = ({ entity }) => {
 
             const [rangeStart, rangeEnd] = ranges[rangeIdx];
             const availableInRange = rangeEnd - currentPosition + 1;
-            let currentStep = getStepForDrop(drop, stepConfig);
 
-            // Option: Split Today (Distribute across PRECEDING drops)
-            if (handling === 'split_today' && alert && drop < alertDropIdx) {
-                currentStep += extraPerDrop;
-                if (drop < splitRemainder) currentStep += 1;
+            let currentStep: number;
+            if (carryOverStep !== null) {
+                // Use the remainder from the previous drop
+                currentStep = carryOverStep;
+                carryOverStep = null;
+            } else {
+                // Get fresh step from config
+                currentStep = getStepForDrop(plannedDropIdx, stepConfig);
+
+                // Option: Split Today (Distribute across PRECEDING drops)
+                if (handling === 'split_today' && alert && plannedDropIdx < alertDropIdx) {
+                    currentStep += extraPerDrop;
+                    if (plannedDropIdx < splitRemainder) currentStep += 1;
+                }
+
+                plannedDropIdx++;
             }
 
-            // Option: Use This Drop (Add remaining seeds to the drop BEFORE it would wrap)
-            if (handling === 'this_drop' && alert && drop === alertDropIdx - 1) {
-                intervals.push(`${currentPosition}-${rangeEnd}`);
-                actualSteps.push(availableInRange);
-                const nextRangeIdx = (rangeIdx + 1) % ranges.length;
-                currentPosition = ranges[nextRangeIdx][0];
-                continue;
+            // Options: Use This Drop / Use Next Drop (Original behaviors)
+            if (carryOverStep === null) { // Only apply if not already splitting
+                if (handling === 'this_drop' && alert && plannedDropIdx === alertDropIdx) {
+                    intervals.push(`${currentPosition}-${rangeEnd}`);
+                    actualSteps.push(availableInRange);
+                    const nextRangeIdx = (rangeIdx + 1) % ranges.length;
+                    currentPosition = ranges[nextRangeIdx][0];
+                    continue;
+                }
+
+                if (handling === 'next_drop' && alert && plannedDropIdx === alertDropIdx + 1) {
+                    intervals.push(`${currentPosition}-${rangeEnd}`);
+                    actualSteps.push(availableInRange);
+                    const nextRangeIdx = (rangeIdx + 1) % ranges.length;
+                    currentPosition = ranges[nextRangeIdx][0];
+                    continue;
+                }
             }
 
-            // Option: Use Next Drop (Create a short drop for the leftovers)
-            if (handling === 'next_drop' && alert && drop === alertDropIdx) {
-                intervals.push(`${currentPosition}-${rangeEnd}`);
-                actualSteps.push(availableInRange);
-                const nextRangeIdx = (rangeIdx + 1) % ranges.length;
-                currentPosition = ranges[nextRangeIdx][0];
-                continue;
-            }
-
-            // Normal calculation (with wrap)
+            // Normal calculation (with SPILL OVER wrap)
             if (currentStep <= 0) {
                 intervals.push('-');
                 actualSteps.push(0);
@@ -1182,7 +1308,7 @@ export const DayPlan: React.FC<Props> = ({ entity }) => {
                 }
             } else {
                 // Wrap condition: availableInRange < currentStep
-                if (handling === 'ignore' || handling === undefined) {
+                if (handling === 'ignore') {
                     // Skip leftovers and wrap immediately
                     const nextRangeIdx = (rangeIdx + 1) % ranges.length;
                     currentPosition = ranges[nextRangeIdx][0];
@@ -1193,14 +1319,15 @@ export const DayPlan: React.FC<Props> = ({ entity }) => {
                     actualSteps.push(currentStep);
                     currentPosition = endVal + 1;
                 } else {
-                    // Default wrap behavior: split the drop
-                    const firstPartEnd = rangeEnd;
+                    // DEFAULT: Spill over to the next drop
+                    intervals.push(`${currentPosition}-${rangeEnd}`);
+                    actualSteps.push(availableInRange);
+
+                    // Carry over the remainder to the next iteration (next row)
+                    carryOverStep = currentStep - availableInRange;
+
                     const nextRangeIdx = (rangeIdx + 1) % ranges.length;
-                    const nextStart = ranges[nextRangeIdx][0];
-                    const secondPartEnd = nextStart + (currentStep - availableInRange) - 1;
-                    intervals.push(`${currentPosition}-${firstPartEnd}, ${nextStart}-${secondPartEnd}`);
-                    actualSteps.push(currentStep);
-                    currentPosition = secondPartEnd + 1;
+                    currentPosition = ranges[nextRangeIdx][0];
                 }
             }
         }
@@ -1271,15 +1398,158 @@ export const DayPlan: React.FC<Props> = ({ entity }) => {
                             <>
                                 {/* Apply Calculate Plan Button */}
                                 {isCalculateMode && (
-                                    <button
-                                        onClick={(e) => {
-                                            e.stopPropagation();
-                                            applyCalculatePlan();
-                                        }}
-                                        className="flex items-center gap-1 px-3 py-1 bg-white text-teal-700 text-xs font-bold rounded shadow-sm hover:bg-teal-50 transition-colors mr-2"
-                                    >
-                                        Apply Plan
-                                    </button>
+                                    <div className="flex items-center gap-2 mr-2">
+                                        {/* Work with Paused Intervals Button & Dropdown */}
+                                        <div className="relative">
+                                            <button
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    setShowPausedIntervalsMenu(!showPausedIntervalsMenu);
+                                                }}
+                                                className={`flex items-center gap-1.5 px-3 py-1 rounded text-xs font-bold shadow-sm transition-all border ${selectedHistoryEntries.size > 0 || selectedPausedIntervalType !== 'none'
+                                                    ? 'bg-amber-100 text-amber-700 border-amber-300'
+                                                    : 'bg-white text-teal-700 border-white hover:bg-teal-50'
+                                                    }`}
+                                            >
+                                                <Activity size={12} />
+                                                {selectedHistoryEntries.size > 0
+                                                    ? `Using: ${selectedPausedCategory} (${selectedHistoryEntries.size})`
+                                                    : selectedPausedIntervalType === 'none'
+                                                        ? 'Work with Paused Intervals'
+                                                        : `Using: ${selectedPausedIntervalType.charAt(0).toUpperCase() + selectedPausedIntervalType.slice(1)}`}
+                                                <ChevronDown size={12} className={`transition-transform duration-200 ${showPausedIntervalsMenu ? 'rotate-180' : ''}`} />
+                                            </button>
+
+                                            <AnimatePresence>
+                                                {showPausedIntervalsMenu && (
+                                                    <motion.div
+                                                        initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                                                        animate={{ opacity: 1, y: 0, scale: 1 }}
+                                                        exit={{ opacity: 0, y: 10, scale: 0.95 }}
+                                                        className="absolute right-0 top-full mt-2 w-80 bg-white rounded-xl shadow-xl border border-gray-100 p-0 z-50 ring-1 ring-black/5 overflow-hidden"
+                                                        onClick={(e) => e.stopPropagation()}
+                                                    >
+                                                        {!selectedPausedCategory ? (
+                                                            <div className="py-1">
+                                                                <div className="px-3 py-2 text-[10px] font-black text-gray-400 uppercase tracking-widest border-b border-gray-50 mb-1">
+                                                                    Select Category
+                                                                </div>
+                                                                <button
+                                                                    onClick={() => handleIntervalTypeChange('none')}
+                                                                    className={`w-full flex items-center justify-between px-3 py-2 text-xs transition-colors hover:bg-gray-50 ${selectedPausedIntervalType === 'none' && !selectedPausedCategory ? 'text-teal-600 font-bold bg-teal-50/50' : 'text-gray-600'
+                                                                        }`}
+                                                                >
+                                                                    <span>Use Active Intervals</span>
+                                                                    {selectedPausedIntervalType === 'none' && !selectedPausedCategory && <Check size={14} />}
+                                                                </button>
+                                                                {[
+                                                                    { id: 'Quality', label: 'Intervals Quality' },
+                                                                    { id: 'PausedSearch', label: 'Intervals Paused Search' },
+                                                                    { id: 'Toxic', label: 'Interval Toxic' },
+                                                                    { id: 'Other', label: 'Other Intervals' }
+                                                                ].map((opt) => (
+                                                                    <button
+                                                                        key={opt.id}
+                                                                        onClick={() => handleCategorySelect(opt.id as any)}
+                                                                        className="w-full flex items-center justify-between px-3 py-2 text-xs transition-colors hover:bg-gray-50 text-gray-600"
+                                                                    >
+                                                                        <span>{opt.label}</span>
+                                                                        <ChevronRight size={14} className="text-gray-300" />
+                                                                    </button>
+                                                                ))}
+                                                            </div>
+                                                        ) : (
+                                                            <div className="flex flex-col h-[400px]">
+                                                                <div className="px-3 py-2 bg-gray-50 border-b border-gray-100 flex items-center justify-between">
+                                                                    <button
+                                                                        onClick={() => setSelectedPausedCategory(null)}
+                                                                        className="text-[10px] font-bold text-gray-400 hover:text-gray-600 uppercase flex items-center gap-1"
+                                                                    >
+                                                                        <ArrowLeft size={10} /> Back
+                                                                    </button>
+                                                                    <div className="text-[10px] font-black text-gray-800 uppercase tracking-wider">
+                                                                        {selectedPausedCategory} History
+                                                                    </div>
+                                                                </div>
+
+                                                                <div className="flex-1 overflow-y-auto p-2 space-y-1 scrollbar-thin scrollbar-thumb-gray-200">
+                                                                    {isLoadingHistory ? (
+                                                                        <div className="flex flex-col items-center justify-center h-full text-gray-400 space-y-2">
+                                                                            <RefreshCw size={20} className="animate-spin" />
+                                                                            <span className="text-[10px] uppercase font-bold tracking-widest">Loading...</span>
+                                                                        </div>
+                                                                    ) : intervalHistory.length === 0 ? (
+                                                                        <div className="flex flex-col items-center justify-center h-full text-gray-400 text-center px-4">
+                                                                            <Activity size={24} className="mb-2 opacity-20" />
+                                                                            <span className="text-[10px] uppercase font-bold tracking-widest leading-relaxed">No history found for this category</span>
+                                                                        </div>
+                                                                    ) : (
+                                                                        intervalHistory.map((entry) => (
+                                                                            <button
+                                                                                key={entry.id}
+                                                                                onClick={() => handleToggleEntry(entry.id)}
+                                                                                className={`w-full flex items-start gap-2 p-2 rounded-lg transition-all text-left border ${selectedHistoryEntries.has(entry.id)
+                                                                                    ? 'bg-teal-50 border-teal-200 ring-1 ring-teal-500/10'
+                                                                                    : 'bg-white border-transparent hover:border-gray-200'
+                                                                                    }`}
+                                                                            >
+                                                                                <div className={`mt-0.5 w-3.5 h-3.5 rounded-sm border flex items-center justify-center transition-colors ${selectedHistoryEntries.has(entry.id) ? 'bg-teal-500 border-teal-500 text-white' : 'bg-white border-gray-300'
+                                                                                    }`}>
+                                                                                    {selectedHistoryEntries.has(entry.id) && <Check size={10} strokeWidth={4} />}
+                                                                                </div>
+                                                                                <div className="flex-1 min-w-0">
+                                                                                    <div className="flex items-center justify-between mb-0.5">
+                                                                                        <span className="text-[10px] font-black text-gray-800 truncate">{entry.profileName}</span>
+                                                                                        <span className="text-[8px] font-bold text-gray-400 uppercase">{new Date(entry.createdAt).toLocaleDateString()}</span>
+                                                                                    </div>
+                                                                                    <div className="text-[11px] font-bold text-teal-600 break-all leading-tight">
+                                                                                        {entry.interval}
+                                                                                    </div>
+                                                                                    <div className="flex items-center gap-1 mt-1 opacity-60">
+                                                                                        <User size={8} />
+                                                                                        <span className="text-[8px] font-bold text-gray-500">{entry.username}</span>
+                                                                                    </div>
+                                                                                </div>
+                                                                            </button>
+                                                                        ))
+                                                                    )}
+                                                                </div>
+
+                                                                <div className="p-2 bg-gray-50 border-t border-gray-100 flex items-center gap-2">
+                                                                    <button
+                                                                        onClick={() => setSelectedHistoryEntries(new Set())}
+                                                                        className="flex-1 py-1.5 text-[10px] font-bold text-gray-500 hover:text-gray-700 uppercase"
+                                                                    >
+                                                                        Clear
+                                                                    </button>
+                                                                    <button
+                                                                        onClick={() => setShowPausedIntervalsMenu(false)}
+                                                                        disabled={selectedHistoryEntries.size === 0}
+                                                                        className={`flex-[2] py-2 text-[10px] font-black uppercase tracking-widest rounded-lg transition-all shadow-lg ${selectedHistoryEntries.size > 0
+                                                                            ? 'bg-teal-600 text-white shadow-teal-500/20 hover:bg-teal-700'
+                                                                            : 'bg-gray-200 text-gray-400 cursor-not-allowed'
+                                                                            }`}
+                                                                    >
+                                                                        Generate Plan
+                                                                    </button>
+                                                                </div>
+                                                            </div>
+                                                        )}
+                                                    </motion.div>
+                                                )}
+                                            </AnimatePresence>
+                                        </div>
+
+                                        <button
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                applyCalculatePlan();
+                                            }}
+                                            className="flex items-center gap-1 px-3 py-1 bg-white text-teal-700 text-xs font-bold rounded shadow-sm hover:bg-teal-50 transition-colors"
+                                        >
+                                            Apply Plan
+                                        </button>
+                                    </div>
                                 )}
 
                                 {/* Export to XLSX button */}
@@ -1403,27 +1673,28 @@ export const DayPlan: React.FC<Props> = ({ entity }) => {
 
     return (
         <div className="space-y-6">
-            {/* Compact & Modern Header Card */}
-            <div className="bg-white rounded-2xl border border-slate-100 shadow-xl shadow-slate-200/40 overflow-hidden">
-                <div className="bg-[#f8faff] border-b border-slate-100 px-6 py-4">
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                        <div className="flex items-center gap-4">
-                            <div className="w-10 h-10 flex items-center justify-center bg-indigo-600 rounded-xl shadow-md shadow-indigo-100">
-                                <Calendar className="text-white" size={20} />
+            {/* Ultra-Compact Day Plan Header */}
+            <div className="bg-white rounded-2xl border border-slate-100 shadow-lg shadow-slate-200/30 overflow-hidden">
+                {/* Compact Purple Header */}
+                <div className="bg-[#6366f1] px-5 py-3">
+                    <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                            <div className="w-8 h-8 flex items-center justify-center bg-white/20 backdrop-blur-sm rounded-lg">
+                                <Calendar className="text-white" size={16} />
                             </div>
                             <div>
-                                <h2 className="text-lg font-black text-slate-800 tracking-tight">Day Plan</h2>
-                                <p className="text-slate-500 text-xs font-medium">Daily task intervals for <span className="text-indigo-600 font-bold">{entity.name}</span></p>
+                                <h2 className="text-base font-bold text-white tracking-tight">Day Plan</h2>
+                                <p className="text-indigo-100 text-[10px] font-medium">Daily task intervals for {entity.name}</p>
                             </div>
                         </div>
 
-                        {/* Compact Filter */}
-                        <div className="flex items-center gap-2 bg-white p-1 rounded-lg border border-slate-200 shadow-sm">
-                            <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-2">Filter</span>
+                        {/* Compact Filter Pill */}
+                        <div className="flex items-center gap-1.5 bg-white/95 backdrop-blur-sm px-3 py-1.5 rounded-full shadow-sm">
+                            <span className="text-[8px] font-black text-indigo-400 uppercase tracking-wider">Filter</span>
                             <select
                                 value={selectedCategory}
                                 onChange={(e) => setSelectedCategory(e.target.value)}
-                                className="px-3 py-1.5 text-xs font-bold bg-transparent text-slate-700 border-none focus:ring-0 cursor-pointer min-w-[140px]"
+                                className="text-[11px] font-bold bg-transparent text-slate-700 border-none focus:ring-0 cursor-pointer pr-6"
                             >
                                 <option value="all">All Categories</option>
                                 {entity.reporting.parentCategories.map(cat => (
@@ -1434,40 +1705,40 @@ export const DayPlan: React.FC<Props> = ({ entity }) => {
                     </div>
                 </div>
 
-                {/* Compact Stats Grid */}
-                <div className="p-6 bg-white">
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                        {filteredCategoryData.map((catData, idx) => (
+                {/* Minimal Stats Cards */}
+                <div className="p-4 bg-gradient-to-b from-slate-50/50 to-white">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                        {filteredCategoryData.map((catData) => (
                             <div
                                 key={catData.category.id}
-                                className="group bg-white rounded-xl p-4 border border-slate-100 shadow-sm hover:shadow-md transition-all duration-300 relative flex flex-col"
+                                className="group bg-white rounded-xl p-3 border border-slate-100 hover:border-indigo-200 shadow-sm hover:shadow-md transition-all duration-200 relative"
                             >
-                                {/* Left Accent Bar */}
-                                <div className="absolute top-4 bottom-4 left-0 w-1 bg-indigo-500 rounded-r-full" />
+                                {/* Subtle Left Accent */}
+                                <div className="absolute top-3 bottom-3 left-0 w-0.5 bg-indigo-400 rounded-r-full" />
 
-                                <div className="flex justify-between items-start mb-2 pl-3">
-                                    <div className="text-base font-black text-slate-800 uppercase tracking-tight truncate max-w-[150px]">
+                                <div className="pl-2.5">
+                                    {/* Category Name */}
+                                    <div className="text-[11px] font-bold text-slate-500 uppercase tracking-wide mb-1.5 truncate">
                                         {catData.category.name.replace(' REPORTING', '')}
                                     </div>
-                                    <div className="text-indigo-600 opacity-40 group-hover:opacity-100 transition-opacity">
-                                        <Activity size={14} />
-                                    </div>
-                                </div>
 
-                                <div className="flex items-baseline gap-2 mb-3 pl-3">
-                                    <span className="text-3xl font-black text-slate-900 tracking-tighter">{catData.sessions.length}</span>
-                                    <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Sessions</span>
-                                </div>
-
-                                <div className="flex items-center gap-3 text-[10px] font-bold text-slate-500 bg-slate-50 rounded-lg px-3 py-2 mt-auto group-hover:bg-indigo-50 transition-colors">
-                                    <div className="flex items-center gap-1.5">
-                                        <Clock size={12} className="text-slate-400" />
-                                        <span>{catData.numDrops} Drops</span>
+                                    {/* Main Session Count */}
+                                    <div className="flex items-baseline gap-1.5 mb-2">
+                                        <span className="text-2xl font-black text-slate-900">{catData.sessions.length}</span>
+                                        <span className="text-[9px] font-bold text-slate-400 uppercase">Sessions</span>
                                     </div>
-                                    <div className="w-1 h-1 bg-slate-300 rounded-full" />
-                                    <div className="flex items-center gap-1.5">
-                                        <TrendingUp size={12} className="text-slate-400" />
-                                        <span>Seeds/drop: <span className="text-slate-900 font-black">{catData.totalStep}</span></span>
+
+                                    {/* Compact Info Row */}
+                                    <div className="flex items-center gap-2 text-[9px] font-medium text-slate-500">
+                                        <div className="flex items-center gap-1">
+                                            <div className="w-1 h-1 bg-indigo-400 rounded-full" />
+                                            <span>{catData.numDrops} Drops</span>
+                                        </div>
+                                        <div className="w-px h-2.5 bg-slate-200" />
+                                        <div className="flex items-center gap-1">
+                                            <div className="w-1 h-1 bg-emerald-400 rounded-full" />
+                                            <span>Step: <span className="text-slate-700 font-bold">{catData.totalStep}</span></span>
+                                        </div>
                                     </div>
                                 </div>
                             </div>

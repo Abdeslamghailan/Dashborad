@@ -254,3 +254,21 @@ model ReportingMethod {
   updatedAt   DateTime @updatedAt
 }
 
+model IntervalPauseHistory {
+  id           Int      @id @default(autoincrement())
+  entityId     String
+  methodId     String
+  categoryId   String
+  categoryName String?
+  profileName  String
+  pauseType    String
+  interval     String
+  action       String
+  userId       Int
+  username     String
+  createdAt    DateTime @default(now())
+
+  @@index([entityId, createdAt])
+  @@index([methodId, categoryId])
+}
+

@@ -7,7 +7,7 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
+  provider = "sqlite"
   url      = env("DATABASE_URL")
 }
 
@@ -33,7 +33,7 @@ model User {
 model Entity {
   id        String   @id // Using the existing string IDs (e.g., "ent_cmh1")
   name      String
-  data      String   @db.Text // JSON string storing the complex nested structure (profiles, limits, etc.)
+  data      String // JSON string storing the complex nested structure (profiles, limits, etc.)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -55,7 +55,7 @@ model EntityAccess {
 
 model ProxyPartition {
   id        Int      @id @default(1) // Singleton pattern, always use ID 1
-  data      String   @db.Text // JSON string storing ProcessedData
+  data      String // JSON string storing ProcessedData
   updatedAt DateTime @updatedAt
 }
 
@@ -68,9 +68,9 @@ model ChangeHistory {
   userId      Int      // User who made the change
   username    String   // Username for quick display
   userRole    String   // Role at time of change (ADMIN, MAILER, USER)
-  description String   @db.Text // Human-readable description of the change
-  oldValue    String?  @db.Text // JSON string of old value (optional)
-  newValue    String?  @db.Text // JSON string of new value (optional)
+  description String // Human-readable description of the change
+  oldValue    String? // JSON string of old value (optional)
+  newValue    String? // JSON string of new value (optional)
   methodId    String?
   categoryId  String?
   categoryName String?
@@ -89,7 +89,7 @@ model ProxyServer {
   id          String   @id @default(uuid())
   entityId    String
   serverName  String
-  ips         String   @db.Text // JSON string storing string[]
+  ips         String // JSON string storing string[]
   status      String   @default("active") // "active" or "stopped"
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
@@ -155,7 +155,7 @@ model PlanningAssignment {
   dayOfWeek   Int      // 0=Monday, 1=Tuesday, ..., 6=Sunday
   taskCode    String   // e.g., "CMH3", "CMH12-CMH5-16", "congé", "HOTMAIL"
   taskColor   String?  // Color code for the task (green, yellow, orange, etc.)
-  notes       String?  @db.Text // Optional notes
+  notes       String? // Optional notes
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
   createdBy   Int?     // User who created this assignment
@@ -190,7 +190,7 @@ model DayPlan {
   entityId        String
   categoryId      String   // Category ID from entity.reporting.parentCategories
   date            DateTime // The date this plan is for
-  sessionData     String   @db.Text // JSON: { [sessionIndex: number]: { step: number, start: number } }
+  sessionData     String // JSON: { [sessionIndex: number]: { step: number, start: number } }
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
   createdBy       Int?     // User who created
@@ -209,7 +209,7 @@ model DayPlan {
 model Script {
   id          String   @id @default(uuid())
   name        String   @unique // e.g., "CMH1_Warmup_Script_v2"
-  description String?  @db.Text // Optional description
+  description String? // Optional description
   order       Int      @default(0) // For sorting in dropdown
   isActive    Boolean  @default(true)
   createdAt   DateTime @default(now())
@@ -226,7 +226,7 @@ model Scenario {
   id          String   @id @default(uuid())
   name        String   // e.g., "Standard_Rotation_A"
   scriptId    String   // Foreign key to Script
-  description String?  @db.Text // Optional description
+  description String? // Optional description
   order       Int      @default(0) // For sorting in dropdown
   isActive    Boolean  @default(true)
   createdAt   DateTime @default(now())
@@ -244,7 +244,7 @@ model Scenario {
 model ReportingMethod {
   id          String   @id // e.g., "desktop", "webautomate"
   name        String
-  description String?  @db.Text
+  description String?
   icon        String   // Lucide icon name
   color       String
   gradient    String
@@ -252,5 +252,23 @@ model ReportingMethod {
   isActive    Boolean  @default(true)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
+}
+
+model IntervalPauseHistory {
+  id           Int      @id @default(autoincrement())
+  entityId     String
+  methodId     String
+  categoryId   String
+  categoryName String?
+  profileName  String
+  pauseType    String
+  interval     String
+  action       String
+  userId       Int
+  username     String
+  createdAt    DateTime @default(now())
+
+  @@index([entityId, createdAt])
+  @@index([methodId, categoryId])
 }
 
