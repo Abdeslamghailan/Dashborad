@@ -95,6 +95,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
     const loginWithPassword = async (username: string, password: string) => {
         try {
+            console.log(`[AuthContext] Attempting login for ${username} at ${API_URL}/api/auth/login`);
             const response = await fetch(`${API_URL}/api/auth/login`, {
                 method: 'POST',
                 headers: {
@@ -104,8 +105,15 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             });
 
             if (!response.ok) {
-                const error = await response.json();
-                throw new Error(error.error || 'Login failed');
+                const contentType = response.headers.get('content-type');
+                if (contentType && contentType.includes('application/json')) {
+                    const error = await response.json();
+                    throw new Error(error.error || 'Login failed');
+                } else {
+                    const text = await response.text();
+                    console.error('[AuthContext] Login failed with non-JSON response:', text.substring(0, 500));
+                    throw new Error(`Server error: ${response.status}. Please check backend logs.`);
+                }
             }
 
             const data = await response.json();
@@ -113,7 +121,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             setUser(data.user);
             localStorage.setItem('auth_token', data.token);
         } catch (error) {
-            logger.error('Password login error', error);
+            console.error('Password login error:', error);
             throw error;
         }
     };

@@ -12,6 +12,29 @@ export const LoginPage: React.FC = () => {
     const [username, setUsername] = useState('');
     const [password, setPassword] = useState('');
     const [error, setError] = useState('');
+    const [serverStatus, setServerStatus] = useState<'checking' | 'online' | 'offline'>('checking');
+
+    React.useEffect(() => {
+        const checkHealth = async () => {
+            try {
+                const url = `${import.meta.env.VITE_API_URL || ''}/api/test`;
+                console.log(`[LoginPage] Pinging health check at: ${url}`);
+                const res = await fetch(url);
+                if (res.ok) {
+                    const data = await res.json();
+                    console.log('[LoginPage] Server is online:', data);
+                    setServerStatus('online');
+                } else {
+                    console.error(`[LoginPage] Server status check failed: ${res.status}`);
+                    setServerStatus('offline');
+                }
+            } catch (err) {
+                console.error('[LoginPage] Health check failed:', err);
+                setServerStatus('offline');
+            }
+        };
+        checkHealth();
+    }, []);
 
     const handleTelegramAuth = async (user: any) => {
         console.log('LoginPage: handleTelegramAuth called with user:', user);
@@ -55,6 +78,18 @@ export const LoginPage: React.FC = () => {
                             {isPasswordLogin ? 'Sign in with your credentials' : 'Sign in with your Telegram account'}
                         </p>
                     </div>
+
+                    {serverStatus === 'offline' && (
+                        <div className="bg-amber-50 border border-amber-200 text-amber-800 p-4 rounded-xl text-xs mb-6 flex items-start gap-3">
+                            <svg className="w-5 h-5 text-amber-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                            </svg>
+                            <div>
+                                <p className="font-bold mb-1">Backend Connection Issue</p>
+                                <p>The application cannot reach the API. This may be due to a deployment in progress or a configuration error.</p>
+                            </div>
+                        </div>
+                    )}
 
                     {isPasswordLogin ? (
                         <form onSubmit={handlePasswordLogin} className="space-y-4">

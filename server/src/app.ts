@@ -143,21 +143,36 @@ app.use('/api/reporter', reporterRoutes);
 app.get('/api/health', async (req, res) => {
   try {
     // Simple query to check DB connection
-    const userCount = await prisma.user.count();
+    const userCount = await prisma.user.count().catch(err => {
+      console.error('Prisma connection error during health check:', err);
+      return -1;
+    });
+    
     res.json({ 
       status: 'ok', 
       env: process.env.NODE_ENV,
-      db: 'connected',
-      userCount
+      db: userCount >= 0 ? 'connected' : 'error',
+      userCount: userCount >= 0 ? userCount : undefined,
+      timestamp: new Date().toISOString()
     });
   } catch (error) {
-    logger.error('Health check DB error', error);
+    logger.error('Health check error', error);
     res.status(500).json({ 
       status: 'error', 
       env: process.env.NODE_ENV,
-      db: 'disconnected'
+      db: 'unknown'
     });
   }
+});
+
+// Simple test endpoint (no DB)
+app.get('/api/test', (req, res) => {
+  res.json({ 
+    status: 'success', 
+    message: 'API endpoint reached successfully!',
+    env: process.env.NODE_ENV,
+    time: new Date().toISOString()
+  });
 });
 
 // Initialize Backup Service ONLY if explicitly enabled (disabled on Netlify)
