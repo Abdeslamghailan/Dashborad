@@ -87,6 +87,13 @@ router.get('/interval-pause', authenticateToken, requireAdminOrMailer, async (re
       if (h.oldValue === 'NO' && h.newValue !== 'NO') action = 'PAUSE';
       if (h.oldValue !== 'NO' && h.newValue === 'NO') action = 'UNPAUSE';
 
+      let pauseType = h.fieldChanged || 'Update';
+      if (pauseType.toLowerCase().includes('quality')) pauseType = 'Quality';
+      else if (pauseType.toLowerCase().includes('search')) pauseType = 'PausedSearch';
+      else if (pauseType.toLowerCase().includes('toxic')) pauseType = 'Toxic';
+      else if (pauseType.toLowerCase().includes('other')) pauseType = 'Other';
+      else pauseType = pauseType.replace(/intervals\s*/i, '').trim();
+
       return {
         id: `legacy-${h.id}`,
         entityId: h.entityId,
@@ -94,7 +101,7 @@ router.get('/interval-pause', authenticateToken, requireAdminOrMailer, async (re
         categoryId: h.categoryId,
         categoryName: h.categoryName,
         profileName: h.profileName,
-        pauseType: h.fieldChanged?.replace(/intervals\s*/i, '').trim() || 'Update',
+        pauseType,
         interval: h.newValue || 'NO',
         action,
         userId: h.userId,
