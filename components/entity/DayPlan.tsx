@@ -547,6 +547,32 @@ export const DayPlan: React.FC<Props> = ({ entity }) => {
         }).filter(catData => catData.category.planConfiguration.status?.toLowerCase() !== 'stopped');
     }, [entity, selectedPausedIntervalType, activeView, selectedPausedCategory, selectedHistoryEntries, intervalHistory]);
 
+    const uniqueIntervalHistory = useMemo(() => {
+        const seen = new Set<string>();
+        return intervalHistory.filter(entry => {
+            if (!entry) return false;
+            // Catch simultaneous logs within a 2-second window
+            const timeKey = Math.round(new Date(entry.createdAt).getTime() / 2000);
+            const key = `${entry.profileName}-${entry.interval}-${entry.pauseType}-${entry.action}-${timeKey}`;
+            if (seen.has(key)) return false;
+            seen.add(key);
+            return true;
+        });
+    }, [intervalHistory]);
+
+    const groupedIntervalHistory = useMemo(() => {
+        const groups: Record<string, any[]> = {};
+        uniqueIntervalHistory.forEach(entry => {
+            const date = new Date(entry.createdAt).toLocaleDateString();
+            if (!groups[date]) groups[date] = [];
+            groups[date].push(entry);
+        });
+        // Sort dates descending
+        return Object.entries(groups).sort((a, b) =>
+            new Date(b[1][0].createdAt).getTime() - new Date(a[1][0].createdAt).getTime()
+        );
+    }, [uniqueIntervalHistory]);
+
     // Get today's date string for API calls
     const getTodayDateString = () => {
         const today = new Date();
@@ -1484,33 +1510,47 @@ export const DayPlan: React.FC<Props> = ({ entity }) => {
                                                                             <span className="text-[10px] uppercase font-bold tracking-widest leading-relaxed">No history found for this category</span>
                                                                         </div>
                                                                     ) : (
-                                                                        intervalHistory.map((entry) => (
-                                                                            <button
-                                                                                key={entry.id}
-                                                                                onClick={() => handleToggleEntry(entry.id)}
-                                                                                className={`w-full flex items-start gap-2 p-2 rounded-lg transition-all text-left border ${selectedHistoryEntries.has(entry.id)
-                                                                                    ? 'bg-teal-50 border-teal-200 ring-1 ring-teal-500/10'
-                                                                                    : 'bg-white border-transparent hover:border-gray-200'
-                                                                                    }`}
-                                                                            >
-                                                                                <div className={`mt-0.5 w-3.5 h-3.5 rounded-sm border flex items-center justify-center transition-colors ${selectedHistoryEntries.has(entry.id) ? 'bg-teal-500 border-teal-500 text-white' : 'bg-white border-gray-300'
-                                                                                    }`}>
-                                                                                    {selectedHistoryEntries.has(entry.id) && <Check size={10} strokeWidth={4} />}
+                                                                        groupedIntervalHistory.map(([date, entries]) => (
+                                                                            <div key={date} className="space-y-1 mb-4">
+                                                                                <div className="px-2 py-1 flex items-center gap-2">
+                                                                                    <div className="h-px flex-1 bg-gray-100"></div>
+                                                                                    <span className="text-[9px] font-black text-gray-400 uppercase tracking-widest">{date}</span>
+                                                                                    <div className="h-px flex-1 bg-gray-100"></div>
                                                                                 </div>
-                                                                                <div className="flex-1 min-w-0">
-                                                                                    <div className="flex items-center justify-between mb-0.5">
-                                                                                        <span className="text-[10px] font-black text-gray-800 truncate">{entry.profileName}</span>
-                                                                                        <span className="text-[8px] font-bold text-gray-400 uppercase">{new Date(entry.createdAt).toLocaleDateString()}</span>
-                                                                                    </div>
-                                                                                    <div className="text-[11px] font-bold text-teal-600 break-all leading-tight">
-                                                                                        {entry.interval}
-                                                                                    </div>
-                                                                                    <div className="flex items-center gap-1 mt-1 opacity-60">
-                                                                                        <User size={8} />
-                                                                                        <span className="text-[8px] font-bold text-gray-500">{entry.username}</span>
-                                                                                    </div>
-                                                                                </div>
-                                                                            </button>
+                                                                                {entries.map((entry) => (
+                                                                                    <button
+                                                                                        key={entry.id}
+                                                                                        onClick={() => handleToggleEntry(entry.id)}
+                                                                                        className={`w-full flex items-start gap-2 p-2 rounded-lg transition-all text-left border ${selectedHistoryEntries.has(entry.id)
+                                                                                            ? 'bg-teal-50 border-teal-200 ring-1 ring-teal-500/10'
+                                                                                            : 'bg-white border-transparent hover:border-gray-200'
+                                                                                            }`}
+                                                                                    >
+                                                                                        <div className={`mt-0.5 w-3.5 h-3.5 rounded-sm border flex items-center justify-center transition-colors ${selectedHistoryEntries.has(entry.id) ? 'bg-teal-500 border-teal-500 text-white' : 'bg-white border-gray-300'
+                                                                                            }`}>
+                                                                                            {selectedHistoryEntries.has(entry.id) && <Check size={10} strokeWidth={4} />}
+                                                                                        </div>
+                                                                                        <div className="flex-1 min-w-0">
+                                                                                            <div className="flex items-center justify-between mb-0.5">
+                                                                                                <span className="text-[10px] font-black text-gray-800 truncate">{entry.profileName}</span>
+                                                                                                <span className="text-[8px] font-bold text-gray-400 uppercase">{new Date(entry.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                                                                                            </div>
+                                                                                            <div className="text-[11px] font-bold text-teal-600 break-all leading-tight">
+                                                                                                {entry.interval}
+                                                                                            </div>
+                                                                                            <div className="flex items-center justify-between mt-1">
+                                                                                                <div className="flex items-center gap-1 opacity-60">
+                                                                                                    <User size={8} />
+                                                                                                    <span className="text-[8px] font-bold text-gray-500">{entry.username}</span>
+                                                                                                </div>
+                                                                                                {entry.batchId && (
+                                                                                                    <span className="text-[7px] font-medium text-gray-300 uppercase">Batch: {entry.batchId.substring(0, 4)}</span>
+                                                                                                )}
+                                                                                            </div>
+                                                                                        </div>
+                                                                                    </button>
+                                                                                ))}
+                                                                            </div>
                                                                         ))
                                                                     )}
                                                                 </div>
