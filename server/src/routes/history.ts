@@ -34,19 +34,23 @@ router.get('/interval-pause', authenticateToken, requireAdminOrMailer, async (re
     if (methodId) where.methodId = methodId as string;
     if (categoryId) where.categoryId = categoryId as string;
 
-    if (startDate || endDate) {
-      const start = startDate ? new Date(startDate as string) : null;
-      const end = endDate ? new Date(endDate as string) : null;
-      
-      if (end) {
-        end.setHours(23, 59, 59, 999);
-      }
+    const threeMonthsAgo = new Date();
+    threeMonthsAgo.setMonth(threeMonthsAgo.getMonth() - 3);
+    
+    let start = startDate ? new Date(startDate as string) : threeMonthsAgo;
+    let end = endDate ? new Date(endDate as string) : undefined;
 
-      where.createdAt = {
-        ...(start && { gte: start }),
-        ...(end && { lte: end })
-      };
+    if (isNaN(start.getTime())) start = threeMonthsAgo;
+    if (end && isNaN(end.getTime())) end = undefined;
+
+    if (end) {
+      end.setHours(23, 59, 59, 999);
     }
+
+    where.createdAt = {
+      gte: start,
+      ...(end && { lte: end })
+    };
 
     // 1. Fetch from new specialized table (Safe Fetch)
     let newHistory: any[] = [];
@@ -62,8 +66,7 @@ router.get('/interval-pause', authenticateToken, requireAdminOrMailer, async (re
 
     // 2. Fetch from legacy ChangeHistory table
     const legacyWhere: any = {
-      entityType: 'limits',
-      fieldChanged: { startsWith: 'intervals' }
+      fieldChanged: { contains: 'intervals' }
     };
     if (entityId) legacyWhere.entityId = entityId as string;
     if (methodId) legacyWhere.methodId = methodId as string;
@@ -91,7 +94,7 @@ router.get('/interval-pause', authenticateToken, requireAdminOrMailer, async (re
         categoryId: h.categoryId,
         categoryName: h.categoryName,
         profileName: h.profileName,
-        pauseType: h.fieldChanged?.replace('intervals', '') || 'Update',
+        pauseType: h.fieldChanged?.replace(/intervals\s*/i, '').trim() || 'Update',
         interval: h.newValue || 'NO',
         action,
         userId: h.userId,
