@@ -195,31 +195,31 @@ export const apiService: DataService = {
 
   saveDayPlan: async (entityId: string, date: string, categoryId: string, sessionData: any) => {
     try {
-      await apiCall(`/dayplan/${entityId}/${date}/${categoryId}`, {
-        method: 'PUT',
-        body: JSON.stringify(sessionData),
+      await apiCall(`/dayplan/${entityId}`, {
+        method: 'POST',
+        body: JSON.stringify({ date, categoryId, sessionData }),
       });
     } catch (error) {
-      console.error(`API: saveDayPlan ${entityId} ${date} error:`, error);
+      console.error(`API: saveDayPlan ${entityId} error:`, error);
       throw error;
     }
   },
 
   saveDayPlanBulk: async (entityId: string, date: string, plans: any) => {
     try {
-      await apiCall(`/dayplan/${entityId}/${date}/bulk`, {
-        method: 'PUT',
-        body: JSON.stringify(plans),
+      await apiCall(`/dayplan/${entityId}/bulk`, {
+        method: 'POST',
+        body: JSON.stringify({ date, plans }),
       });
     } catch (error) {
-      console.error(`API: saveDayPlanBulk ${entityId} ${date} error:`, error);
+      console.error(`API: saveDayPlanBulk ${entityId} error:`, error);
       throw error;
     }
   },
 
   deleteDayPlan: async (entityId: string, categoryId: string, date: string) => {
     try {
-      await apiCall(`/dayplan/${entityId}/${date}/${categoryId}`, {
+      await apiCall(`/dayplan/${entityId}/${categoryId}/${date}`, {
         method: 'DELETE',
       });
     } catch (error) {
