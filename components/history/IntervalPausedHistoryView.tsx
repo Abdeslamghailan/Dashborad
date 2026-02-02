@@ -77,7 +77,22 @@ export const IntervalPausedHistoryView: React.FC<IntervalPausedHistoryViewProps>
                     limit: 10000
                 });
 
-                let filtered = data;
+                // Deduplicate history entries (same event might be in both legacy and new tables)
+                const seenEntries = new Set<string>();
+                const uniqueHistory = data.filter((entry: any) => {
+                    if (!entry) return false;
+
+                    // Create a unique key based on the actual event data
+                    // We use an approximate timestamp (rounding to nearest 2 seconds) to catch simultaneous logs
+                    const timeKey = Math.round(new Date(entry.createdAt).getTime() / 2000);
+                    const key = `${entry.entityId}-${entry.profileName}-${entry.interval}-${entry.pauseType}-${entry.action}-${timeKey}`;
+
+                    if (seenEntries.has(key)) return false;
+                    seenEntries.add(key);
+                    return true;
+                });
+
+                let filtered = uniqueHistory;
 
                 if (selectedMethods.length > 0) {
                     filtered = filtered.filter(h =>
