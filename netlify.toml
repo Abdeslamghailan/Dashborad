@@ -8,9 +8,15 @@
   directory = "netlify/functions"
 
 [[redirects]]
+  from = "/api/hello-world"
+  to = "/.netlify/functions/hello"
+  status = 200
+
+[[redirects]]
   from = "/api/*"
   to = "/.netlify/functions/api"
   status = 200
+  force = true
 
 [[redirects]]
   from = "/*"

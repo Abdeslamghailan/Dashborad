@@ -36,9 +36,8 @@ const isProduction = process.env.NODE_ENV === 'production';
 
 if (!process.env.JWT_SECRET) {
   logger.error('FATAL ERROR: JWT_SECRET is not defined');
-  if (isProduction) {
-    process.exit(1);
-  }
+  // Don't exit process in serverless, just log it. 
+  // Requests requiring JWT will fail with 500 when they try to use it.
 }
 
 // Security Middleware - Properly configured Helmet
