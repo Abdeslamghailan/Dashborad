@@ -3,17 +3,27 @@ import { API_URL } from '../config';
 
 
 const getAuthHeaders = () => {
-  const token = localStorage.getItem('auth_token');
   return {
     'Content-Type': 'application/json',
-    'Authorization': token ? `Bearer ${token}` : ''
+    'X-Requested-With': 'XMLHttpRequest'
   };
+};
+
+const fetchWithCreds = (url: string, options: RequestInit = {}) => {
+  return fetch(url, {
+    ...options,
+    headers: {
+      ...getAuthHeaders(),
+      ...options.headers
+    },
+    credentials: 'include'
+  });
 };
 
 export const dataService: DataService = {
   getEntities: async () => {
     try {
-      const response = await fetch(`${API_URL}/api/entities`, {
+      const response = await fetchWithCreds(`${API_URL}/api/entities`, {
         headers: getAuthHeaders()
       });
 
@@ -30,7 +40,7 @@ export const dataService: DataService = {
 
   getEntity: async (id: string) => {
     try {
-      const response = await fetch(`${API_URL}/api/entities/${id}`, {
+      const response = await fetchWithCreds(`${API_URL}/api/entities/${id}`, {
         headers: getAuthHeaders()
       });
 
@@ -61,7 +71,7 @@ export const dataService: DataService = {
         status: c.planConfiguration.status
       })));
       
-      const response = await fetch(`${API_URL}/api/entities/${id}`, {
+      const response = await fetchWithCreds(`${API_URL}/api/entities/${id}`, {
         method: 'PUT',
         headers: getAuthHeaders(),
         body: JSON.stringify({
@@ -94,7 +104,7 @@ export const dataService: DataService = {
 
   deleteEntity: async (id: string) => {
     try {
-      const response = await fetch(`${API_URL}/api/entities/${id}`, {
+      const response = await fetchWithCreds(`${API_URL}/api/entities/${id}`, {
         method: 'DELETE',
         headers: getAuthHeaders()
       });
@@ -120,7 +130,7 @@ export const dataService: DataService = {
   // History tracking methods
   getEntityHistory: async (entityId: string, limit: number = 5) => {
     try {
-      const response = await fetch(`${API_URL}/api/history/entity/${entityId}?limit=${limit}`, {
+      const response = await fetchWithCreds(`${API_URL}/api/history/entity/${entityId}?limit=${limit}`, {
         headers: getAuthHeaders()
       });
 
@@ -137,7 +147,7 @@ export const dataService: DataService = {
 
   getHistoryByType: async (entityType: string, limit: number = 5) => {
     try {
-      const response = await fetch(`${API_URL}/api/history/type/${entityType}?limit=${limit}`, {
+      const response = await fetchWithCreds(`${API_URL}/api/history/type/${entityType}?limit=${limit}`, {
         headers: getAuthHeaders()
       });
 
@@ -154,7 +164,7 @@ export const dataService: DataService = {
 
   getRecentChanges: async (limit: number = 20) => {
     try {
-      const response = await fetch(`${API_URL}/api/history/recent?limit=${limit}`, {
+      const response = await fetchWithCreds(`${API_URL}/api/history/recent?limit=${limit}`, {
         headers: getAuthHeaders()
       });
 
@@ -196,7 +206,7 @@ export const dataService: DataService = {
     }
 
     try {
-      const response = await fetch(`${API_URL}/api/history?${queryParams.toString()}`, {
+      const response = await fetchWithCreds(`${API_URL}/api/history?${queryParams.toString()}`, {
         headers: getAuthHeaders()
       });
       if (!response.ok) {
@@ -211,7 +221,7 @@ export const dataService: DataService = {
 
   deleteHistoryEntry: async (id: number): Promise<void> => {
     try {
-      const response = await fetch(`${API_URL}/api/history/${id}`, {
+      const response = await fetchWithCreds(`${API_URL}/api/history/${id}`, {
         method: 'DELETE',
         headers: getAuthHeaders()
       });
@@ -226,7 +236,7 @@ export const dataService: DataService = {
 
   deleteAllHistory: async (): Promise<void> => {
     try {
-      const response = await fetch(`${API_URL}/api/history`, {
+      const response = await fetchWithCreds(`${API_URL}/api/history`, {
         method: 'DELETE',
         headers: getAuthHeaders()
       });
@@ -242,7 +252,7 @@ export const dataService: DataService = {
   // Day Plan methods
   getDayPlan: async (entityId: string, date: string): Promise<Record<string, Record<number, { step: string | number; start: string | number }>>> => {
     try {
-      const response = await fetch(`${API_URL}/api/dayplan/${entityId}/${date}`, {
+      const response = await fetchWithCreds(`${API_URL}/api/dayplan/${entityId}/${date}`, {
         headers: getAuthHeaders()
       });
       if (!response.ok) {
@@ -257,7 +267,7 @@ export const dataService: DataService = {
 
   saveDayPlan: async (entityId: string, date: string, categoryId: string, sessionData: Record<number, { step: string | number; start: string | number }>): Promise<void> => {
     try {
-      const response = await fetch(`${API_URL}/api/dayplan/${entityId}`, {
+      const response = await fetchWithCreds(`${API_URL}/api/dayplan/${entityId}`, {
         method: 'POST',
         headers: getAuthHeaders(),
         body: JSON.stringify({ date, categoryId, sessionData })
@@ -273,7 +283,7 @@ export const dataService: DataService = {
 
   saveDayPlanBulk: async (entityId: string, date: string, plans: Record<string, Record<number, { step: string | number; start: string | number }>>): Promise<void> => {
     try {
-      const response = await fetch(`${API_URL}/api/dayplan/${entityId}/bulk`, {
+      const response = await fetchWithCreds(`${API_URL}/api/dayplan/${entityId}/bulk`, {
         method: 'POST',
         headers: getAuthHeaders(),
         body: JSON.stringify({ date, plans })
@@ -289,7 +299,7 @@ export const dataService: DataService = {
 
   deleteDayPlan: async (entityId: string, categoryId: string, date: string): Promise<void> => {
     try {
-      const response = await fetch(`${API_URL}/api/dayplan/${entityId}/${categoryId}/${date}`, {
+      const response = await fetchWithCreds(`${API_URL}/api/dayplan/${entityId}/${categoryId}/${date}`, {
         method: 'DELETE',
         headers: getAuthHeaders()
       });
@@ -321,7 +331,7 @@ export const dataService: DataService = {
     }
 
     try {
-      const response = await fetch(`${API_URL}/api/history/interval-pause?${queryParams.toString()}`, {
+      const response = await fetchWithCreds(`${API_URL}/api/history/interval-pause?${queryParams.toString()}`, {
         headers: getAuthHeaders()
       });
       if (!response.ok) {

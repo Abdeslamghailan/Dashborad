@@ -56,24 +56,94 @@ export const LoginPage: React.FC = () => {
         setError('');
         try {
             await loginWithPassword(username, password);
-            navigate('/');
+            // navigate('/') is handled by useEffect if user is logged in
         } catch (err: any) {
             console.error('Password login error:', err);
             setError(err.message || 'Login failed. Please check your credentials.');
         }
     };
 
+    const [newPassword, setNewPassword] = useState('');
+    const [confirmPassword, setConfirmPassword] = useState('');
+    const { user, updatePassword } = useAuth();
+
+    React.useEffect(() => {
+        if (user && !user.mustChangePassword) {
+            navigate('/');
+        }
+    }, [user, navigate]);
+
+    const handleUpdatePassword = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (newPassword !== confirmPassword) {
+            setError('Passwords do not match');
+            return;
+        }
+        try {
+            await updatePassword(password, newPassword);
+            navigate('/');
+        } catch (err: any) {
+            setError(err.message || 'Failed to update password');
+        }
+    };
+
+    if (user?.mustChangePassword) {
+        return (
+            <div className="min-h-screen bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500 flex flex-col">
+                <div className="flex-1 flex items-center justify-center p-4">
+                    <div className="bg-white rounded-2xl shadow-2xl p-8 md:p-12 max-w-md w-full">
+                        <div className="text-center mb-8">
+                            <h1 className="text-3xl font-bold text-gray-900 mb-2">Update Password</h1>
+                            <p className="text-gray-600">You must change your password before continuing</p>
+                        </div>
+
+                        <form onSubmit={handleUpdatePassword} className="space-y-4">
+                            {error && (
+                                <div className="bg-red-50 text-red-600 p-3 rounded-lg text-sm text-center">
+                                    {error}
+                                </div>
+                            )}
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">New Password</label>
+                                <input
+                                    type="password"
+                                    value={newPassword}
+                                    onChange={(e) => setNewPassword(e.target.value)}
+                                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all"
+                                    placeholder="Enter new password"
+                                    required
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Confirm New Password</label>
+                                <input
+                                    type="password"
+                                    value={confirmPassword}
+                                    onChange={(e) => setConfirmPassword(e.target.value)}
+                                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all"
+                                    placeholder="Confirm new password"
+                                    required
+                                />
+                            </div>
+                            <Button type="submit" className="w-full">
+                                Update Password
+                            </Button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        );
+    }
+
     return (
         <div className="min-h-screen bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500 flex flex-col">
             <div className="flex-1 flex items-center justify-center p-4">
                 <div className="bg-white rounded-2xl shadow-2xl p-8 md:p-12 max-w-md w-full">
                     <div className="text-center mb-8">
-                        <div className="w-16 h-16 bg-indigo-600 rounded-xl flex items-center justify-center text-white mx-auto mb-4 shadow-lg">
-                            <svg className="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-                            </svg>
+                        <div className="w-40 h-40 bg-white rounded-[2.5rem] flex items-center justify-center mx-auto mb-6 shadow-2xl shadow-indigo-100/50 border border-slate-100 overflow-hidden">
+                            <img src="/favicon.png" alt="CMHW Logo" className="w-full h-full object-contain scale-125" />
                         </div>
-                        <h1 className="text-3xl font-bold text-gray-900 mb-2">Entity Dashboard</h1>
+                        <h1 className="text-3xl font-bold text-gray-900 mb-2">CMHW Dashboard</h1>
                         <p className="text-gray-600">
                             {isPasswordLogin ? 'Sign in with your credentials' : 'Sign in with your Telegram account'}
                         </p>

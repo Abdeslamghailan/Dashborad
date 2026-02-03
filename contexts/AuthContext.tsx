@@ -8,6 +8,7 @@ interface User {
     photoUrl?: string | null;
     role: string;
     telegramId: string;
+    mustChangePassword?: boolean;
 }
 
 interface AuthContextType {
@@ -19,6 +20,7 @@ interface AuthContextType {
     isAdmin: boolean;
     isMailer: boolean;
     isLoading: boolean;
+    updatePassword: (currentPassword: string, newPassword: string) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -29,22 +31,17 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     const [isLoading, setIsLoading] = useState(true);
 
     useEffect(() => {
-        // Check for existing token on mount
-        const savedToken = localStorage.getItem('auth_token');
-        if (savedToken) {
-            setToken(savedToken);
-            fetchCurrentUser(savedToken);
-        } else {
-            setIsLoading(false);
-        }
+        // Check for session on mount
+        fetchCurrentUser();
     }, []);
 
-    const fetchCurrentUser = async (authToken: string) => {
+    const fetchCurrentUser = async () => {
         try {
             const response = await fetch(`${API_URL}/api/auth/me`, {
                 headers: {
-                    'Authorization': `Bearer ${authToken}`
-                }
+                    'X-Requested-With': 'XMLHttpRequest'
+                },
+                credentials: 'include'
             });
 
             if (response.ok) {
@@ -52,14 +49,11 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
                 logger.debug('User authenticated successfully');
                 setUser(userData);
             } else {
-                // Token invalid, clear it
-                localStorage.removeItem('auth_token');
-                setToken(null);
+                setUser(null);
             }
         } catch (error) {
             logger.error('Failed to fetch user', error);
-            localStorage.removeItem('auth_token');
-            setToken(null);
+            setUser(null);
         } finally {
             setIsLoading(false);
         }
@@ -72,8 +66,10 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             const response = await fetch(`${API_URL}/api/auth/telegram`, {
                 method: 'POST',
                 headers: {
-                    'Content-Type': 'application/json'
+                    'Content-Type': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest'
                 },
+                credentials: 'include',
                 body: JSON.stringify(telegramData)
             });
 
@@ -84,9 +80,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
             const data = await response.json();
             logger.debug('Login successful');
-            setToken(data.token);
             setUser(data.user);
-            localStorage.setItem('auth_token', data.token);
         } catch (error) {
             logger.error('Login error', error);
             throw error;
@@ -95,12 +89,13 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
     const loginWithPassword = async (username: string, password: string) => {
         try {
-            console.log(`[AuthContext] Attempting login for ${username} at ${API_URL}/api/auth/login`);
             const response = await fetch(`${API_URL}/api/auth/login`, {
                 method: 'POST',
                 headers: {
-                    'Content-Type': 'application/json'
+                    'Content-Type': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest'
                 },
+                credentials: 'include',
                 body: JSON.stringify({ username, password })
             });
 
@@ -111,32 +106,63 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
                     throw new Error(error.error || 'Login failed');
                 } else {
                     const text = await response.text();
-                    console.error('[AuthContext] Login failed with non-JSON response:', text.substring(0, 500));
                     throw new Error(`Server error: ${response.status}. Please check backend logs.`);
                 }
             }
 
             const data = await response.json();
-            setToken(data.token);
             setUser(data.user);
-            localStorage.setItem('auth_token', data.token);
         } catch (error) {
-            console.error('Password login error:', error);
             throw error;
         }
     };
 
-    const logout = () => {
-        setUser(null);
-        setToken(null);
-        localStorage.removeItem('auth_token');
+    const updatePassword = async (currentPassword: string, newPassword: string) => {
+        try {
+            const response = await fetch(`${API_URL}/api/auth/update-password`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest'
+                },
+                credentials: 'include',
+                body: JSON.stringify({ currentPassword, newPassword })
+            });
+
+            if (!response.ok) {
+                const error = await response.json();
+                throw new Error(error.error || 'Failed to update password');
+            }
+
+            // Re-fetch user to clear mustChangePassword flag
+            await fetchCurrentUser();
+        } catch (error) {
+            throw error;
+        }
+    };
+
+    const logout = async () => {
+        try {
+            await fetch(`${API_URL}/api/auth/logout`, {
+                method: 'POST',
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest'
+                },
+                credentials: 'include'
+            });
+        } catch (error) {
+            logger.error('Logout error', error);
+        } finally {
+            setUser(null);
+            setToken(null);
+        }
     };
 
     const isAdmin = user?.role === 'ADMIN';
     const isMailer = user?.role === 'MAILER';
 
     return (
-        <AuthContext.Provider value={{ user, token, login, loginWithPassword, logout, isAdmin, isMailer, isLoading }}>
+        <AuthContext.Provider value={{ user, token, login, loginWithPassword, logout, isAdmin, isMailer, isLoading, updatePassword }}>
             {children}
         </AuthContext.Provider>
     );

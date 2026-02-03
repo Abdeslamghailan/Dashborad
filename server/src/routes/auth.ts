@@ -103,8 +103,18 @@ router.post('/telegram', async (req, res) => {
       { expiresIn: '7d' }
     );
 
+    const isProduction = process.env.NODE_ENV === 'production';
+    
+    // Set httpOnly cookie
+    res.cookie('auth_token', token, {
+      httpOnly: true,
+      secure: isProduction,
+      sameSite: 'strict',
+      maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
+    });
+
     logger.info('Login successful', { userId: user.id, username: user.username });
-    res.json({ token, user: { id: user.id, username: user.username, photoUrl: user.photoUrl, role: user.role, telegramId: user.telegramId } });
+    res.json({ user: { id: user.id, username: user.username, photoUrl: user.photoUrl, role: user.role, telegramId: user.telegramId, mustChangePassword: user.mustChangePassword } });
   } catch (error) {
     logger.error('Authentication failed', error);
     res.status(500).json({ error: 'Authentication failed' });
@@ -156,8 +166,18 @@ router.post('/login', async (req, res) => {
       { expiresIn: '7d' }
     );
 
+    const isProduction = process.env.NODE_ENV === 'production';
+    
+    // Set httpOnly cookie
+    res.cookie('auth_token', token, {
+      httpOnly: true,
+      secure: isProduction,
+      sameSite: 'strict',
+      maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
+    });
+
     logger.info('Password login successful', { userId: user.id, username: user.username });
-    res.json({ token, user: { id: user.id, username: user.username, photoUrl: user.photoUrl, role: user.role, telegramId: user.telegramId } });
+    res.json({ user: { id: user.id, username: user.username, photoUrl: user.photoUrl, role: user.role, telegramId: user.telegramId, mustChangePassword: user.mustChangePassword } });
   } catch (error) {
     logger.error('Login failed', error);
     res.status(500).json({ error: 'Login failed' });
@@ -189,6 +209,58 @@ router.get('/me', authenticateToken, async (req: AuthRequest, res) => {
     logger.error('Failed to get user', error);
     res.status(500).json({ error: 'Failed to get user' });
   }
+});
+
+// Update password endpoint
+router.post('/update-password', authenticateToken, async (req: AuthRequest, res) => {
+  try {
+    const { currentPassword, newPassword } = req.body;
+    
+    if (!currentPassword || !newPassword) {
+      return res.status(400).json({ error: 'Both current and new passwords are required' });
+    }
+
+    const user = await prisma.user.findUnique({
+      where: { id: req.user!.id }
+    });
+
+    if (!user || !user.password) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    const validPassword = await bcrypt.compare(currentPassword, user.password);
+    if (!validPassword) {
+      logger.security('Password update failed: Incorrect current password', { userId: user.id });
+      return res.status(401).json({ error: 'Incorrect current password' });
+    }
+
+    // Validate new password strength
+    if (newPassword.length < 8) {
+      return res.status(400).json({ error: 'New password must be at least 8 characters long' });
+    }
+
+    const hashedNewPassword = await bcrypt.hash(newPassword, 10);
+    
+    await prisma.user.update({
+      where: { id: user.id },
+      data: {
+        password: hashedNewPassword,
+        mustChangePassword: false
+      }
+    });
+
+    logger.info('Password updated successfully', { userId: user.id });
+    res.json({ message: 'Password updated successfully' });
+  } catch (error) {
+    logger.error('Failed to update password', error);
+    res.status(500).json({ error: 'Failed to update password' });
+  }
+});
+
+// Logout endpoint
+router.post('/logout', (req, res) => {
+  res.clearCookie('auth_token');
+  res.json({ message: 'Logged out successfully' });
 });
 
 export default router;

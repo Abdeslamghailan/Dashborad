@@ -60,11 +60,9 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
         ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
       `}>
         {/* Logo Section */}
-        <div className="h-16 flex items-center justify-between px-6 border-b border-gray-100">
-          <div className="flex items-center gap-2 font-bold text-xl tracking-tight text-slate-900">
-            <div className="w-8 h-8 bg-indigo-600 rounded-lg flex items-center justify-center text-white shadow-sm shadow-indigo-200">
-              <Hexagon size={18} strokeWidth={2.5} />
-            </div>
+        <div className="h-20 flex items-center justify-between px-6 border-b border-gray-100">
+          <div className="flex items-center gap-2 overflow-hidden rounded-2xl bg-white border border-indigo-50 shadow-sm">
+            <img src="/favicon.png" alt="CMHW Logo" className="w-14 h-14 object-contain scale-125" />
           </div>
           {/* Mobile Close Button */}
           <button
@@ -153,7 +151,7 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
               <span className="text-sm font-medium">Tools</span>
             </Link>
 
-            {isAdmin && (
+            {(isAdmin || user?.role === 'MAILER') && (
               <Link
                 to="/history"
                 className={`flex items-center gap-3 px-3 py-2 rounded-lg transition-all group ${location.pathname === '/history'
@@ -283,8 +281,8 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
 
         {/* Scrollable Content */}
         <main className={`flex-1 overflow-y-auto scroll-smooth ${location.pathname === '/dashboard-reporting' ? 'p-2 sm:p-4' :
-            location.pathname === '/tools' ? 'p-0' :
-              'p-4 sm:p-6 lg:p-8'
+          location.pathname === '/tools' ? 'p-0' :
+            'p-4 sm:p-6 lg:p-8'
           }`}>
           <div className={`${location.pathname === '/proxy-partition' || location.pathname === '/dashboard-reporting' || location.pathname === '/tools' || location.pathname.startsWith('/entity/') ? 'w-full' : 'max-w-7xl mx-auto'}`}>
             {children}

@@ -8,10 +8,9 @@ const getAuthToken = () => {
 
 // Helper function to make authenticated API calls
 const apiCall = async (endpoint: string, options: RequestInit = {}) => {
-  const token = getAuthToken();
   const headers: HeadersInit = {
     'Content-Type': 'application/json',
-    ...(token && { 'Authorization': `Bearer ${token}` }),
+    'X-Requested-With': 'XMLHttpRequest',
     ...options.headers,
   };
 
@@ -20,6 +19,7 @@ const apiCall = async (endpoint: string, options: RequestInit = {}) => {
   const response = await fetch(url, {
     ...options,
     headers,
+    credentials: 'include'
   });
 
   if (!response.ok) {

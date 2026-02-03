@@ -1,14 +1,16 @@
 import React from 'react';
 import { ChangeHistoryEntry } from './ChangeHistory';
-import { Trash2, ArrowRight } from 'lucide-react';
+import { Trash2 } from 'lucide-react';
+import { Entity } from '../../types';
 
 interface HistoryTableProps {
     history: ChangeHistoryEntry[];
+    entities?: Entity[];
     onDelete?: (id: number) => void;
     isAdmin?: boolean;
 }
 
-export const HistoryTable: React.FC<HistoryTableProps> = ({ history, onDelete, isAdmin }) => {
+export const HistoryTable: React.FC<HistoryTableProps> = ({ history, entities = [], onDelete, isAdmin }) => {
     const formatDate = (dateString: string) => {
         return new Date(dateString).toLocaleString('en-US', {
             month: 'short',
@@ -29,8 +31,36 @@ export const HistoryTable: React.FC<HistoryTableProps> = ({ history, onDelete, i
             .trim();
     };
 
-    const formatEntityId = (id: string | null) => {
+    const formatEntityId = (id: string | null, entry?: ChangeHistoryEntry) => {
         if (!id) return '-';
+
+        // 0. Primary source: Check the entities list if provided
+        const knownEntity = entities.find(e => e.id === id);
+        if (knownEntity) return knownEntity.name;
+
+        // Check if it's a UUID
+        const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
+
+        if ((isUuid || id.startsWith('ent_')) && entry) {
+            // 1. Try to find name in descriptions
+            const patterns = [/for "([^"]+)"/, /script "([^"]+)"/, /scenario "([^"]+)"/, /"([^"]+)"/];
+            for (const pattern of patterns) {
+                const match = entry.description.match(pattern);
+                if (match && match[1]) return match[1];
+            }
+
+            // 2. Try to find name in categoryName or profileName
+            if (entry.categoryName) return entry.categoryName;
+            if (entry.profileName) return entry.profileName;
+
+            // 3. Try to parse JSON for 'name' or 'profileName'
+            try {
+                const data = JSON.parse(entry.newValue || entry.oldValue || '{}');
+                if (data.name) return data.name;
+                if (data.profileName) return data.profileName;
+            } catch (e) { }
+        }
+
         return id.replace(/^ent_/, '').toUpperCase();
     };
 
@@ -234,7 +264,7 @@ export const HistoryTable: React.FC<HistoryTableProps> = ({ history, onDelete, i
                                 </td>
                                 <td className="px-4 py-3 whitespace-nowrap">
                                     <div className="text-[11px] text-gray-600">
-                                        <span className="text-gray-400 font-medium">Name:</span> {formatEntityId(entry.entityId)}
+                                        <span className="text-gray-400 font-medium">Name:</span> {formatEntityId(entry.entityId, entry)}
                                     </div>
                                     {entry.methodId && (
                                         <div className="text-[11px] text-indigo-600 font-medium">

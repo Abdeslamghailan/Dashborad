@@ -2,6 +2,7 @@ import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import helmet from 'helmet';
+import cookieParser from 'cookie-parser';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import authRoutes from './routes/auth';
@@ -111,6 +112,26 @@ app.use(cors({
   },
   credentials: true
 }));
+
+app.use(cookieParser());
+
+// CSRF Protection middleware - Validates custom header
+app.use((req, res, next) => {
+  const isStateChanging = ['POST', 'PUT', 'PATCH', 'DELETE'].includes(req.method);
+  
+  if (isStateChanging) {
+    const csrfHeader = req.headers['x-requested-with'];
+    if (csrfHeader !== 'XMLHttpRequest') {
+      logger.security('CSRF protection: Missing or invalid X-Requested-With header', {
+        method: req.method,
+        path: req.path,
+        ip: req.ip
+      });
+      return res.status(403).json({ error: 'CSRF protection: Invalid request source' });
+    }
+  }
+  next();
+});
 
 app.use(express.json({ limit: '10mb' }));
 

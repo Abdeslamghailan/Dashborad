@@ -382,7 +382,7 @@ export const LimitsConfig: React.FC<Props> = ({ entity, category, onUpdate, onSa
               <th className="py-4 px-4 font-bold w-40 text-center bg-green-100 text-green-800 border border-gray-300">Limit Active<br />In Session</th>
               <th className="py-4 px-4 font-bold w-40 text-center bg-blue-100 text-blue-800 border border-gray-300">Intervals<br />In Repo</th>
               <th className="py-4 px-4 font-bold w-40 text-center bg-orange-100 text-orange-800 border border-gray-300">Intervals<br />Quality</th>
-              <th className="py-4 px-4 font-bold w-40 text-center bg-orange-100 text-orange-800 border border-gray-300">Intervals<br />Paused Search</th>
+              <th className="py-4 px-4 font-bold w-40 text-center bg-orange-100 text-orange-800 border border-gray-300">Intervals<br />Search</th>
               <th className="py-4 px-4 font-bold w-32 text-center bg-red-100 text-red-800 border border-gray-300">Interval<br />Toxic</th>
               <th className="py-4 px-4 font-bold w-32 text-center bg-orange-100 text-orange-800 border border-gray-300">Other<br />Interval</th>
               <th className="py-4 px-6 font-bold w-32 text-center bg-gray-100 text-gray-700 border border-gray-300">Total<br />Paused</th>
@@ -453,7 +453,7 @@ export const LimitsConfig: React.FC<Props> = ({ entity, category, onUpdate, onSa
                       placeholder="e.g. 1-500"
                     />
                     <button
-                      onClick={() => openExpandedView(limit.id, 'intervalsPausedSearch', `Intervals Paused Search - ${limit.profileName}`, limit.intervalsPausedSearch)}
+                      onClick={() => openExpandedView(limit.id, 'intervalsPausedSearch', `Intervals Search - ${limit.profileName}`, limit.intervalsPausedSearch)}
                       className="absolute right-1 top-1/2 -translate-y-1/2 p-1 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded opacity-0 group-hover/input:opacity-100 transition-all"
                       title="Expand View"
                     >

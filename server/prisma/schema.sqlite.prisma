@@ -19,8 +19,7 @@ model User {
   role        String   @default("USER") // "ADMIN" or "USER"
   isApproved  Boolean  @default(false)
   createdAt   DateTime @default(now())
-  mustChangePassword Boolean  @default(false)
-  updatedAt          DateTime @updatedAt
+  updatedAt   DateTime @updatedAt
   
   // Relations
   accessibleEntities EntityAccess[]

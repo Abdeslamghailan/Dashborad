@@ -8,6 +8,9 @@ import { SimulationExcel } from './SimulationExcel';
 import { ReporterHelper } from './ReporterHelper';
 import { FileSpreadsheet, ClipboardCheck, Activity } from 'lucide-react';
 import { ConsumptionHelper } from './ConsumptionHelper';
+import { ProxySync } from './ProxySync';
+import { Share2, Fingerprint } from 'lucide-react';
+import { ReportIPExtractor } from './ReportIPExtractor';
 
 const WowAnimations = () => (
     <style dangerouslySetInnerHTML={{
@@ -480,7 +483,7 @@ const DNSChecker = () => {
 };
 
 export const ToolsPage: React.FC = () => {
-    const [activeTab, setActiveTab] = useState<'gFilter' | 'dns' | 'excel' | 'reporter' | 'consumption'>('gFilter');
+    const [activeTab, setActiveTab] = useState<'gFilter' | 'dns' | 'excel' | 'reporter' | 'consumption' | 'proxySync' | 'ipExtractor'>('gFilter');
 
     return (
         <div className="min-h-screen bg-slate-50/50 pb-20">
@@ -534,6 +537,24 @@ export const ToolsPage: React.FC = () => {
                             >
                                 <Activity size={16} /> Consumption
                             </button>
+                            <button
+                                onClick={() => setActiveTab('proxySync')}
+                                className={`px-4 py-2 rounded-xl text-sm font-black uppercase tracking-widest transition-all flex items-center gap-2 ${activeTab === 'proxySync'
+                                    ? 'bg-indigo-600 text-white shadow-[4px_4px_0px_0px_rgba(15,23,42,1)] -translate-y-0.5'
+                                    : 'text-slate-400 hover:text-slate-600 hover:bg-slate-50'
+                                    }`}
+                            >
+                                <Share2 size={16} /> ProxySync
+                            </button>
+                            <button
+                                onClick={() => setActiveTab('ipExtractor')}
+                                className={`px-4 py-2 rounded-xl text-sm font-black uppercase tracking-widest transition-all flex items-center gap-2 ${activeTab === 'ipExtractor'
+                                    ? 'bg-indigo-600 text-white shadow-[4px_4px_0px_0px_rgba(15,23,42,1)] -translate-y-0.5'
+                                    : 'text-slate-400 hover:text-slate-600 hover:bg-slate-50'
+                                    }`}
+                            >
+                                <Fingerprint size={16} /> IP Extractor
+                            </button>
                         </nav>
                     </div>
                 </div>
@@ -544,7 +565,9 @@ export const ToolsPage: React.FC = () => {
                     activeTab === 'dns' ? <DNSChecker /> :
                         activeTab === 'excel' ? <SimulationExcel /> :
                             activeTab === 'reporter' ? <ReporterHelper /> :
-                                <ConsumptionHelper />}
+                                activeTab === 'consumption' ? <ConsumptionHelper /> :
+                                    activeTab === 'proxySync' ? <ProxySync /> :
+                                        <ReportIPExtractor />}
             </div>
         </div>
     );

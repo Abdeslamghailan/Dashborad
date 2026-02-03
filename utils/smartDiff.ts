@@ -414,9 +414,9 @@ function generateLimitsChanges(entityName: string, oldData: any, newData: any): 
           changes.push(`${entityName} — Intervals Quality — Session ${profileName}: updated from "${ol.intervalsQuality}" to "${nl.intervalsQuality}"`);
         }
         
-        // Intervals Paused Search
+        // Intervals Search
         if (ol.intervalsPausedSearch !== nl.intervalsPausedSearch) {
-          changes.push(`${entityName} — Intervals Paused Search — Session ${profileName}: updated from "${ol.intervalsPausedSearch}" to "${nl.intervalsPausedSearch}"`);
+          changes.push(`${entityName} — Intervals Search — Session ${profileName}: updated from "${ol.intervalsPausedSearch}" to "${nl.intervalsPausedSearch}"`);
         }
       }
     }

@@ -144,8 +144,38 @@ export const IntervalPausedHistoryView: React.FC<IntervalPausedHistoryViewProps>
         return { sessionName, duration };
     };
 
-    const formatEntityId = (id: string | null) => {
+    const formatEntityId = (id: string | null, entry?: any) => {
         if (!id) return '-';
+
+        // 0. Primary source: Check the entities list that we already have
+        const knownEntity = entities.find(e => e.id === id);
+        if (knownEntity) return knownEntity.name;
+
+        // Check if it's a UUID
+        const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
+
+        if ((isUuid || id.startsWith('ent_')) && entry) {
+            // 1. Try to find name in descriptions if they exist
+            if (entry.description) {
+                const patterns = [/for "([^"]+)"/, /script "([^"]+)"/, /scenario "([^"]+)"/, /"([^"]+)"/];
+                for (const pattern of patterns) {
+                    const match = entry.description.match(pattern);
+                    if (match && match[1]) return match[1];
+                }
+            }
+
+            // 2. Try to find name in categoryName or profileName
+            if (entry.categoryName) return entry.categoryName;
+            if (entry.profileName) return entry.profileName;
+
+            // 3. Try to parse JSON for 'name' or 'profileName'
+            try {
+                const data = JSON.parse(entry.newValue || entry.oldValue || '{}');
+                if (data.name) return data.name;
+                if (data.profileName) return data.profileName;
+            } catch (e) { }
+        }
+
         return id.replace(/^ent_/, '').toUpperCase();
     };
 
@@ -257,7 +287,7 @@ export const IntervalPausedHistoryView: React.FC<IntervalPausedHistoryViewProps>
                                             </div>
                                             <div className="text-right">
                                                 <p className="text-[10px] font-black text-indigo-600 uppercase">{entry.methodId || 'Desktop'}</p>
-                                                <p className="text-[9px] font-bold text-slate-400 uppercase">{formatEntityId(entry.entityId)}</p>
+                                                <p className="text-[9px] font-bold text-slate-400 uppercase">{formatEntityId(entry.entityId, entry)}</p>
                                             </div>
                                         </div>
                                     ))}
@@ -403,9 +433,15 @@ export const IntervalPausedHistoryView: React.FC<IntervalPausedHistoryViewProps>
                                             return (
                                                 <div key={groupKey} className="bg-white rounded-3xl border border-slate-200 overflow-hidden shadow-sm hover:shadow-xl hover:border-indigo-200 transition-all duration-500 group/card">
                                                     <div className="bg-slate-50/50 px-6 py-4 border-b border-slate-100 flex items-center justify-between">
-                                                        <div className="flex items-center gap-3">
+                                                        <div className="flex items-center gap-4">
                                                             <div className={`px-3 py-1 rounded-xl text-[10px] font-black uppercase border ring-4 ${getPauseTypeStyles(pauseType)}`}>
                                                                 {pauseType}
+                                                            </div>
+                                                            <div className="flex flex-col">
+                                                                <span className="text-[10px] font-black text-slate-400 uppercase leading-none mb-1">Entity Name</span>
+                                                                <span className="text-xs font-black text-slate-700 leading-none tracking-tight truncate max-w-[120px]">
+                                                                    {formatEntityId(entries[0]?.entityId, entries[0])}
+                                                                </span>
                                                             </div>
                                                             <div className="flex flex-col">
                                                                 <span className="text-[10px] font-black text-slate-400 uppercase leading-none mb-1">Interval</span>

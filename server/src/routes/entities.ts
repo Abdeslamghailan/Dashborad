@@ -250,11 +250,11 @@ router.put('/:id', authenticateToken, async (req: AuthRequest, res) => {
       status: status || 'active',
       reporting,
       limitsConfiguration,
-      notes: notes !== undefined ? notes : '',
-      noteCards: noteCards !== undefined ? noteCards : existingData.noteCards || [],
-      enabledMethods: enabledMethods !== undefined ? enabledMethods : existingData.enabledMethods || ['desktop'],
-      methodsData: methodsData !== undefined ? methodsData : existingData.methodsData || {},
-      botConfig: botConfig !== undefined ? botConfig : existingData.botConfig || { token: '', chatId: '' }
+      notes: notes !== undefined ? notes : (existingData.notes || ''),
+      noteCards: noteCards !== undefined ? noteCards : (existingData.noteCards || []),
+      enabledMethods: enabledMethods !== undefined ? enabledMethods : (existingData.enabledMethods || ['desktop']),
+      methodsData: methodsData !== undefined ? methodsData : (existingData.methodsData || {}),
+      botConfig: botConfig !== undefined ? botConfig : (existingData.botConfig || { token: '', chatId: '' })
     };
 
     const entity = await prisma.entity.update({
@@ -631,7 +631,56 @@ router.put('/:id', authenticateToken, async (req: AuthRequest, res) => {
       }
     }
 
-    // 5. Check Top Level Fields
+    // 5. Check Note Cards
+    if (noteCards !== undefined && existingData.noteCards) {
+      const oldNotes = existingData.noteCards || [];
+      const newNotes = noteCards || [];
+      
+      // Check for updates and removals
+      for (const oldNote of oldNotes) {
+        const newNote = newNotes.find((n: any) => n.id === oldNote.id);
+        if (!newNote) {
+          await logChange(req, {
+            entityId: id,
+            entityType: 'notes',
+            changeType: 'delete',
+            fieldChanged: 'Note Card',
+            description: `Removed note: "${oldNote.title || 'Untitled'}"`,
+            oldValue: oldNote,
+            batchId
+          });
+        } else if (oldNote.content !== newNote.content || oldNote.title !== newNote.title || oldNote.color !== newNote.color) {
+          await logChange(req, {
+            entityId: id,
+            entityType: 'notes',
+            changeType: 'update',
+            fieldChanged: 'Note Card',
+            description: `Updated note: "${newNote.title || 'Untitled'}"`,
+            oldValue: oldNote,
+            newValue: newNote,
+            batchId
+          });
+        }
+      }
+      
+      // Check for additions
+      for (const newNote of newNotes) {
+        const oldNote = oldNotes.find((n: any) => n.id === newNote.id);
+        if (!oldNote) {
+          await logChange(req, {
+            entityId: id,
+            entityType: 'notes',
+            changeType: 'create',
+            fieldChanged: 'Note Card',
+            description: `Added new note: "${newNote.title || 'Untitled'}"`,
+            newValue: newNote,
+            batchId
+          });
+        }
+      }
+    }
+
+    // 6. Check Top Level Fields
     let topLevelChanges = [];
     if (existingData.notes !== notes) topLevelChanges.push('notes');
     if (existingData.status !== status) topLevelChanges.push('status');

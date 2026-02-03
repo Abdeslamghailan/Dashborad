@@ -146,7 +146,7 @@ export const ChangeHistory: React.FC<ChangeHistoryProps> = ({
                 if (!field) return 'Pause';
                 switch (field) {
                     case 'intervalsQuality': return 'Quality';
-                    case 'intervalsPausedSearch': return 'Paused Search';
+                    case 'intervalsPausedSearch': return 'Search';
                     case 'intervalsToxic': return 'Toxic';
                     case 'intervalsOther': return 'Other';
                     case 'limitActiveSession': return 'Limit Change';
@@ -268,7 +268,7 @@ export const ChangeHistory: React.FC<ChangeHistoryProps> = ({
                         onClick={() => setActiveTab('interval')}
                         className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-all ${activeTab === 'interval' ? 'bg-indigo-600 text-white shadow-sm' : 'text-gray-600 hover:bg-gray-200'}`}
                     >
-                        Interval Paused History
+                        Interval History
                     </button>
                 </div>
             </div>

@@ -248,6 +248,7 @@ interface SessionData {
     profileName: string;
     stepPerSession: number;
     intervalsInRepo: string;
+    availableRepo: string; // The normal active repo (complement of all paused)
     startValue: number;
 }
 
@@ -399,6 +400,8 @@ export const DayPlan: React.FC<Props> = ({ entity }) => {
     // Historical plans: DateString -> CategoryId -> SessionIdx -> { step, start }
     const [historyPlans, setHistoryPlans] = useState<Record<string, Record<string, Record<number, { step: string | number; start: string | number }>>>>({});
 
+    const [pausedIntervalChoice, setPausedIntervalChoice] = useState<'continue' | 'duplicate'>('continue');
+
     // Helper: Get categories that contain a session with the given profileName
     const getCategoriesForSession = (profileName: string): { id: string; name: string }[] => {
         return entity.reporting.parentCategories
@@ -507,12 +510,17 @@ export const DayPlan: React.FC<Props> = ({ entity }) => {
                     }
                 }
 
+                const complementaryRepo = calculateIntervalComplement(
+                    limit.limitActiveSession,
+                    [limit.intervalsQuality, limit.intervalsPausedSearch, limit.intervalsToxic, limit.intervalsOther]
+                );
+
                 const activeInRepoCount = getIntervalCount(intervalsInRepo);
                 const stepPerSession = rotation > 0 ? Math.round(activeInRepoCount / rotation / numDrops) : 0;
                 const ranges = parseRanges(intervalsInRepo);
                 const startValue = ranges.length > 0 ? ranges[0][0] : 0;
 
-                return { profileName: limit.profileName, stepPerSession, intervalsInRepo, startValue };
+                return { profileName: limit.profileName, stepPerSession, intervalsInRepo, availableRepo: complementaryRepo, startValue };
             });
 
             const totalStep = sessions.reduce((sum, s) => sum + s.stepPerSession, 0);
@@ -993,6 +1001,24 @@ export const DayPlan: React.FC<Props> = ({ entity }) => {
         date: Date,
         isToday: boolean
     ) => {
+        const categorySessionPlans = catData.sessions.map((s, i) => {
+            const handling = isCalculateMode
+                ? calcLimitHandling[`${catData.category.id}:${i}`]
+                : (isToday ? limitHandling[`${catData.category.id}:${i}`] : undefined);
+
+            if (isCalculateMode || (isToday && handling && handling !== 'dismissed') || catData.category.name.toLowerCase().includes('quality')) {
+                return calculateSessionPlan(
+                    catData,
+                    i,
+                    stepsSource,
+                    startsSource,
+                    handling,
+                    pausedIntervalChoice
+                );
+            }
+            return null;
+        });
+
         return (
             <div className="overflow-x-visible">
                 <table className="w-full text-xs border-collapse">
@@ -1001,7 +1027,10 @@ export const DayPlan: React.FC<Props> = ({ entity }) => {
                         <tr>
                             <th
                                 colSpan={2 + catData.sessions.length}
-                                className="bg-cyan-600 text-white py-2 px-3 text-center font-semibold text-sm border border-cyan-700"
+                                className={`text-white py-2 px-3 text-center font-semibold text-sm border ${catData.category.name.toLowerCase().includes('quality')
+                                    ? 'bg-emerald-600 border-emerald-700'
+                                    : 'bg-cyan-600 border-cyan-700'
+                                    }`}
                             >
                                 {catData.category.name}
                             </th>
@@ -1109,8 +1138,9 @@ export const DayPlan: React.FC<Props> = ({ entity }) => {
                     {/* Drop Rows */}
                     <tbody>
                         {catData.drops.map((drop, dropIdx) => {
+                            const isQualityTable = catData.category.name.toLowerCase().includes('quality');
                             return (
-                                <tr key={dropIdx} className="hover:bg-blue-50/50 transition-colors">
+                                <tr key={dropIdx} className={`transition-colors ${isQualityTable ? 'hover:bg-emerald-50/50' : 'hover:bg-blue-50/50'}`}>
                                     <td className="py-1.5 px-3 border border-gray-300 text-center text-gray-600 bg-white">
                                         DROP {dropIdx + 1}
                                     </td>
@@ -1128,32 +1158,14 @@ export const DayPlan: React.FC<Props> = ({ entity }) => {
                                         let interval = '-';
                                         let actualStep: number | null = null;
                                         let isLimitAlert = false;
+                                        let isSimulationCell = false;
 
-                                        if (isCalculateMode) {
-                                            // In calculator mode, we use the pre-calculated day plan for this session
-                                            const sessionPlan = calculateSessionPlan(
-                                                catData,
-                                                i,
-                                                stepsSource,
-                                                startsSource,
-                                                calcLimitHandling[`${catData.category.id}:${i}`] || 'ignore'
-                                            );
+                                        const sessionPlan = categorySessionPlans[i];
+
+                                        if (sessionPlan) {
                                             interval = sessionPlan.intervals[dropIdx] || '-';
                                             actualStep = sessionPlan.actualSteps[dropIdx] || null;
-                                            if (sessionPlan.alert && dropIdx === sessionPlan.alertDropIdx) {
-                                                isLimitAlert = true;
-                                            }
-                                        } else if (isToday && limitHandling[`${catData.category.id}:${i}`] && limitHandling[`${catData.category.id}:${i}`] !== 'dismissed') {
-                                            // In live plan mode, if limit handling is active for this session, use calculateSessionPlan
-                                            const sessionPlan = calculateSessionPlan(
-                                                catData,
-                                                i,
-                                                stepsSource,
-                                                startsSource,
-                                                limitHandling[`${catData.category.id}:${i}`]
-                                            );
-                                            interval = sessionPlan.intervals[dropIdx] || '-';
-                                            actualStep = sessionPlan.actualSteps[dropIdx] || null;
+                                            isSimulationCell = sessionPlan.isHistory[dropIdx];
                                             if (sessionPlan.alert && dropIdx === sessionPlan.alertDropIdx) {
                                                 isLimitAlert = true;
                                             }
@@ -1166,7 +1178,7 @@ export const DayPlan: React.FC<Props> = ({ entity }) => {
                                         const normalStep = getStepForDrop(dropIdx, effectiveStep);
 
                                         return (
-                                            <td key={i} className={`py-1.5 px-3 border border-gray-300 text-center font-mono bg-white ${isLimitAlert ? 'text-amber-600 font-bold bg-amber-50' : 'text-gray-800'}`}>
+                                            <td key={i} className={`py-1.5 px-3 border border-gray-300 text-center font-mono ${isLimitAlert ? 'text-amber-600 font-bold bg-amber-50' : isSimulationCell ? 'bg-emerald-50/60 text-gray-800' : 'bg-white text-gray-800'}`}>
                                                 <div className="flex flex-col items-center">
                                                     <div className="flex items-center justify-center gap-1.5">
                                                         <span>{interval}</span>
@@ -1198,11 +1210,17 @@ export const DayPlan: React.FC<Props> = ({ entity }) => {
         sessionIdx: number,
         stepsSource: Record<string, string | number>,
         startsSource: Record<string, string | number>,
-        handling: LimitHandlingOption
-    ): { intervals: string[], actualSteps: number[], alert?: SessionLimitAlert, alertDropIdx?: number } => {
+        handling: LimitHandlingOption,
+        piChoice: 'continue' | 'duplicate' = 'continue'
+    ): { intervals: string[], actualSteps: number[], isHistory: boolean[], alert?: SessionLimitAlert, alertDropIdx?: number } => {
         const session = catData.sessions[sessionIdx];
-        const ranges = parseRanges(session.intervalsInRepo);
-        if (ranges.length === 0) return { intervals: Array(catData.numDrops).fill('-'), actualSteps: Array(catData.numDrops).fill(0) };
+        let rangeStr = session.intervalsInRepo;
+
+        // If 'duplicate' mode is on and we are using paused intervals, we treat them as wrapping without alert
+        const usingPaused = (activeView === 'calculator' && selectedPausedIntervalType !== 'none') || selectedHistoryEntries.size > 0;
+
+        const ranges = parseRanges(rangeStr);
+        if (ranges.length === 0) return { intervals: Array(catData.numDrops).fill('-'), actualSteps: Array(catData.numDrops).fill(0), isHistory: Array(catData.numDrops).fill(false) };
 
         const stepConfig = getEffectiveStep(catData.category.id, sessionIdx, session.stepPerSession, stepsSource);
         const startConfig = getEffectiveStart(catData, sessionIdx, startsSource, stepsSource, session.startValue);
@@ -1225,27 +1243,69 @@ export const DayPlan: React.FC<Props> = ({ entity }) => {
             }
 
             const [rStart, rEnd] = ranges[rIdx];
-            const avail = rEnd - detectPos + 1;
+            const isOverflow = piChoice === 'continue' && detectPos > rEnd && rIdx === ranges.length - 1;
+
+            let detRanges = ranges;
+            let detRIdx = rIdx;
+            let detPos = detectPos;
+
+            if (isOverflow) {
+                const resumeRanges = parseRanges(session.availableRepo);
+                const resumeIdx = resumeRanges.findIndex(([s, e]) => detPos >= s && detPos <= e);
+                if (resumeIdx !== -1) {
+                    detRanges = resumeRanges;
+                    detRIdx = resumeIdx;
+                } else {
+                    const nextRIdx = resumeRanges.findIndex(([s]) => s > detPos);
+                    if (nextRIdx !== -1) {
+                        detRanges = resumeRanges;
+                        detRIdx = nextRIdx;
+                        detPos = detRanges[detRIdx][0];
+                    }
+                }
+            }
+
+            const [curRStart, curREnd] = detRanges[detRIdx];
+            const avail = (piChoice === 'continue' && detRanges === ranges && detRIdx === ranges.length - 1 && detPos > curREnd)
+                ? Infinity
+                : (curREnd - detPos + 1);
+
             const step = getStepForDrop(drop, stepConfig);
 
             if (step > 0 && avail < step) {
-                // This drop WRAPS in 'ignore' mode
-                alert = {
-                    sessionId: `${catData.category.id}:${sessionIdx}`,
-                    sessionName: session.profileName,
-                    limit: rEnd,
-                    lastInterval: `${detectPos}-${rEnd}`,
-                    remainingSeeds: avail
-                };
-                alertDropIdx = drop;
-                break;
+                // If using paused intervals and choice is 'duplicate', don't alert, just wrap
+                if (usingPaused && piChoice === 'duplicate') {
+                    // Continue simulation
+                } else {
+                    // This drop WRAPS in 'ignore' mode
+                    alert = {
+                        sessionId: `${catData.category.id}:${sessionIdx}`,
+                        sessionName: session.profileName,
+                        limit: curREnd,
+                        lastInterval: `${detPos}-${curREnd}`,
+                        remainingSeeds: avail
+                    };
+                    alertDropIdx = drop;
+                    break;
+                }
             }
 
             if (step > 0) {
-                detectPos += step;
-                if (detectPos > rEnd) {
-                    const nextRIdx = (rIdx + 1) % ranges.length;
-                    detectPos = ranges[nextRIdx][0];
+                detectPos = detPos + step;
+                if (detectPos > curREnd) {
+                    const isLast = detRIdx === detRanges.length - 1;
+                    if (isLast) {
+                        if (piChoice === 'continue' && detRanges === ranges) {
+                            const resRanges = parseRanges(session.availableRepo);
+                            if (resRanges.length > 0) {
+                                detectPos = resRanges[0][0];
+                            }
+                        } else {
+                            detectPos = detRanges[0][0];
+                        }
+                    } else {
+                        detectPos = detRanges[detRIdx + 1][0];
+                    }
                 }
             }
         }
@@ -1254,13 +1314,20 @@ export const DayPlan: React.FC<Props> = ({ entity }) => {
         let currentPosition = typeof startConfig === 'number' ? startConfig : defaultStart;
         const intervals: string[] = [];
         const actualSteps: number[] = [];
+        const isHistory: boolean[] = [];
         let carryOverStep: number | null = null;
         let plannedDropIdx = 0;
+        const isQualityContext = catData.category.name.toLowerCase().includes('quality') ||
+            (activeView === 'calculator' && (selectedPausedCategory === 'Quality' || selectedPausedIntervalType === 'quality'));
+
+        // Effective handling: if not specified and piChoice is 'duplicate', we default to 'ignore' (wrap)
+        // If 'continue', we default to undefined (which triggers spill-over in the else block)
+        const effectiveHandling = handling || (piChoice === 'duplicate' ? 'ignore' : undefined);
 
         // Pre-calculate split for 'split_today'
         let extraPerDrop = 0;
         let splitRemainder = 0;
-        if (handling === 'split_today' && alert && alertDropIdx > 0) {
+        if (effectiveHandling === 'split_today' && alert && alertDropIdx > 0) {
             extraPerDrop = Math.floor(alert.remainingSeeds / alertDropIdx);
             splitRemainder = alert.remainingSeeds % alertDropIdx;
         }
@@ -1274,13 +1341,52 @@ export const DayPlan: React.FC<Props> = ({ entity }) => {
 
             let rangeIdx = ranges.findIndex(([start, end]) => currentPosition >= start && currentPosition <= end);
             if (rangeIdx === -1) {
+                // If not found, try to find the next valid start
                 rangeIdx = ranges.findIndex(([start]) => start > currentPosition);
-                if (rangeIdx === -1) rangeIdx = 0;
-                currentPosition = ranges[rangeIdx][0];
+                if (rangeIdx === -1) {
+                    // We are past all ranges
+                    if (piChoice === 'continue') {
+                        // In continue mode, we stay past all ranges and just use the currentPosition
+                        rangeIdx = ranges.length - 1;
+                    } else {
+                        // Wrap to first
+                        rangeIdx = 0;
+                        currentPosition = ranges[rangeIdx][0];
+                    }
+                } else {
+                    currentPosition = ranges[rangeIdx][0];
+                }
             }
 
             const [rangeStart, rangeEnd] = ranges[rangeIdx];
-            const availableInRange = rangeEnd - currentPosition + 1;
+            const isOverflow = piChoice === 'continue' && currentPosition > rangeEnd && rangeIdx === ranges.length - 1;
+
+            let currentRanges = ranges;
+            let currentRIdx = rangeIdx;
+
+            if (isOverflow) {
+                // If we are past the current simulation set, try to find the next valid seed in the normal available repo
+                const resumeRanges = parseRanges(session.availableRepo);
+                const resumeRIdx = resumeRanges.findIndex(([s, e]) => currentPosition >= s && currentPosition <= e);
+
+                if (resumeRIdx !== -1) {
+                    currentRanges = resumeRanges;
+                    currentRIdx = resumeRIdx;
+                } else {
+                    // Look for the absolute next valid seed in the available repo that is > currentPosition
+                    const nextAvailableRIdx = resumeRanges.findIndex(([s]) => s > currentPosition);
+                    if (nextAvailableRIdx !== -1) {
+                        currentRanges = resumeRanges;
+                        currentRIdx = nextAvailableRIdx;
+                        currentPosition = currentRanges[currentRIdx][0];
+                    }
+                }
+            }
+
+            const [effStart, effEnd] = currentRanges[currentRIdx];
+            const availableInRange = (piChoice === 'continue' && currentRanges === ranges && currentRIdx === ranges.length - 1 && currentPosition > effEnd)
+                ? Infinity
+                : (effEnd - currentPosition + 1);
 
             let currentStep: number;
             if (carryOverStep !== null) {
@@ -1292,7 +1398,7 @@ export const DayPlan: React.FC<Props> = ({ entity }) => {
                 currentStep = getStepForDrop(plannedDropIdx, stepConfig);
 
                 // Option: Split Today (Distribute across PRECEDING drops)
-                if (handling === 'split_today' && alert && plannedDropIdx < alertDropIdx) {
+                if (effectiveHandling === 'split_today' && alert && plannedDropIdx < alertDropIdx) {
                     currentStep += extraPerDrop;
                     if (plannedDropIdx < splitRemainder) currentStep += 1;
                 }
@@ -1302,19 +1408,45 @@ export const DayPlan: React.FC<Props> = ({ entity }) => {
 
             // Options: Use This Drop / Use Next Drop (Original behaviors)
             if (carryOverStep === null) { // Only apply if not already splitting
-                if (handling === 'this_drop' && alert && plannedDropIdx === alertDropIdx) {
-                    intervals.push(`${currentPosition}-${rangeEnd}`);
+                if (effectiveHandling === 'this_drop' && alert && plannedDropIdx === alertDropIdx) {
+                    intervals.push(`${currentPosition}-${effEnd}`);
                     actualSteps.push(availableInRange);
-                    const nextRangeIdx = (rangeIdx + 1) % ranges.length;
-                    currentPosition = ranges[nextRangeIdx][0];
+                    isHistory.push(currentRanges === ranges && isQualityContext);
+
+                    const isLast = currentRIdx === currentRanges.length - 1;
+                    if (isLast) {
+                        if (piChoice === 'continue' && currentRanges === ranges) {
+                            const resRanges = parseRanges(session.availableRepo);
+                            if (resRanges.length > 0) {
+                                currentPosition = resRanges[0][0];
+                            }
+                        } else {
+                            currentPosition = currentRanges[0][0];
+                        }
+                    } else {
+                        currentPosition = currentRanges[currentRIdx + 1][0];
+                    }
                     continue;
                 }
 
-                if (handling === 'next_drop' && alert && plannedDropIdx === alertDropIdx + 1) {
-                    intervals.push(`${currentPosition}-${rangeEnd}`);
+                if (effectiveHandling === 'next_drop' && alert && plannedDropIdx === alertDropIdx + 1) {
+                    intervals.push(`${currentPosition}-${effEnd}`);
                     actualSteps.push(availableInRange);
-                    const nextRangeIdx = (rangeIdx + 1) % ranges.length;
-                    currentPosition = ranges[nextRangeIdx][0];
+                    isHistory.push(currentRanges === ranges && isQualityContext);
+
+                    const isLast = currentRIdx === currentRanges.length - 1;
+                    if (isLast) {
+                        if (piChoice === 'continue' && currentRanges === ranges) {
+                            const resRanges = parseRanges(session.availableRepo);
+                            if (resRanges.length > 0) {
+                                currentPosition = resRanges[0][0];
+                            }
+                        } else {
+                            currentPosition = currentRanges[0][0];
+                        }
+                    } else {
+                        currentPosition = currentRanges[currentRIdx + 1][0];
+                    }
                     continue;
                 }
             }
@@ -1327,38 +1459,84 @@ export const DayPlan: React.FC<Props> = ({ entity }) => {
                 const endVal = currentPosition + currentStep - 1;
                 intervals.push(`${currentPosition}-${endVal}`);
                 actualSteps.push(currentStep);
+                isHistory.push(currentRanges === ranges && isQualityContext);
                 currentPosition = endVal + 1;
-                if (currentPosition > rangeEnd) {
-                    const nextRangeIdx = (rangeIdx + 1) % ranges.length;
-                    currentPosition = ranges[nextRangeIdx][0];
+
+                // Navigation to next range
+                const [curRStart, curREnd] = currentRanges[currentRIdx];
+                if (currentPosition > curREnd) {
+                    const isLast = currentRIdx === currentRanges.length - 1;
+                    if (isLast) {
+                        if (piChoice === 'continue') {
+                            if (currentRanges === ranges) {
+                                // Transition from simulation set to normal repo
+                                const resumeRanges = parseRanges(session.availableRepo);
+                                if (resumeRanges.length > 0) {
+                                    currentRanges = resumeRanges;
+                                    currentRIdx = 0;
+                                    currentPosition = currentRanges[0][0];
+                                }
+                            }
+                        } else {
+                            currentRIdx = 0;
+                            currentPosition = currentRanges[0][0];
+                        }
+                    } else {
+                        currentRIdx++;
+                        currentPosition = currentRanges[currentRIdx][0];
+                    }
                 }
             } else {
                 // Wrap condition: availableInRange < currentStep
-                if (handling === 'ignore') {
+                if (effectiveHandling === 'ignore') {
                     // Skip leftovers and wrap immediately
-                    const nextRangeIdx = (rangeIdx + 1) % ranges.length;
-                    currentPosition = ranges[nextRangeIdx][0];
+                    const isLast = currentRIdx === currentRanges.length - 1;
+                    if (isLast) {
+                        if (piChoice === 'continue' && currentRanges === ranges) {
+                            const resumeRanges = parseRanges(session.availableRepo);
+                            if (resumeRanges.length > 0) {
+                                currentPosition = resumeRanges[0][0];
+                            }
+                        } else {
+                            currentPosition = currentRanges[0][0];
+                        }
+                    } else {
+                        currentPosition = currentRanges[currentRIdx + 1][0];
+                    }
 
                     // Calculate from the new start position
                     const endVal = currentPosition + currentStep - 1;
                     intervals.push(`${currentPosition}-${endVal}`);
                     actualSteps.push(currentStep);
+                    isHistory.push(currentRanges === ranges && isQualityContext);
                     currentPosition = endVal + 1;
                 } else {
                     // DEFAULT: Spill over to the next drop
-                    intervals.push(`${currentPosition}-${rangeEnd}`);
+                    intervals.push(`${currentPosition}-${effEnd}`);
                     actualSteps.push(availableInRange);
+                    isHistory.push(currentRanges === ranges && isQualityContext);
 
                     // Carry over the remainder to the next iteration (next row)
                     carryOverStep = currentStep - availableInRange;
 
-                    const nextRangeIdx = (rangeIdx + 1) % ranges.length;
-                    currentPosition = ranges[nextRangeIdx][0];
+                    const isLast = currentRIdx === currentRanges.length - 1;
+                    if (isLast) {
+                        if (piChoice === 'continue' && currentRanges === ranges) {
+                            const resumeRanges = parseRanges(session.availableRepo);
+                            if (resumeRanges.length > 0) {
+                                currentPosition = resumeRanges[0][0];
+                            }
+                        } else {
+                            currentPosition = currentRanges[0][0];
+                        }
+                    } else {
+                        currentPosition = currentRanges[currentRIdx + 1][0];
+                    }
                 }
             }
         }
 
-        return { intervals, actualSteps, alert, alertDropIdx };
+        return { intervals, actualSteps, isHistory, alert, alertDropIdx };
     };
 
     const renderDaySection = (
@@ -1493,8 +1671,28 @@ export const DayPlan: React.FC<Props> = ({ entity }) => {
                                                                     >
                                                                         <ArrowLeft size={10} /> Back
                                                                     </button>
-                                                                    <div className="text-[10px] font-black text-gray-800 uppercase tracking-wider">
-                                                                        {selectedPausedCategory} History
+                                                                    <div className="flex items-center gap-3">
+                                                                        <div className="flex items-center gap-1 bg-white border border-gray-200 rounded-md p-0.5 shadow-sm relative z-[60]">
+                                                                            <button
+                                                                                type="button"
+                                                                                onClick={(e) => { e.stopPropagation(); setPausedIntervalChoice('continue'); }}
+                                                                                className={`px-2 py-0.5 text-[8px] font-black rounded transition-all duration-200 ${pausedIntervalChoice === 'continue' ? 'bg-indigo-600 text-white shadow-sm' : 'text-gray-400 hover:text-gray-600 hover:bg-gray-50'}`}
+                                                                                title="Continue from last interval"
+                                                                            >
+                                                                                CONTINUE
+                                                                            </button>
+                                                                            <button
+                                                                                type="button"
+                                                                                onClick={(e) => { e.stopPropagation(); setPausedIntervalChoice('duplicate'); }}
+                                                                                className={`px-2 py-0.5 text-[8px] font-black rounded transition-all duration-200 ${pausedIntervalChoice === 'duplicate' ? 'bg-indigo-600 text-white shadow-sm' : 'text-gray-400 hover:text-gray-600 hover:bg-gray-50'}`}
+                                                                                title="Duplicate intervals"
+                                                                            >
+                                                                                DUPLICATE
+                                                                            </button>
+                                                                        </div>
+                                                                        <div className="text-[10px] font-black text-gray-800 uppercase tracking-wider">
+                                                                            {selectedPausedCategory} History
+                                                                        </div>
                                                                     </div>
                                                                 </div>
 
@@ -1871,7 +2069,8 @@ export const DayPlan: React.FC<Props> = ({ entity }) => {
                                         i,
                                         calcSteps,
                                         calcStarts,
-                                        undefined // Detect with no handling
+                                        calcLimitHandling[sessionId],
+                                        pausedIntervalChoice
                                     );
                                     if (plan.alert) {
                                         alerts.push(plan.alert);
@@ -1890,8 +2089,9 @@ export const DayPlan: React.FC<Props> = ({ entity }) => {
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                         {alerts.map(alert => {
                                             const isResolved = !!calcLimitHandling[alert.sessionId];
+                                            const usingPaused = (activeView === 'calculator' && selectedPausedIntervalType !== 'none') || selectedHistoryEntries.size > 0;
                                             const selectedOpt = [
-                                                { id: 'ignore', label: 'Ignore Seeds' },
+                                                { id: 'ignore', label: usingPaused ? 'Duplicate Mode' : 'Ignore Seeds' },
                                                 { id: 'this_drop', label: 'Use This Drop' },
                                                 { id: 'next_drop', label: 'Use Next Drop' },
                                                 { id: 'split_today', label: 'Split Today' }
@@ -1962,25 +2162,28 @@ export const DayPlan: React.FC<Props> = ({ entity }) => {
                                                     <div className="space-y-2">
                                                         <div className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Handling Option</div>
                                                         <div className="grid grid-cols-2 gap-2">
-                                                            {[
-                                                                { id: 'ignore', label: 'Ignore Seeds', desc: 'Leave them unused' },
-                                                                { id: 'this_drop', label: 'Use This Drop', desc: 'Add to current drop' },
-                                                                { id: 'next_drop', label: 'Use Next Drop', desc: 'Carry over to next' },
-                                                                { id: 'split_today', label: 'Split Today', desc: 'Distribute across day' }
-                                                            ].map(opt => (
-                                                                <button
-                                                                    key={opt.id}
-                                                                    onClick={() => setCalcLimitHandling(prev => ({ ...prev, [alert.sessionId]: opt.id as any }))}
-                                                                    className={`text-left p-2 rounded-xl border transition-all ${calcLimitHandling[alert.sessionId] === opt.id
-                                                                        ? 'bg-indigo-600 border-indigo-600 text-white shadow-md'
-                                                                        : 'bg-white border-slate-100 text-slate-600 hover:border-indigo-200'
-                                                                        }`}
-                                                                >
-                                                                    <div className="text-[10px] font-black leading-tight">{opt.label}</div>
-                                                                    <div className={`text-[8px] opacity-70 leading-tight ${calcLimitHandling[alert.sessionId] === opt.id ? 'text-indigo-100' : 'text-slate-400'
-                                                                        }`}>{opt.desc}</div>
-                                                                </button>
-                                                            ))}
+                                                            {(() => {
+                                                                const usingPaused = (activeView === 'calculator' && selectedPausedIntervalType !== 'none') || selectedHistoryEntries.size > 0;
+                                                                return [
+                                                                    { id: 'ignore', label: usingPaused ? 'Duplicate Mode' : 'Ignore Seeds', desc: usingPaused ? 'Wrap to start' : 'Leave them unused' },
+                                                                    { id: 'this_drop', label: 'Use This Drop', desc: 'Add to current drop' },
+                                                                    { id: 'next_drop', label: 'Use Next Drop', desc: 'Carry over to next' },
+                                                                    { id: 'split_today', label: 'Split Today', desc: 'Distribute across day' }
+                                                                ].map(opt => (
+                                                                    <button
+                                                                        key={opt.id}
+                                                                        onClick={() => setCalcLimitHandling(prev => ({ ...prev, [alert.sessionId]: opt.id as any }))}
+                                                                        className={`text-left p-2 rounded-xl border transition-all ${calcLimitHandling[alert.sessionId] === opt.id
+                                                                            ? 'bg-indigo-600 border-indigo-600 text-white shadow-md'
+                                                                            : 'bg-white border-slate-100 text-slate-600 hover:border-indigo-200'
+                                                                            }`}
+                                                                    >
+                                                                        <div className="text-[10px] font-black leading-tight">{opt.label}</div>
+                                                                        <div className={`text-[8px] opacity-70 leading-tight ${calcLimitHandling[alert.sessionId] === opt.id ? 'text-indigo-100' : 'text-slate-400'
+                                                                            }`}>{opt.desc}</div>
+                                                                    </button>
+                                                                ));
+                                                            })()}
                                                         </div>
                                                     </div>
                                                 </div>

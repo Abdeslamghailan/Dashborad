@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Clock, Filter, Search, X, Trash2, Plus, Edit3, Layers, User as UserIcon, Calendar, Activity, Hash, LayoutGrid, List, AlertCircle, CheckCircle2 } from 'lucide-react';
+import { Entity } from '../types';
 import { service } from '../services';
 import { useAuth } from '../contexts/AuthContext';
 import { ChangeHistoryEntry } from './history/ChangeHistory';
@@ -14,6 +15,7 @@ export const HistoryPage: React.FC = () => {
     const [history, setHistory] = useState<ChangeHistoryEntry[]>([]);
     const [intervalHistory, setIntervalHistory] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
+    const [entities, setEntities] = useState<Entity[]>([]);
     const [showFilters, setShowFilters] = useState(true);
     const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
 
@@ -32,11 +34,22 @@ export const HistoryPage: React.FC = () => {
     });
     const [endDateFilter, setEndDateFilter] = useState(() => new Date().toISOString().split('T')[0]);
 
-    // Redirect non-admins/mailers
+    // Redirect non-admins/mailers and fetch entities
     useEffect(() => {
         if (user?.role !== 'ADMIN' && user?.role !== 'MAILER') {
             navigate('/');
+            return;
         }
+
+        const fetchEntities = async () => {
+            try {
+                const data = await service.getEntities();
+                setEntities(data);
+            } catch (error) {
+                console.error('Failed to fetch entities:', error);
+            }
+        };
+        fetchEntities();
     }, [user, navigate]);
 
     useEffect(() => {
@@ -143,8 +156,42 @@ export const HistoryPage: React.FC = () => {
         }
     };
 
-    const formatEntityId = (id: string | null) => {
+    const getEntityDisplayName = (id: string | null, entries: ChangeHistoryEntry[]) => {
         if (!id) return '-';
+
+        // 0. Primary source: Check the entities list that we already have
+        const knownEntity = entities.find(e => e.id === id);
+        if (knownEntity) return knownEntity.name;
+
+        // Check if it's a UUID
+        const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
+
+        if (isUuid || id.startsWith('ent_')) {
+            // 1. Try to find name in descriptions
+            const patterns = [/for "([^"]+)"/, /script "([^"]+)"/, /scenario "([^"]+)"/, /"([^"]+)"/];
+            for (const entry of entries) {
+                for (const pattern of patterns) {
+                    const match = entry.description.match(pattern);
+                    if (match && match[1]) return match[1];
+                }
+            }
+
+            // 2. Try to find name in categoryName or profileName
+            for (const entry of entries) {
+                if (entry.categoryName) return entry.categoryName;
+                if (entry.profileName) return entry.profileName;
+            }
+
+            // 3. Try to parse JSON for 'name' or 'profileName'
+            for (const entry of entries) {
+                try {
+                    const data = JSON.parse(entry.newValue || entry.oldValue || '{}');
+                    if (data.name) return data.name;
+                    if (data.profileName) return data.profileName;
+                } catch (e) { }
+            }
+        }
+
         return id.replace(/^ent_/, '').toUpperCase();
     };
 
@@ -242,7 +289,7 @@ export const HistoryPage: React.FC = () => {
                             }`}
                     >
                         <Activity size={14} />
-                        Interval Paused History
+                        Interval History
                     </button>
                 </div>
 
@@ -406,7 +453,7 @@ export const HistoryPage: React.FC = () => {
                                 </div>
                             </div>
 
-                            <div className="flex items-center gap-3 mt-6 pt-6 border-t border-slate-100">
+                            <div className="flex items-center justify-between mt-6 pt-6 border-t border-slate-100">
                                 <button
                                     onClick={() => {
                                         clearFilters();
@@ -417,6 +464,16 @@ export const HistoryPage: React.FC = () => {
                                     <X size={16} />
                                     Reset
                                 </button>
+
+                                {user?.role === 'ADMIN' && (
+                                    <button
+                                        onClick={handleDeleteAllClick}
+                                        className="flex items-center gap-2 px-8 py-3 bg-rose-50 text-rose-600 rounded-2xl hover:bg-rose-100 transition-all text-xs font-black uppercase tracking-widest border border-rose-100"
+                                    >
+                                        <Trash2 size={16} />
+                                        Clear All History
+                                    </button>
+                                )}
                             </div>
                         </div>
                     )}
@@ -443,6 +500,7 @@ export const HistoryPage: React.FC = () => {
                             <div className="animate-in fade-in duration-500">
                                 <HistoryTable
                                     history={history}
+                                    entities={entities}
                                     onDelete={user?.role === 'ADMIN' ? handleDeleteClick : undefined}
                                     isAdmin={user?.role === 'ADMIN'}
                                 />
@@ -492,7 +550,7 @@ export const HistoryPage: React.FC = () => {
                                                                     </div>
                                                                     <div className="flex flex-col">
                                                                         <span className="text-[10px] font-black text-slate-400 uppercase leading-none mb-1">Entity Name</span>
-                                                                        <span className="text-sm font-black text-slate-700 leading-none tracking-tight">{formatEntityId(entityId)}</span>
+                                                                        <span className="text-sm font-black text-slate-700 leading-none tracking-tight">{getEntityDisplayName(entityId, entityEntries as ChangeHistoryEntry[])}</span>
                                                                     </div>
                                                                 </div>
                                                                 <div className="text-right">

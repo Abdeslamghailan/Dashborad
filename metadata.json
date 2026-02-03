@@ -1,5 +1,0 @@
-{
-  "name": "Entity Reporting Dashboard",
-  "description": "A modular React dashboard for entity reporting and configuration using an adapter pattern for data services.",
-  "requestFramePermissions": []
-}
