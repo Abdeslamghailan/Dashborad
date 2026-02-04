@@ -62,9 +62,8 @@ export const ReporterHelper: React.FC = () => {
         loadEntities();
     }, []);
 
-    const copyToClipboard = (text: string, label: string) => {
+    const copyToClipboard = (text: string) => {
         navigator.clipboard.writeText(text);
-        alert(`${label} copied to clipboard!`);
     };
 
     // --- Feature 1: Analyzer State ---
@@ -237,7 +236,7 @@ export const ReporterHelper: React.FC = () => {
                                                         {analyzerResults.length}
                                                     </span>
                                                     <button
-                                                        onClick={() => copyToClipboard(analyzerResults.map(r => r.email).join('\n'), 'All emails')}
+                                                        onClick={() => copyToClipboard(analyzerResults.map(r => `${r.email} ${r.status}`).join('\n'))}
                                                         className="text-[#5c7cfa] hover:text-indigo-700 transition-colors"
                                                         title="Copy All"
                                                     >
@@ -247,11 +246,22 @@ export const ReporterHelper: React.FC = () => {
                                             </div>
                                             <div className="h-[300px] overflow-y-auto space-y-2 pr-2 scrollbar-thin">
                                                 {analyzerResults.map((item, i) => (
-                                                    <div key={i} className="flex justify-between items-center p-3 bg-gray-50 rounded-xl border border-gray-100">
-                                                        <span className="text-xs font-bold text-gray-600 truncate max-w-[200px]">{item.email}</span>
-                                                        <span className={`text-[10px] font-black uppercase px-2 py-1 rounded-md ${item.status === 'Disconnected' ? 'bg-red-50 text-red-600' : 'bg-orange-50 text-orange-600'}`}>
-                                                            {item.status}
-                                                        </span>
+                                                    <div key={i} className="group flex justify-between items-center p-3 bg-gray-50 rounded-xl border border-gray-100 hover:border-indigo-200 transition-all">
+                                                        <div className="flex flex-col truncate max-w-[200px]">
+                                                            <span className="text-xs font-bold text-gray-600 truncate">{item.email}</span>
+                                                        </div>
+                                                        <div className="flex items-center gap-2">
+                                                            <span className={`text-[10px] font-black uppercase px-2 py-1 rounded-md ${item.status === 'Disconnected' ? 'bg-red-50 text-red-600' : 'bg-orange-50 text-orange-600'}`}>
+                                                                {item.status}
+                                                            </span>
+                                                            <button
+                                                                onClick={() => copyToClipboard(`${item.email} ${item.status}`)}
+                                                                className="opacity-0 group-hover:opacity-100 p-1 text-[#5c7cfa] hover:bg-white rounded-md transition-all shadow-sm"
+                                                                title="Copy email status"
+                                                            >
+                                                                <Copy size={12} />
+                                                            </button>
+                                                        </div>
                                                     </div>
                                                 ))}
                                             </div>
@@ -269,7 +279,7 @@ export const ReporterHelper: React.FC = () => {
                                                     {(items as BlockedEmail[]).map((it, idx) => <div key={idx}>{it.email}</div>)}
                                                 </div>
                                                 <button
-                                                    onClick={() => copyToClipboard((items as BlockedEmail[]).map(it => it.email).join('\n'), `${status} list`)}
+                                                    onClick={() => copyToClipboard((items as BlockedEmail[]).map(it => `${it.email} ${it.status}`).join('\n'))}
                                                     className="w-full py-2 bg-gray-900 text-white rounded-xl text-[10px] font-bold uppercase flex items-center justify-center gap-2 hover:bg-gray-800 transition-all"
                                                 >
                                                     <Copy size={12} /> Copy List
@@ -305,7 +315,7 @@ export const ReporterHelper: React.FC = () => {
                                     <Button
                                         onClick={() => {
                                             const profiles = recheckInput.split('\n').filter(l => l.trim()).map(l => l.split(',')[1]?.trim().replace(/"/g, '')).filter(Boolean).join('\n');
-                                            copyToClipboard(profiles, 'Profile IDs');
+                                            copyToClipboard(profiles);
                                         }}
                                         className="bg-emerald-600 hover:bg-emerald-700 px-8 py-2.5 h-auto text-sm font-bold"
                                         leftIcon={<Copy size={18} />}
@@ -350,7 +360,7 @@ export const ReporterHelper: React.FC = () => {
 
                                             <div className="mt-6 space-y-2">
                                                 <button
-                                                    onClick={() => copyToClipboard((chunks as string[][]).flat().join('\n'), 'All intervals')}
+                                                    onClick={() => copyToClipboard((chunks as string[][]).flat().join('\n'))}
                                                     className="w-full py-2.5 bg-gray-900 text-white rounded-xl text-[10px] font-bold uppercase flex items-center justify-center gap-2 hover:bg-gray-800 transition-all shadow-sm"
                                                 >
                                                     <Copy size={14} /> Copy All Session IDs

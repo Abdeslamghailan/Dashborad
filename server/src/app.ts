@@ -1,3 +1,4 @@
+import { generateRandomPassword } from './utils/validation.js';
 import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
@@ -231,7 +232,17 @@ export async function ensureAdminUser() {
 
     if (!existingAdmin) {
       logger.info('No admin user found, creating one');
-      const hashedPassword = await bcrypt.default.hash('admin123', 10);
+      
+      const initialPassword = process.env.INITIAL_ADMIN_PASSWORD || generateRandomPassword(16);
+      
+      if (!process.env.INITIAL_ADMIN_PASSWORD) {
+        logger.security('CRITICAL: No INITIAL_ADMIN_PASSWORD provided. Generated a random one-time password.', {
+          password: initialPassword
+        });
+        console.warn('CRITICAL SECURITY: No INITIAL_ADMIN_PASSWORD found in env. Generated one-time admin password:', initialPassword);
+      }
+      
+      const hashedPassword = await bcrypt.default.hash(initialPassword, 10);
       
       await prisma.user.create({
         data: {

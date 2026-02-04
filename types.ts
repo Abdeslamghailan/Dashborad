@@ -136,4 +136,52 @@ export interface DataService {
     endDate?: string;
     limit?: number;
   }) => Promise<any[]>;
+  // Admin & Methods
+  getAdminUsers: () => Promise<any[]>;
+  updateUserRole: (id: number, role: string) => Promise<any>;
+  approveUser: (id: number, isApproved?: boolean) => Promise<any>;
+  rejectUser: (id: number) => Promise<any>;
+  deleteUser: (id: number) => Promise<any>;
+  grantEntityAccess: (userId: number, entityId: string) => Promise<any>;
+  revokeEntityAccess: (userId: number, entityId: string) => Promise<any>;
+  getReportingMethods: () => Promise<any[]>;
+  saveReportingMethod: (method: any) => Promise<any>;
+  deleteReportingMethod: (id: string) => Promise<any>;
+  seedReportingMethods: () => Promise<any>;
+  getDashboardData: (queryParams: string) => Promise<any>;
+  // Planning
+  getPlanningPresets: () => Promise<any[]>;
+  savePlanningPreset: (preset: any) => Promise<any>;
+  deletePlanningPreset: (id: string) => Promise<any>;
+  getPlanningData: () => Promise<any>;
+  savePlanningTeam: (team: any) => Promise<any>;
+  deletePlanningTeam: (id: string) => Promise<any>;
+  savePlanningMailer: (mailer: any) => Promise<any>;
+  deletePlanningMailer: (id: string) => Promise<any>;
+  savePlanningAssignment: (assignment: any) => Promise<any>;
+  deletePlanningAssignment: (id: string) => Promise<any>;
+  savePlanningAssignmentsBulk: (assignments: any[]) => Promise<any>;
+  getPlanningAiSuggest: (scheduleId: string) => Promise<any>;
+  getPlanningTeams: () => Promise<any[]>;
+  getPlanningSchedulesCurrent: () => Promise<any[]>;
+  getPlanningSchedulesHistory: () => Promise<any[]>;
+  initializePlanningSchedules: () => Promise<any>;
+  // Proxies
+  getProxies: (entityId: string) => Promise<any[]>;
+  saveProxy: (entityId: string, proxy: any) => Promise<any>;
+  updateProxy: (entityId: string, proxyId: string, proxy: any) => Promise<any>;
+  toggleProxyStatus: (entityId: string, proxyId: string) => Promise<any>;
+  deleteProxy: (entityId: string, proxyId: string) => Promise<any>;
+  // Proxy Partition
+  getProxyPartition: () => Promise<any>;
+  saveProxyPartition: (data: any) => Promise<any>;
+  dnsLookup: (domains: string[]) => Promise<any>;
+  // Scripts & Scenarios
+  getScriptsAll: () => Promise<any[]>;
+  saveScript: (script: any) => Promise<any>;
+  deleteScript: (id: string) => Promise<any>;
+  saveScenario: (scenario: any) => Promise<any>;
+  deleteScenario: (id: string) => Promise<any>;
+  checkHealth: () => Promise<any>;
+  sendToBot: (data: any) => Promise<any>;
 }

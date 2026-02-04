@@ -148,7 +148,7 @@ export const ReportIPExtractor: React.FC = () => {
     const exportToHTML = () => {
         if (drops.length === 0) return;
 
-        const date = new Date().toLocaleString();
+        const date = new Date().toLocaleString('en-GB');
 
         // Build HTML content
         const htmlContent = `

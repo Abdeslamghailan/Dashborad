@@ -13,6 +13,7 @@ import { EntityFormModal } from './EntityFormModal';
 import { Button } from './ui/Button';
 import { Entity, MethodType } from '../types';
 import { AVAILABLE_METHODS, getMethodConfig } from '../config/methods';
+import { apiService } from '../services/apiService';
 
 interface User {
     id: number;
@@ -99,15 +100,8 @@ export const AdminPanel: React.FC = () => {
 
     const fetchUsers = async () => {
         try {
-            const response = await fetch(`${API_URL}/api/admin/users`, {
-                headers: {
-                    'Authorization': `Bearer ${token}`
-                }
-            });
-            if (response.ok) {
-                const data = await response.json();
-                setUsers(data);
-            }
+            const data = await apiService.getAdminUsers();
+            setUsers(data);
         } catch (error) {
             console.error('Failed to fetch users:', error);
             showToast('error', 'Failed to load users');
@@ -118,15 +112,8 @@ export const AdminPanel: React.FC = () => {
 
     const fetchEntities = async () => {
         try {
-            const response = await fetch(`${API_URL}/api/entities`, {
-                headers: {
-                    'Authorization': `Bearer ${token}`
-                }
-            });
-            if (response.ok) {
-                const data = await response.json();
-                setEntities(data);
-            }
+            const data = await apiService.getEntities();
+            setEntities(data);
         } catch (error) {
             console.error('Failed to fetch entities:', error);
             showToast('error', 'Failed to load entities');
@@ -135,13 +122,8 @@ export const AdminPanel: React.FC = () => {
 
     const fetchMethods = async () => {
         try {
-            const response = await fetch(`${API_URL}/api/methods`, {
-                headers: { 'Authorization': `Bearer ${token}` }
-            });
-            if (response.ok) {
-                const data = await response.json();
-                setMethods(data);
-            }
+            const data = await apiService.getReportingMethods();
+            setMethods(data);
         } catch (error) {
             console.error('Failed to fetch methods:', error);
         }
@@ -149,45 +131,23 @@ export const AdminPanel: React.FC = () => {
 
     const handleSaveMethod = async () => {
         try {
-            const url = editingMethod
-                ? `${API_URL}/api/methods/${editingMethod.id}`
-                : `${API_URL}/api/methods`;
-
-            const response = await fetch(url, {
-                method: editingMethod ? 'PUT' : 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`
-                },
-                body: JSON.stringify(methodForm)
-            });
-
-            if (response.ok) {
-                fetchMethods();
-                setIsMethodModalOpen(false);
-                setEditingMethod(null);
-                showToast('success', `Method ${editingMethod ? 'updated' : 'created'} successfully`);
-            } else {
-                const error = await response.json();
-                showToast('error', error.error || 'Failed to save method');
-            }
-        } catch (error) {
+            await apiService.saveReportingMethod(methodForm);
+            fetchMethods();
+            setIsMethodModalOpen(false);
+            setEditingMethod(null);
+            showToast('success', `Method ${editingMethod ? 'updated' : 'created'} successfully`);
+        } catch (error: any) {
             console.error('Failed to save method:', error);
-            showToast('error', 'Failed to save method');
+            showToast('error', error.message || 'Failed to save method');
         }
     };
 
     const handleDeleteMethod = async (id: string) => {
         if (!confirm('Are you sure you want to delete this reporting method? This may affect entities using it.')) return;
         try {
-            const response = await fetch(`${API_URL}/api/methods/${id}`, {
-                method: 'DELETE',
-                headers: { 'Authorization': `Bearer ${token}` }
-            });
-            if (response.ok) {
-                fetchMethods();
-                showToast('success', 'Method deleted successfully');
-            }
+            await apiService.deleteReportingMethod(id);
+            fetchMethods();
+            showToast('success', 'Method deleted successfully');
         } catch (error) {
             console.error('Failed to delete method:', error);
             showToast('error', 'Failed to delete method');
@@ -196,29 +156,18 @@ export const AdminPanel: React.FC = () => {
 
     const handleSeedMethods = async () => {
         try {
-            const response = await fetch(`${API_URL}/api/methods/seed`, {
-                method: 'POST',
-                headers: { 'Authorization': `Bearer ${token}` }
-            });
-            if (response.ok) {
-                fetchMethods();
-                showToast('success', 'Methods seeded successfully');
-            }
+            await apiService.seedReportingMethods();
+            fetchMethods();
+            showToast('success', 'Methods seeded successfully');
         } catch (error) {
             console.error('Failed to seed methods:', error);
+            showToast('error', 'Failed to seed methods');
         }
     };
 
-    const handleApprove = async (userId: number, isApproved: boolean) => {
+    const handleApprove = async (id: number, isApproved: boolean = true) => {
         try {
-            await fetch(`${API_URL}/api/admin/users/${userId}/approve`, {
-                method: 'PUT',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`
-                },
-                body: JSON.stringify({ isApproved })
-            });
+            await apiService.approveUser(id, isApproved);
             fetchUsers();
             showToast('success', isApproved ? 'User approved successfully' : 'Approval revoked');
         } catch (error) {
@@ -227,16 +176,10 @@ export const AdminPanel: React.FC = () => {
         }
     };
 
-    const handleDeleteUser = async (userId: number) => {
+    const handleDeleteUser = async (id: number) => {
         if (!confirm('Are you sure you want to delete this user?')) return;
-
         try {
-            await fetch(`${API_URL}/api/admin/users/${userId}`, {
-                method: 'DELETE',
-                headers: {
-                    'Authorization': `Bearer ${token}`
-                }
-            });
+            await apiService.deleteUser(id);
             fetchUsers();
             showToast('success', 'User deleted successfully');
         } catch (error) {
@@ -247,14 +190,7 @@ export const AdminPanel: React.FC = () => {
 
     const handleRoleUpdate = async (userId: number, role: string) => {
         try {
-            await fetch(`${API_URL}/api/admin/users/${userId}/role`, {
-                method: 'PUT',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`
-                },
-                body: JSON.stringify({ role })
-            });
+            await apiService.updateUserRole(userId, role);
             fetchUsers();
             showToast('success', 'Role updated successfully');
         } catch (error) {
@@ -281,16 +217,12 @@ export const AdminPanel: React.FC = () => {
             setSelectedUser(updatedUser);
         }
 
-        const endpoint = hasAccess ? 'revoke' : 'assign';
         try {
-            await fetch(`${API_URL}/api/admin/${endpoint}`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`
-                },
-                body: JSON.stringify({ userId, entityId })
-            });
+            if (hasAccess) {
+                await apiService.revokeEntityAccess(userId, entityId);
+            } else {
+                await apiService.grantEntityAccess(userId, entityId);
+            }
             fetchUsers();
             showToast('success', hasAccess ? 'Access revoked' : 'Access granted');
         } catch (error) {
@@ -302,31 +234,14 @@ export const AdminPanel: React.FC = () => {
 
     const handleSaveEntity = async (entity: Entity) => {
         try {
-            const isEdit = entities.some(e => e.id === entity.id);
-            const method = isEdit ? 'PUT' : 'POST';
-            const url = isEdit ? `${API_URL}/api/entities/${entity.id}` : `${API_URL}/api/entities`;
-
-            const response = await fetch(url, {
-                method: method,
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`
-                },
-                body: JSON.stringify(entity)
-            });
-
-            if (response.ok) {
-                fetchEntities();
-                setIsEntityModalOpen(false);
-                setEditingEntity(null);
-                showToast('success', isEdit ? 'Entity updated successfully' : 'Entity created successfully');
-            } else {
-                const error = await response.json();
-                showToast('error', error.error || 'Failed to save entity');
-            }
-        } catch (error) {
+            await apiService.saveEntity(entity);
+            fetchEntities();
+            setIsEntityModalOpen(false);
+            setEditingEntity(null);
+            showToast('success', 'Entity saved successfully');
+        } catch (error: any) {
             console.error('Error saving entity:', error);
-            showToast('error', 'Failed to save entity');
+            showToast('error', error.message || 'Failed to save entity');
         }
     };
 
@@ -334,12 +249,7 @@ export const AdminPanel: React.FC = () => {
         if (!confirm('Are you sure you want to delete this entity? This action cannot be undone.')) return;
 
         try {
-            await fetch(`${API_URL}/api/entities/${entityId}`, {
-                method: 'DELETE',
-                headers: {
-                    'Authorization': `Bearer ${token}`
-                }
-            });
+            await apiService.deleteEntity(entityId);
             fetchEntities();
             showToast('success', 'Entity deleted successfully');
         } catch (error) {
@@ -818,8 +728,8 @@ export const AdminPanel: React.FC = () => {
                                                 type="button"
                                                 onClick={() => setMethodForm({ ...methodForm, icon: item.id })}
                                                 className={`p-2 rounded-lg flex items-center justify-center transition-all ${methodForm.icon === item.id
-                                                        ? 'bg-blue-500 text-white shadow-md'
-                                                        : 'bg-white text-gray-400 hover:text-gray-600 hover:bg-gray-100'
+                                                    ? 'bg-blue-500 text-white shadow-md'
+                                                    : 'bg-white text-gray-400 hover:text-gray-600 hover:bg-gray-100'
                                                     }`}
                                                 title={item.id}
                                             >

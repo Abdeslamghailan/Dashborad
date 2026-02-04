@@ -12,6 +12,7 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '../contexts/AuthContext';
+import { apiService } from '../services/apiService';
 
 // --- Styles ---
 const dashboardStyles = `
@@ -1574,22 +1575,15 @@ export const DashboardReporting: React.FC = () => {
             params.append('limit', '10000');
 
             const queryString = params.toString();
-            const url = queryString ? `${DATA_API_URL}?${queryString}` : DATA_API_URL;
 
             console.log('🔍 Fetching filtered data:', {
                 entities: selectedEntities,
                 date: selectedDate,
                 hours: selectedHours.length < 24 ? selectedHours : 'all',
-                url
+                queryString
             });
 
-            const response = await fetch(url, {
-                headers: {
-                    'Authorization': `Bearer ${token}`
-                }
-            });
-            if (!response.ok) throw new Error('Failed to fetch dashboard data');
-            const result = await response.json();
+            const result = await apiService.getDashboardData(queryString);
 
             if (!result.data) throw new Error('Invalid data format received');
 

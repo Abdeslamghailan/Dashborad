@@ -65,6 +65,7 @@ const AppRoutes: React.FC = () => {
   return (
     <Routes>
       <Route path="/login" element={<LoginPage />} />
+      <Route path="/login/admin" element={<LoginPage />} />
       <Route
         path="/admin"
         element={

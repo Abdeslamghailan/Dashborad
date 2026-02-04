@@ -129,7 +129,7 @@ export const ConsumptionHelper: React.FC = () => {
         }
 
         const entityName = selectedEntity?.name || 'Unknown Entity';
-        const dateStr = new Date().toLocaleDateString();
+        const dateStr = new Date().toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' });
         const fileName = `${activeMethod.charAt(0).toUpperCase() + activeMethod.slice(1)}_Consumption_Report_${dateStr.replace(/\//g, '-')}.html`;
 
         const navItems = selectedCategoryIds.map((id, idx) => {
@@ -447,21 +447,13 @@ export const ConsumptionHelper: React.FC = () => {
 </html>`;
 
         try {
-            const response = await fetch('/api/reporter/send-to-bot', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${localStorage.getItem('auth_token')}`
-                },
-                body: JSON.stringify({
-                    entityId: selectedEntityId,
-                    htmlReport,
-                    botToken,
-                    chatId,
-                    fileName
-                })
+            const data = await service.sendToBot({
+                entityId: selectedEntityId,
+                htmlReport,
+                botToken,
+                chatId,
+                fileName
             });
-            const data = await response.json();
             if (data.success) alert('Report file sent to Telegram!');
             else throw new Error(data.error);
         } catch (err: any) {
@@ -502,7 +494,7 @@ export const ConsumptionHelper: React.FC = () => {
                                 setSelectedCategoryIds([]);
                                 setActiveCategoryId(null);
                             }}
-                            className={`flex items-center gap-2 px-6 py-2.5 rounded-xl text-sm font-bold transition-all ${activeMethod === 'webautomate' ? 'bg-[#5c7cfa] text-white shadow-lg shadow-indigo-100' : 'text-gray-500 hover:bg-gray-50'}`}
+                            className={`flex items-center gap-2 px-6 py-2.5 rounded-xl text-sm font-bold transition-all ${(activeMethod as string) === 'webautomate' ? 'bg-[#5c7cfa] text-white shadow-lg shadow-indigo-100' : 'text-gray-500 hover:bg-gray-50'}`}
                         >
                             <Globe size={18} />
                             Webautomate Consumption
@@ -785,7 +777,7 @@ export const ConsumptionHelper: React.FC = () => {
                             setSelectedCategoryIds([]);
                             setActiveCategoryId(null);
                         }}
-                        className={`flex items-center gap-2 px-6 py-2.5 rounded-xl text-sm font-bold transition-all ${activeMethod === 'desktop' ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-100' : 'text-gray-500 hover:bg-gray-50'}`}
+                        className={`flex items-center gap-2 px-6 py-2.5 rounded-xl text-sm font-bold transition-all ${(activeMethod as string) === 'desktop' ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-100' : 'text-gray-500 hover:bg-gray-50'}`}
                     >
                         <LayoutGrid size={18} />
                         Desktop

@@ -226,5 +226,277 @@ export const apiService: DataService = {
       console.error(`API: deleteDayPlan ${entityId} ${categoryId} ${date} error:`, error);
       throw error;
     }
+  },
+
+  // Admin: User management
+  getAdminUsers: async () => {
+    return await apiCall('/admin/users');
+  },
+
+  updateUserRole: async (id: number, role: string) => {
+    return await apiCall(`/admin/users/${id}/role`, {
+      method: 'PUT',
+      body: JSON.stringify({ role })
+    });
+  },
+
+  approveUser: async (id: number, isApproved: boolean = true) => {
+    return await apiCall(`/admin/users/${id}/approve`, {
+      method: 'PUT',
+      body: JSON.stringify({ isApproved })
+    });
+  },
+
+  rejectUser: async (id: number) => {
+    return await apiCall(`/admin/users/${id}/approve`, {
+      method: 'PUT',
+      body: JSON.stringify({ isApproved: false })
+    });
+  },
+
+  deleteUser: async (id: number) => {
+    return await apiCall(`/admin/users/${id}`, {
+      method: 'DELETE'
+    });
+  },
+
+  grantEntityAccess: async (userId: number, entityId: string) => {
+    return await apiCall('/admin/assign', {
+      method: 'POST',
+      body: JSON.stringify({ userId, entityId })
+    });
+  },
+
+  revokeEntityAccess: async (userId: number, entityId: string) => {
+    return await apiCall('/admin/revoke', {
+      method: 'POST',
+      body: JSON.stringify({ userId, entityId })
+    });
+  },
+
+  // Methods management
+  getReportingMethods: async () => {
+    return await apiCall('/methods');
+  },
+
+  saveReportingMethod: async (method: any) => {
+    const isUpdate = !!method.id;
+    const url = isUpdate ? `/methods/${method.id}` : '/methods';
+    return await apiCall(url, {
+      method: isUpdate ? 'PUT' : 'POST',
+      body: JSON.stringify(method)
+    });
+  },
+
+  deleteReportingMethod: async (id: string) => {
+    return await apiCall(`/methods/${id}`, {
+      method: 'DELETE'
+    });
+  },
+
+  seedReportingMethods: async () => {
+    return await apiCall('/methods/seed', {
+      method: 'POST'
+    });
+  },
+
+  // Dashboard
+  getDashboardData: async (queryParams: string) => {
+    return await apiCall(`/dashboard/all-data?${queryParams}`);
+  },
+
+  // Planning
+  getPlanningPresets: async () => {
+    return await apiCall('/planning/presets');
+  },
+
+  savePlanningPreset: async (preset: any) => {
+    const isUpdate = !!preset.id;
+    const url = isUpdate ? `/planning/presets/${preset.id}` : '/planning/presets';
+    return await apiCall(url, {
+      method: isUpdate ? 'PUT' : 'POST',
+      body: JSON.stringify(preset)
+    });
+  },
+
+  deletePlanningPreset: async (id: string) => {
+    return await apiCall(`/planning/presets/${id}`, {
+      method: 'DELETE'
+    });
+  },
+
+  getPlanningData: async () => {
+    return await apiCall('/planning/data');
+  },
+
+  savePlanningTeam: async (team: any) => {
+    const isUpdate = !!team.id;
+    const url = isUpdate ? `/planning/teams/${team.id}` : '/planning/teams';
+    return await apiCall(url, {
+      method: isUpdate ? 'PUT' : 'POST',
+      body: JSON.stringify(team)
+    });
+  },
+
+  deletePlanningTeam: async (id: string) => {
+    return await apiCall(`/planning/teams/${id}`, {
+      method: 'DELETE'
+    });
+  },
+
+  savePlanningMailer: async (mailer: any) => {
+    const isUpdate = !!mailer.id;
+    const url = isUpdate ? `/planning/mailers/${mailer.id}` : '/planning/mailers';
+    return await apiCall(url, {
+      method: isUpdate ? 'PUT' : 'POST',
+      body: JSON.stringify(mailer)
+    });
+  },
+
+  deletePlanningMailer: async (id: string) => {
+    return await apiCall(`/planning/mailers/${id}`, {
+      method: 'DELETE'
+    });
+  },
+
+  savePlanningAssignment: async (assignment: any) => {
+    return await apiCall('/planning/assignments', {
+      method: 'POST',
+      body: JSON.stringify(assignment)
+    });
+  },
+
+  deletePlanningAssignment: async (id: string) => {
+    return await apiCall(`/planning/assignments/${id}`, {
+      method: 'DELETE'
+    });
+  },
+
+  savePlanningAssignmentsBulk: async (assignments: any[]) => {
+    return await apiCall('/planning/assignments/bulk', {
+      method: 'POST',
+      body: JSON.stringify({ assignments })
+    });
+  },
+
+  getPlanningAiSuggest: async (scheduleId: string) => {
+    return await apiCall('/planning/ai-suggest', {
+      method: 'POST',
+      body: JSON.stringify({ scheduleId })
+    });
+  },
+
+  getPlanningTeams: async () => {
+    return await apiCall('/planning/teams');
+  },
+
+  getPlanningSchedulesCurrent: async () => {
+    return await apiCall('/planning/schedules/current');
+  },
+
+  getPlanningSchedulesHistory: async () => {
+    return await apiCall('/planning/schedules/history');
+  },
+
+  initializePlanningSchedules: async () => {
+    return await apiCall('/planning/schedules/initialize', {
+      method: 'POST'
+    });
+  },
+
+  // Proxies
+  getProxies: async (entityId: string) => {
+    return await apiCall(`/proxies/${entityId}`);
+  },
+
+  saveProxy: async (entityId: string, proxy: any) => {
+    return await apiCall(`/proxies/${entityId}`, {
+      method: 'POST',
+      body: JSON.stringify(proxy)
+    });
+  },
+
+  updateProxy: async (entityId: string, proxyId: string, proxy: any) => {
+    return await apiCall(`/proxies/${entityId}/${proxyId}`, {
+      method: 'PUT',
+      body: JSON.stringify(proxy)
+    });
+  },
+
+  toggleProxyStatus: async (entityId: string, proxyId: string) => {
+    return await apiCall(`/proxies/${entityId}/${proxyId}/status`, {
+      method: 'PATCH'
+    });
+  },
+
+  deleteProxy: async (entityId: string, proxyId: string) => {
+    return await apiCall(`/proxies/${entityId}/${proxyId}`, {
+      method: 'DELETE'
+    });
+  },
+
+  // Proxy Partition
+  getProxyPartition: async () => {
+    return await apiCall('/proxy-partition');
+  },
+
+  saveProxyPartition: async (data: any) => {
+    return await apiCall('/proxy-partition', {
+      method: 'POST',
+      body: JSON.stringify(data)
+    });
+  },
+
+  dnsLookup: async (domains: string[]) => {
+    return await apiCall('/dashboard/dns-lookup', {
+      method: 'POST',
+      body: JSON.stringify({ domains })
+    });
+  },
+
+  // Scripts & Scenarios
+  getScriptsAll: async () => {
+    return await apiCall('/scripts/all');
+  },
+
+  saveScript: async (script: any) => {
+    const isUpdate = !!script.id;
+    const url = isUpdate ? `/scripts/${script.id}` : '/scripts';
+    return await apiCall(url, {
+      method: isUpdate ? 'PUT' : 'POST',
+      body: JSON.stringify(script)
+    });
+  },
+
+  deleteScript: async (id: string) => {
+    return await apiCall(`/scripts/${id}`, {
+      method: 'DELETE'
+    });
+  },
+
+  saveScenario: async (scenario: any) => {
+    const isUpdate = !!scenario.id;
+    const url = isUpdate ? `/scenarios/${scenario.id}` : '/scenarios';
+    return await apiCall(url, {
+      method: isUpdate ? 'PUT' : 'POST',
+      body: JSON.stringify(scenario)
+    });
+  },
+
+  deleteScenario: async (id: string) => {
+    return await apiCall(`/scenarios/${id}`, {
+      method: 'DELETE'
+    });
+  },
+
+  checkHealth: async () => {
+    return await apiCall('/test');
+  },
+
+  sendToBot: async (data: any) => {
+    return await apiCall('/reporter/send-to-bot', {
+      method: 'POST',
+      body: JSON.stringify(data)
+    });
   }
 };

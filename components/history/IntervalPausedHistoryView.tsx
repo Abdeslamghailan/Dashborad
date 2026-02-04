@@ -250,7 +250,7 @@ export const IntervalPausedHistoryView: React.FC<IntervalPausedHistoryViewProps>
                                 <div className="bg-white/5 rounded-2xl p-4 border border-white/10">
                                     <p className="text-[10px] font-black text-indigo-300 uppercase mb-1">Timestamp</p>
                                     <p className="text-sm font-bold flex items-center gap-2">
-                                        <Clock size={14} className="text-indigo-400" /> {new Date(selectedBatch[0]?.createdAt).toLocaleString()}
+                                        <Clock size={14} className="text-indigo-400" /> {new Date(selectedBatch[0]?.createdAt).toLocaleString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
                                     </p>
                                 </div>
                                 <div className="bg-white/5 rounded-2xl p-4 border border-white/10">

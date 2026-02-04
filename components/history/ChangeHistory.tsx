@@ -125,9 +125,10 @@ export const ChangeHistory: React.FC<ChangeHistoryProps> = ({
         if (diffHours < 24) return `${diffHours}h ago`;
         if (diffDays < 7) return `${diffDays}d ago`;
 
-        return date.toLocaleString('en-US', {
-            month: 'short',
-            day: 'numeric',
+        return date.toLocaleString('en-GB', {
+            day: '2-digit',
+            month: '2-digit',
+            year: 'numeric',
             hour: '2-digit',
             minute: '2-digit'
         });

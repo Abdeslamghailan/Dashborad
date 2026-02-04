@@ -6,6 +6,7 @@ import { AVAILABLE_METHODS } from '../config/methods';
 import { API_URL } from '../config';
 
 import { useAuth } from '../contexts/AuthContext';
+import { service } from '../services';
 
 interface EntityFormModalProps {
     isOpen: boolean;
@@ -52,28 +53,16 @@ export const EntityFormModal: React.FC<EntityFormModalProps> = ({ isOpen, onClos
     useEffect(() => {
         const fetchMethods = async () => {
             try {
-                const response = await fetch(`${API_URL}/api/methods`, {
-                    headers: {
-                        'Authorization': `Bearer ${token}`
-                    }
-                });
-                if (response.ok) {
-                    const data = await response.json();
-                    setAvailableMethods(data);
-                } else {
-                    console.error('Failed to fetch methods');
-                    // Fallback only on error, but preferably show empty if auth fails to avoid confusion
-                    // setAvailableMethods(AVAILABLE_METHODS); 
-                }
+                const data = await service.getReportingMethods();
+                setAvailableMethods(data);
             } catch (error) {
                 console.error('Failed to fetch methods:', error);
-                // setAvailableMethods(AVAILABLE_METHODS);
             }
         };
         if (isOpen) {
             fetchMethods();
         }
-    }, [isOpen, token]);
+    }, [isOpen]);
 
     if (!isOpen) return null;
 

@@ -4,6 +4,7 @@ import { Button } from './ui/Button';
 import { motion, AnimatePresence } from 'framer-motion';
 import { API_URL } from '../config';
 import { useAuth } from '../contexts/AuthContext';
+import { service } from '../services';
 import { useListedIPs } from '../contexts/ListedIPsContext';
 import * as XLSX from 'xlsx';
 
@@ -60,13 +61,8 @@ export const ProxyManager: React.FC<ProxyManagerProps> = ({ entityId, isAdmin })
 
     const fetchProxies = async () => {
         try {
-            const response = await fetch(`${API_URL}/api/proxies/${entityId}`, {
-                headers: { 'Authorization': `Bearer ${token}` }
-            });
-            if (response.ok) {
-                const data = await response.json();
-                setProxies(data);
-            }
+            const data = await service.getProxies(entityId);
+            setProxies(data);
         } catch (error) {
             console.error('Failed to fetch proxies:', error);
         } finally {
@@ -89,26 +85,13 @@ export const ProxyManager: React.FC<ProxyManagerProps> = ({ entityId, isAdmin })
                         continue;
                     }
 
-                    const [cidrBlock, serverName] = parts;
+                    const [cidrBlock, name] = parts;
 
                     try {
-                        const response = await fetch(`${API_URL}/api/proxies/${entityId}`, {
-                            method: 'POST',
-                            headers: {
-                                'Content-Type': 'application/json',
-                                'Authorization': `Bearer ${token}`
-                            },
-                            body: JSON.stringify({ method: 'smart', cidr: cidrBlock, serverName })
-                        });
-
-                        if (response.ok) {
-                            successCount++;
-                        } else {
-                            const error = await response.json();
-                            errors.push(`${serverName}: ${error.error || 'Failed'}`);
-                        }
-                    } catch (error) {
-                        errors.push(`${serverName}: Network error`);
+                        await service.saveProxy(entityId, { method: 'smart', cidr: cidrBlock, serverName: name });
+                        successCount++;
+                    } catch (error: any) {
+                        errors.push(`${name}: ${error.message || 'Failed'}`);
                     }
                 }
 
@@ -123,22 +106,13 @@ export const ProxyManager: React.FC<ProxyManagerProps> = ({ entityId, isAdmin })
                 setIsAddModalOpen(false);
             } else {
                 // Normal way - single server
-                const response = await fetch(`${API_URL}/api/proxies/${entityId}`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${token}`
-                    },
-                    body: JSON.stringify({ method: 'normal', serverName, ips })
-                });
-
-                if (response.ok) {
+                try {
+                    await service.saveProxy(entityId, { method: 'normal', serverName, ips });
                     fetchProxies();
                     resetForm();
                     setIsAddModalOpen(false);
-                } else {
-                    const error = await response.json();
-                    alert(error.error || 'Failed to add proxy');
+                } catch (error: any) {
+                    alert(error.message || 'Failed to add proxy');
                 }
             }
         } catch (error) {
@@ -151,20 +125,10 @@ export const ProxyManager: React.FC<ProxyManagerProps> = ({ entityId, isAdmin })
         if (!editingProxy) return;
 
         try {
-            const response = await fetch(`${API_URL}/api/proxies/${entityId}/${editingProxy.id}`, {
-                method: 'PUT',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`
-                },
-                body: JSON.stringify({ serverName, ips })
-            });
-
-            if (response.ok) {
-                fetchProxies();
-                resetForm();
-                setIsEditModalOpen(false);
-            }
+            await service.updateProxy(entityId, editingProxy.id, { serverName, ips });
+            fetchProxies();
+            resetForm();
+            setIsEditModalOpen(false);
         } catch (error) {
             console.error('Failed to update proxy:', error);
         }
@@ -172,14 +136,8 @@ export const ProxyManager: React.FC<ProxyManagerProps> = ({ entityId, isAdmin })
 
     const handleToggleStatus = async (proxyId: string) => {
         try {
-            const response = await fetch(`${API_URL}/api/proxies/${entityId}/${proxyId}/status`, {
-                method: 'PATCH',
-                headers: { 'Authorization': `Bearer ${token}` }
-            });
-
-            if (response.ok) {
-                fetchProxies();
-            }
+            await service.toggleProxyStatus(entityId, proxyId);
+            fetchProxies();
         } catch (error) {
             console.error('Failed to toggle status:', error);
         }
@@ -189,14 +147,8 @@ export const ProxyManager: React.FC<ProxyManagerProps> = ({ entityId, isAdmin })
         if (!confirm('Are you sure you want to delete this proxy server? This action cannot be undone.')) return;
 
         try {
-            const response = await fetch(`${API_URL}/api/proxies/${entityId}/${proxyId}`, {
-                method: 'DELETE',
-                headers: { 'Authorization': `Bearer ${token}` }
-            });
-
-            if (response.ok) {
-                fetchProxies();
-            }
+            await service.deleteProxy(entityId, proxyId);
+            fetchProxies();
         } catch (error) {
             console.error('Failed to delete proxy:', error);
         }
@@ -465,10 +417,10 @@ export const ProxyManager: React.FC<ProxyManagerProps> = ({ entityId, isAdmin })
                                                         }`}
                                                 >
                                                     <div className={`text-sm font-mono ${proxy.ips[rowIndex] && isIPListed(proxy.ips[rowIndex])
-                                                            ? 'text-red-600 font-bold bg-red-50 px-1.5 py-0.5 rounded inline-block'
-                                                            : proxy.status === 'stopped' && proxy.ips[rowIndex]
-                                                                ? 'text-gray-900'
-                                                                : 'text-gray-700'
+                                                        ? 'text-red-600 font-bold bg-red-50 px-1.5 py-0.5 rounded inline-block'
+                                                        : proxy.status === 'stopped' && proxy.ips[rowIndex]
+                                                            ? 'text-gray-900'
+                                                            : 'text-gray-700'
                                                         }`}>
                                                         {proxy.ips[rowIndex] || ''}
                                                     </div>

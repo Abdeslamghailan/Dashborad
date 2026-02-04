@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import * as XLSX from 'xlsx';
 import { API_URL } from '../config';
 import { useAuth } from '../contexts/AuthContext';
+import { service } from '../services';
 import { useListedIPs } from '../contexts/ListedIPsContext';
 import { Button } from './ui/Button';
 
@@ -53,19 +54,9 @@ export const ProxyPartition: React.FC = () => {
     const fetchSavedData = async () => {
         try {
             setIsLoading(true);
-            const response = await fetch(`${API_URL}/api/proxy-partition`, {
-                headers: {
-                    'Authorization': token ? `Bearer ${token}` : ''
-                }
-            });
-
-            if (response.ok) {
-                const data = await response.json();
-                if (data && Object.keys(data).length > 0) {
-                    setProcessedData(data);
-                    // Reconstruct entities list for filtering
-                    // Note: We don't have the original CSV rows, but we have the processed structure
-                }
+            const data = await service.getProxyPartition();
+            if (data && Object.keys(data).length > 0) {
+                setProcessedData(data);
             }
         } catch (error) {
             console.error('Failed to fetch saved proxy partition:', error);
@@ -76,14 +67,7 @@ export const ProxyPartition: React.FC = () => {
 
     const saveToBackend = async (data: ProcessedData) => {
         try {
-            await fetch(`${API_URL}/api/proxy-partition`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': token ? `Bearer ${token}` : ''
-                },
-                body: JSON.stringify(data)
-            });
+            await service.saveProxyPartition(data);
         } catch (error) {
             console.error('Failed to save proxy partition:', error);
             setUploadStatus({ type: 'error', message: 'Failed to save data to server.' });

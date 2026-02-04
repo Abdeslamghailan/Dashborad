@@ -236,10 +236,10 @@ const getDateRange = (): Date[] => {
 };
 
 const formatDate = (date: Date): string => {
-    return date.toLocaleDateString('en-US', {
+    return date.toLocaleDateString('en-GB', {
         weekday: 'short',
-        month: 'short',
-        day: 'numeric',
+        day: '2-digit',
+        month: '2-digit',
         year: 'numeric'
     });
 };
@@ -571,7 +571,7 @@ export const DayPlan: React.FC<Props> = ({ entity }) => {
     const groupedIntervalHistory = useMemo(() => {
         const groups: Record<string, any[]> = {};
         uniqueIntervalHistory.forEach(entry => {
-            const date = new Date(entry.createdAt).toLocaleDateString();
+            const date = new Date(entry.createdAt).toLocaleDateString('en-GB');
             if (!groups[date]) groups[date] = [];
             groups[date].push(entry);
         });
@@ -1731,7 +1731,7 @@ export const DayPlan: React.FC<Props> = ({ entity }) => {
                                                                                         <div className="flex-1 min-w-0">
                                                                                             <div className="flex items-center justify-between mb-0.5">
                                                                                                 <span className="text-[10px] font-black text-gray-800 truncate">{entry.profileName}</span>
-                                                                                                <span className="text-[8px] font-bold text-gray-400 uppercase">{new Date(entry.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                                                                                                <span className="text-[8px] font-bold text-gray-400 uppercase">{new Date(entry.createdAt).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}</span>
                                                                                             </div>
                                                                                             <div className="text-[11px] font-bold text-teal-600 break-all leading-tight">
                                                                                                 {entry.interval}
@@ -2092,9 +2092,9 @@ export const DayPlan: React.FC<Props> = ({ entity }) => {
                                             const usingPaused = (activeView === 'calculator' && selectedPausedIntervalType !== 'none') || selectedHistoryEntries.size > 0;
                                             const selectedOpt = [
                                                 { id: 'ignore', label: usingPaused ? 'Duplicate Mode' : 'Ignore Seeds' },
-                                                { id: 'this_drop', label: 'Use This Drop' },
-                                                { id: 'next_drop', label: 'Use Next Drop' },
-                                                { id: 'split_today', label: 'Split Today' }
+                                                { id: 'this_drop', label: 'Use It In This Drop' },
+                                                { id: 'next_drop', label: 'Use It In Next Drop' },
+                                                { id: 'split_today', label: 'Split It into Today Intervals' }
                                             ].find(o => o.id === calcLimitHandling[alert.sessionId]);
 
                                             if (isResolved) {
@@ -2166,9 +2166,9 @@ export const DayPlan: React.FC<Props> = ({ entity }) => {
                                                                 const usingPaused = (activeView === 'calculator' && selectedPausedIntervalType !== 'none') || selectedHistoryEntries.size > 0;
                                                                 return [
                                                                     { id: 'ignore', label: usingPaused ? 'Duplicate Mode' : 'Ignore Seeds', desc: usingPaused ? 'Wrap to start' : 'Leave them unused' },
-                                                                    { id: 'this_drop', label: 'Use This Drop', desc: 'Add to current drop' },
-                                                                    { id: 'next_drop', label: 'Use Next Drop', desc: 'Carry over to next' },
-                                                                    { id: 'split_today', label: 'Split Today', desc: 'Distribute across day' }
+                                                                    { id: 'this_drop', label: 'Use It In This Drop', desc: 'Add to current drop' },
+                                                                    { id: 'next_drop', label: 'Use It In Next Drop', desc: 'Carry over to next' },
+                                                                    { id: 'split_today', label: 'Split It into Today Intervals', desc: 'Distribute across day' }
                                                                 ].map(opt => (
                                                                     <button
                                                                         key={opt.id}
@@ -2288,9 +2288,9 @@ export const DayPlan: React.FC<Props> = ({ entity }) => {
                                                                     }`}
                                                             >
                                                                 <div className="opacity-70 text-[10px] mb-0.5">
-                                                                    {d.toLocaleDateString('en-US', { weekday: 'short' })}
+                                                                    {d.toLocaleDateString('en-GB', { weekday: 'short' })}
                                                                 </div>
-                                                                <div>{d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</div>
+                                                                <div>{d.toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' })}</div>
                                                             </button>
                                                         );
                                                     })}

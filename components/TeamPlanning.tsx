@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { API_URL } from '../config';
 import * as XLSX from 'xlsx';
+import { apiService } from '../services/apiService';
 
 interface Team {
     id: string;
@@ -141,14 +142,8 @@ export const TeamPlanning: React.FC = () => {
     // Fetch presets from database
     const fetchPresets = async () => {
         try {
-            const token = localStorage.getItem('auth_token');
-            const res = await fetch(`${API_URL}/api/planning/presets`, {
-                headers: { 'Authorization': `Bearer ${token}` }
-            });
-            if (res.ok) {
-                const data = await res.json();
-                setPresets(data);
-            }
+            const data = await apiService.getPlanningPresets();
+            setPresets(data);
         } catch (error) {
             console.error('Error fetching presets:', error);
         }
@@ -203,46 +198,18 @@ export const TeamPlanning: React.FC = () => {
     // Preset Management Functions
     const handleSavePreset = async () => {
         try {
-            const token = localStorage.getItem('auth_token');
             const codes = presetForm.codes.split(',').map(c => c.trim()).filter(c => c);
+            const presetData = {
+                label: presetForm.label,
+                codes,
+                color: presetForm.color,
+                ...(editingPreset ? { id: (editingPreset as any).id } : {})
+            };
 
-            if (editingPreset) {
-                // Update existing preset
-                const res = await fetch(`${API_URL}/api/planning/presets/${(editingPreset as any).id}`, {
-                    method: 'PUT',
-                    headers: {
-                        'Authorization': `Bearer ${token}`,
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({
-                        label: presetForm.label,
-                        codes,
-                        color: presetForm.color
-                    })
-                });
-                if (res.ok) {
-                    fetchPresets();
-                    setEditingPreset(null);
-                }
-            } else {
-                // Create new preset
-                const res = await fetch(`${API_URL}/api/planning/presets`, {
-                    method: 'POST',
-                    headers: {
-                        'Authorization': `Bearer ${token}`,
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({
-                        label: presetForm.label,
-                        codes,
-                        color: presetForm.color
-                    })
-                });
-                if (res.ok) {
-                    fetchPresets();
-                    setIsAddingPreset(false);
-                }
-            }
+            await apiService.savePlanningPreset(presetData);
+            fetchPresets();
+            setEditingPreset(null);
+            setIsAddingPreset(false);
             setPresetForm({ label: '', codes: '', color: '#000000' });
         } catch (error) {
             console.error('Error saving preset:', error);
@@ -252,14 +219,8 @@ export const TeamPlanning: React.FC = () => {
     const handleDeletePreset = async (presetId: string) => {
         if (!confirm('Are you sure you want to delete this preset?')) return;
         try {
-            const token = localStorage.getItem('auth_token');
-            const res = await fetch(`${API_URL}/api/planning/presets/${presetId}`, {
-                method: 'DELETE',
-                headers: { 'Authorization': `Bearer ${token}` }
-            });
-            if (res.ok) {
-                fetchPresets();
-            }
+            await apiService.deletePlanningPreset(presetId);
+            fetchPresets();
         } catch (error) {
             console.error('Error deleting preset:', error);
         }
@@ -268,28 +229,16 @@ export const TeamPlanning: React.FC = () => {
     // Team Management Functions
     const handleSaveTeam = async () => {
         try {
-            const token = localStorage.getItem('auth_token');
-            const url = editingTeam
-                ? `${API_URL}/api/planning/teams/${editingTeam.id}`
-                : `${API_URL}/api/planning/teams`;
+            const teamData = {
+                ...teamForm,
+                ...(editingTeam ? { id: editingTeam.id } : {})
+            };
 
-            const method = editingTeam ? 'PUT' : 'POST';
-
-            const res = await fetch(url, {
-                method,
-                headers: {
-                    'Authorization': `Bearer ${token}`,
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify(teamForm)
-            });
-
-            if (res.ok) {
-                fetchData();
-                setEditingTeam(null);
-                setIsAddingTeam(false);
-                setTeamForm({ name: '', displayName: '', color: '#000000', order: 0 });
-            }
+            await apiService.savePlanningTeam(teamData);
+            fetchData();
+            setEditingTeam(null);
+            setIsAddingTeam(false);
+            setTeamForm({ name: '', displayName: '', color: '#000000', order: 0 });
         } catch (error) {
             console.error('Error saving team:', error);
         }
@@ -298,11 +247,7 @@ export const TeamPlanning: React.FC = () => {
     const handleDeleteTeam = async (id: string) => {
         if (!confirm('Are you sure? This will delete all mailers in this team!')) return;
         try {
-            const token = localStorage.getItem('auth_token');
-            await fetch(`${API_URL}/api/planning/teams/${id}`, {
-                method: 'DELETE',
-                headers: { 'Authorization': `Bearer ${token}` }
-            });
+            await apiService.deletePlanningTeam(id);
             fetchData();
         } catch (error) {
             console.error('Error deleting team:', error);
@@ -312,41 +257,25 @@ export const TeamPlanning: React.FC = () => {
     // Mailer Management Functions
     const handleSaveMailer = async () => {
         try {
-            const token = localStorage.getItem('auth_token');
-            const url = editingMailer
-                ? `${API_URL}/api/planning/mailers/${editingMailer.id}`
-                : `${API_URL}/api/planning/mailers`;
+            const mailerData = {
+                ...mailerForm,
+                ...(editingMailer ? { id: editingMailer.id } : {})
+            };
 
-            const method = editingMailer ? 'PUT' : 'POST';
-
-            const res = await fetch(url, {
-                method,
-                headers: {
-                    'Authorization': `Bearer ${token}`,
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify(mailerForm)
-            });
-
-            if (res.ok) {
-                fetchData();
-                setEditingMailer(null);
-                setIsAddingMailer(false);
-                setMailerForm({ name: '', teamId: '', order: 0, isActive: true });
-            }
+            await apiService.savePlanningMailer(mailerData);
+            fetchData();
+            setEditingMailer(null);
+            setIsAddingMailer(false);
+            setMailerForm({ name: '', teamId: '', order: 0, isActive: true });
         } catch (error) {
             console.error('Error saving mailer:', error);
         }
     };
 
     const handleDeleteMailer = async (id: string) => {
-        if (!confirm('Are you sure you want to delete this mailer?')) return;
+        if (!confirm('Are you sure?')) return;
         try {
-            const token = localStorage.getItem('auth_token');
-            await fetch(`${API_URL}/api/planning/mailers/${id}`, {
-                method: 'DELETE',
-                headers: { 'Authorization': `Bearer ${token}` }
-            });
+            await apiService.deletePlanningMailer(id);
             fetchData();
         } catch (error) {
             console.error('Error deleting mailer:', error);
@@ -356,18 +285,10 @@ export const TeamPlanning: React.FC = () => {
     const fetchData = async () => {
         try {
             setLoading(true);
-            const token = localStorage.getItem('auth_token');
-
-            const teamsRes = await fetch(`${API_URL}/api/planning/teams`, {
-                headers: { 'Authorization': `Bearer ${token}` }
-            });
-            const teamsData = await teamsRes.json();
+            const teamsData = await apiService.getPlanningTeams();
             setTeams(teamsData);
 
-            const schedulesRes = await fetch(`${API_URL}/api/planning/schedules/current`, {
-                headers: { 'Authorization': `Bearer ${token}` }
-            });
-            const schedulesData = await schedulesRes.json();
+            const schedulesData = await apiService.getPlanningSchedulesCurrent();
             setSchedules(schedulesData);
         } catch (error) {
             console.error('Error fetching data:', error);
@@ -379,11 +300,7 @@ export const TeamPlanning: React.FC = () => {
     const fetchHistory = async () => {
         if (!isAdmin) return;
         try {
-            const token = localStorage.getItem('auth_token');
-            const res = await fetch(`${API_URL}/api/planning/schedules/history`, {
-                headers: { 'Authorization': `Bearer ${token}` }
-            });
-            const data = await res.json();
+            const data = await apiService.getPlanningSchedulesHistory();
             setHistoricalSchedules(data);
         } catch (error) {
             console.error('Error fetching history:', error);
@@ -393,11 +310,7 @@ export const TeamPlanning: React.FC = () => {
     const initializeWeeks = async () => {
         if (!isAdmin) return;
         try {
-            const token = localStorage.getItem('auth_token');
-            await fetch(`${API_URL}/api/planning/schedules/initialize`, {
-                method: 'POST',
-                headers: { 'Authorization': `Bearer ${token}` }
-            });
+            await apiService.initializePlanningSchedules();
             fetchData();
         } catch (error) {
             console.error('Error initializing weeks:', error);
@@ -416,7 +329,6 @@ export const TeamPlanning: React.FC = () => {
     // Apply preset to a cell (used for Quick Assign click mode)
     const applyPresetToCell = async (scheduleId: string, mailerId: string, dayOfWeek: number, preset: EntityPreset) => {
         try {
-            const token = localStorage.getItem('auth_token');
             const taskCode = preset.codes.join('-');
             const taskColor = preset.color;
 
@@ -428,41 +340,32 @@ export const TeamPlanning: React.FC = () => {
                 taskColor
             };
 
-            const response = await fetch(`${API_URL}/api/planning/assignments/bulk`, {
-                method: 'POST',
-                headers: {
-                    'Authorization': `Bearer ${token}`,
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({ assignments: [assignment] })
-            });
+            await apiService.savePlanningAssignmentsBulk([assignment]);
 
-            if (response.ok) {
-                setSchedules(prevSchedules =>
-                    prevSchedules.map(schedule => {
-                        if (schedule.id !== scheduleId) return schedule;
+            setSchedules(prevSchedules =>
+                prevSchedules.map(schedule => {
+                    if (schedule.id !== scheduleId) return schedule;
 
-                        let newAssignments = [...schedule.assignments];
-                        const existingIndex = newAssignments.findIndex(
-                            a => a.mailerId === mailerId && a.dayOfWeek === dayOfWeek
-                        );
+                    let newAssignments = [...schedule.assignments];
+                    const existingIndex = newAssignments.findIndex(
+                        a => a.mailerId === mailerId && a.dayOfWeek === dayOfWeek
+                    );
 
-                        if (existingIndex >= 0) {
-                            newAssignments[existingIndex] = { ...newAssignments[existingIndex], taskCode, taskColor };
-                        } else {
-                            newAssignments.push({
-                                id: `temp-${Date.now()}-${Math.random()}`,
-                                scheduleId,
-                                mailerId,
-                                dayOfWeek,
-                                taskCode,
-                                taskColor
-                            } as PlanningAssignment);
-                        }
-                        return { ...schedule, assignments: newAssignments };
-                    })
-                );
-            }
+                    if (existingIndex >= 0) {
+                        newAssignments[existingIndex] = { ...newAssignments[existingIndex], taskCode, taskColor };
+                    } else {
+                        newAssignments.push({
+                            id: `temp-${Date.now()}-${Math.random()}`,
+                            scheduleId,
+                            mailerId,
+                            dayOfWeek,
+                            taskCode,
+                            taskColor
+                        } as PlanningAssignment);
+                    }
+                    return { ...schedule, assignments: newAssignments };
+                })
+            );
         } catch (error) {
             console.error('Error applying preset:', error);
         }
@@ -492,40 +395,35 @@ export const TeamPlanning: React.FC = () => {
                 taskColor: copiedCell.taskColor
             };
 
-            const response = await fetch(`${API_URL}/api/planning/assignments/bulk`, {
-                method: 'POST',
-                headers: {
-                    'Authorization': `Bearer ${token}`,
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({ assignments: [assignment] })
-            });
+            const response = await apiService.savePlanningAssignmentsBulk([assignment]);
 
-            if (response.ok) {
-                setSchedules(prevSchedules =>
-                    prevSchedules.map(schedule => {
-                        if (schedule.id !== scheduleId) return schedule;
+            if (response) {
+                // Update local state for immediate feedback
+                setSchedules(prev => prev.map(s => {
+                    if (s.id !== scheduleId) return s;
 
-                        let newAssignments = [...schedule.assignments];
-                        const existingIndex = newAssignments.findIndex(
-                            a => a.mailerId === mailerId && a.dayOfWeek === dayOfWeek
-                        );
+                    const existingIdx = s.assignments.findIndex(a =>
+                        a.mailerId === mailerId && a.dayOfWeek === dayOfWeek
+                    );
 
-                        if (existingIndex >= 0) {
-                            newAssignments[existingIndex] = { ...newAssignments[existingIndex], taskCode: copiedCell.taskCode, taskColor: copiedCell.taskColor };
-                        } else {
-                            newAssignments.push({
-                                id: `temp-${Date.now()}-${Math.random()}`,
-                                scheduleId,
-                                mailerId,
-                                dayOfWeek,
-                                taskCode: copiedCell.taskCode,
-                                taskColor: copiedCell.taskColor
-                            } as PlanningAssignment);
-                        }
-                        return { ...schedule, assignments: newAssignments };
-                    })
-                );
+                    const newAssignment: PlanningAssignment = {
+                        id: `temp-${Date.now()}-${Math.random()}`,
+                        scheduleId,
+                        mailerId,
+                        dayOfWeek,
+                        taskCode: copiedCell.taskCode,
+                        taskColor: copiedCell.taskColor
+                    };
+
+                    const newAssignments = [...s.assignments];
+                    if (existingIdx >= 0) {
+                        newAssignments[existingIdx] = newAssignment;
+                    } else {
+                        newAssignments.push(newAssignment);
+                    }
+
+                    return { ...s, assignments: newAssignments };
+                }));
             }
         } catch (error) {
             console.error('Error pasting cell:', error);
@@ -537,8 +435,6 @@ export const TeamPlanning: React.FC = () => {
         if (!copiedCell || !isAdmin || selectedCells.size === 0) return;
 
         try {
-            const token = localStorage.getItem('auth_token');
-
             const assignments = Array.from(selectedCells).map((cellKey: string) => {
                 const [scheduleId, mailerId, dayOfWeek] = cellKey.split('_');
                 return {
@@ -550,16 +446,9 @@ export const TeamPlanning: React.FC = () => {
                 };
             });
 
-            const response = await fetch(`${API_URL}/api/planning/assignments/bulk`, {
-                method: 'POST',
-                headers: {
-                    'Authorization': `Bearer ${token}`,
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({ assignments })
-            });
+            const response = await apiService.savePlanningAssignmentsBulk(assignments);
 
-            if (response.ok) {
+            if (response) {
                 // Update state locally
                 setSchedules(prevSchedules =>
                     prevSchedules.map(schedule => {
@@ -567,31 +456,26 @@ export const TeamPlanning: React.FC = () => {
                         if (scheduleAssignments.length === 0) return schedule;
 
                         let newAssignments = [...schedule.assignments];
-                        scheduleAssignments.forEach(newAssignment => {
+                        scheduleAssignments.forEach(assignment => {
                             const existingIndex = newAssignments.findIndex(
-                                a => a.mailerId === newAssignment.mailerId && a.dayOfWeek === newAssignment.dayOfWeek
+                                a => a.mailerId === assignment.mailerId && a.dayOfWeek === assignment.dayOfWeek
                             );
+
+                            const newAssignment: PlanningAssignment = {
+                                id: `temp-${Date.now()}-${Math.random()}`,
+                                ...assignment
+                            };
+
                             if (existingIndex >= 0) {
-                                newAssignments[existingIndex] = { ...newAssignments[existingIndex], taskCode: copiedCell.taskCode, taskColor: copiedCell.taskColor };
+                                newAssignments[existingIndex] = newAssignment;
                             } else {
-                                newAssignments.push({
-                                    id: `temp-${Date.now()}-${Math.random()}`,
-                                    scheduleId: schedule.id,
-                                    mailerId: newAssignment.mailerId,
-                                    dayOfWeek: newAssignment.dayOfWeek,
-                                    taskCode: copiedCell.taskCode,
-                                    taskColor: copiedCell.taskColor
-                                } as PlanningAssignment);
+                                newAssignments.push(newAssignment);
                             }
                         });
                         return { ...schedule, assignments: newAssignments };
                     })
                 );
                 setSelectedCells(new Set()); // Clear selection after paste
-            } else {
-                const errorData = await response.json();
-                console.error('Server error details:', errorData);
-                alert(`Failed to paste: ${errorData.error || 'Unknown error'}`);
             }
         } catch (error) {
             console.error('Error pasting to selected cells:', error);
@@ -604,9 +488,8 @@ export const TeamPlanning: React.FC = () => {
         if (!preset || !isAdmin || selectedCells.size === 0) return;
 
         try {
-            const token = localStorage.getItem('auth_token');
-            const taskCode = selectedPreset.codes.join('-');
-            const taskColor = selectedPreset.color;
+            const taskCode = preset.codes.join('-');
+            const taskColor = preset.color;
 
             const assignments = Array.from(selectedCells).map((cellKey: string) => {
                 const [scheduleId, mailerId, dayOfWeek] = cellKey.split('_');
@@ -619,16 +502,9 @@ export const TeamPlanning: React.FC = () => {
                 };
             });
 
-            const response = await fetch(`${API_URL}/api/planning/assignments/bulk`, {
-                method: 'POST',
-                headers: {
-                    'Authorization': `Bearer ${token}`,
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({ assignments })
-            });
+            const response = await apiService.savePlanningAssignmentsBulk(assignments);
 
-            if (response.ok) {
+            if (response) {
                 // Update state locally
                 setSchedules(prevSchedules =>
                     prevSchedules.map(schedule => {
@@ -636,21 +512,20 @@ export const TeamPlanning: React.FC = () => {
                         if (scheduleAssignments.length === 0) return schedule;
 
                         let newAssignments = [...schedule.assignments];
-                        scheduleAssignments.forEach(newAssignment => {
+                        scheduleAssignments.forEach(assignment => {
                             const existingIndex = newAssignments.findIndex(
-                                a => a.mailerId === newAssignment.mailerId && a.dayOfWeek === newAssignment.dayOfWeek
+                                a => a.mailerId === assignment.mailerId && a.dayOfWeek === assignment.dayOfWeek
                             );
+
+                            const newAssignment: PlanningAssignment = {
+                                id: `temp-${Date.now()}-${Math.random()}`,
+                                ...assignment
+                            };
+
                             if (existingIndex >= 0) {
-                                newAssignments[existingIndex] = { ...newAssignments[existingIndex], taskCode, taskColor };
+                                newAssignments[existingIndex] = newAssignment;
                             } else {
-                                newAssignments.push({
-                                    id: `temp-${Date.now()}-${Math.random()}`,
-                                    scheduleId: schedule.id,
-                                    mailerId: newAssignment.mailerId,
-                                    dayOfWeek: newAssignment.dayOfWeek,
-                                    taskCode,
-                                    taskColor
-                                } as PlanningAssignment);
+                                newAssignments.push(newAssignment);
                             }
                         });
                         return { ...schedule, assignments: newAssignments };
@@ -811,16 +686,9 @@ export const TeamPlanning: React.FC = () => {
                 taskColor
             };
 
-            const response = await fetch(`${API_URL}/api/planning/assignments/bulk`, {
-                method: 'POST',
-                headers: {
-                    'Authorization': `Bearer ${token}`,
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({ assignments: [assignment] })
-            });
+            const response = await apiService.savePlanningAssignmentsBulk([assignment]);
 
-            if (response.ok) {
+            if (response) {
                 setSchedules(prevSchedules =>
                     prevSchedules.map(schedule => {
                         if (schedule.id !== scheduleId) return schedule;
@@ -925,16 +793,9 @@ export const TeamPlanning: React.FC = () => {
                 };
             });
 
-            const response = await fetch(`${API_URL}/api/planning/assignments/bulk`, {
-                method: 'POST',
-                headers: {
-                    'Authorization': `Bearer ${token}`,
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({ assignments })
-            });
+            const response = await apiService.savePlanningAssignmentsBulk(assignments);
 
-            if (response.ok) {
+            if (response) {
                 setSchedules(prevSchedules =>
                     prevSchedules.map(schedule => {
                         const scheduleAssignments = assignments.filter(a => a.scheduleId === schedule.id);
@@ -962,13 +823,6 @@ export const TeamPlanning: React.FC = () => {
                     })
                 );
                 setDraggedEntity(null);
-            } else {
-                const errorData = await response.json();
-                console.error('Server error details:', errorData);
-                const details = Array.isArray(errorData.details)
-                    ? errorData.details.map((d: any) => d.error || JSON.stringify(d)).join('\n')
-                    : (errorData.details || errorData.error || 'Unknown error');
-                alert(`Failed to assign task:\n${details}`);
             }
         } catch (error) {
             console.error('Error assigning task:', error);
@@ -979,7 +833,6 @@ export const TeamPlanning: React.FC = () => {
         if (!isAdmin || selectedCells.size === 0) return;
 
         try {
-            const token = localStorage.getItem('auth_token');
             const taskColor = TASK_COLORS[bulkTaskInput] || TASK_COLORS['default'];
 
             const assignments = Array.from(selectedCells).map((cellKey: string) => {
@@ -993,51 +846,38 @@ export const TeamPlanning: React.FC = () => {
                 };
             });
 
-            const response = await fetch(`${API_URL}/api/planning/assignments/bulk`, {
-                method: 'POST',
-                headers: {
-                    'Authorization': `Bearer ${token}`,
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({ assignments })
-            });
+            const response = await apiService.savePlanningAssignmentsBulk(assignments);
 
-            if (response.ok) {
+            if (response) {
                 // Update state locally without showing loading spinner
                 setSchedules(prevSchedules =>
-                    prevSchedules.map(schedule => ({
-                        ...schedule,
-                        assignments: schedule.assignments.map(assignment => {
-                            const cellKey = `${assignment.scheduleId}_${assignment.mailerId}_${assignment.dayOfWeek}`;
-                            if (selectedCells.has(cellKey)) {
-                                return { ...assignment, taskCode: bulkTaskInput, taskColor };
+                    prevSchedules.map(schedule => {
+                        const scheduleAssignments = assignments.filter(a => a.scheduleId === schedule.id);
+                        if (scheduleAssignments.length === 0) return schedule;
+
+                        let newAssignments = [...schedule.assignments];
+                        scheduleAssignments.forEach(assignment => {
+                            const existingIndex = newAssignments.findIndex(
+                                a => a.mailerId === assignment.mailerId && a.dayOfWeek === assignment.dayOfWeek
+                            );
+
+                            const newAssignment: PlanningAssignment = {
+                                id: `temp-${Date.now()}-${Math.random()}`,
+                                ...assignment
+                            };
+
+                            if (existingIndex >= 0) {
+                                newAssignments[existingIndex] = newAssignment;
+                            } else {
+                                newAssignments.push(newAssignment);
                             }
-                            return assignment;
-                        }).concat(
-                            // Add new assignments for cells that didn't exist
-                            assignments
-                                .filter(a => a.scheduleId === schedule.id)
-                                .filter(a => !schedule.assignments.some(
-                                    existing => existing.mailerId === a.mailerId && existing.dayOfWeek === a.dayOfWeek
-                                ))
-                                .map(a => ({
-                                    id: `temp-${Date.now()}-${Math.random()}`,
-                                    ...a,
-                                    scheduleId: schedule.id
-                                } as PlanningAssignment))
-                        )
-                    }))
+                        });
+                        return { ...schedule, assignments: newAssignments };
+                    })
                 );
                 setSelectedCells(new Set());
                 setShowBulkUpdateModal(false);
                 setBulkTaskInput('');
-            } else {
-                const errorData = await response.json();
-                console.error('Server error details:', errorData);
-                const details = Array.isArray(errorData.details)
-                    ? errorData.details.map((d: any) => d.error || JSON.stringify(d)).join('\n')
-                    : (errorData.details || errorData.error || 'Unknown error');
-                alert(`Failed to bulk update:\n${details}`);
             }
         } catch (error) {
             console.error('Error bulk updating:', error);
@@ -1072,16 +912,9 @@ export const TeamPlanning: React.FC = () => {
                 return;
             }
 
-            const response = await fetch(`${API_URL}/api/planning/assignments/bulk`, {
-                method: 'POST',
-                headers: {
-                    'Authorization': `Bearer ${token}`,
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({ assignments: assignmentsToClear })
-            });
+            const response = await apiService.savePlanningAssignmentsBulk(assignmentsToClear);
 
-            if (response.ok) {
+            if (response) {
                 // Clear assignments from state for this schedule only
                 setSchedules(prevSchedules =>
                     prevSchedules.map(s => {
@@ -1090,13 +923,10 @@ export const TeamPlanning: React.FC = () => {
                     })
                 );
                 setSelectedCells(new Set());
-            } else {
-                const errorData = await response.json();
-                alert(`Failed to reset: ${errorData.error || 'Unknown error'}`);
             }
-        } catch (error) {
+        } catch (error: any) {
             console.error('Error resetting planning:', error);
-            alert('An error occurred while resetting.');
+            alert(error.message || 'An error occurred while resetting.');
         }
     };
 
@@ -1106,7 +936,6 @@ export const TeamPlanning: React.FC = () => {
         if (!isAdmin) return;
 
         try {
-            const token = localStorage.getItem('auth_token');
             const assignment = {
                 scheduleId,
                 mailerId,
@@ -1115,16 +944,9 @@ export const TeamPlanning: React.FC = () => {
                 taskColor: '#ffffff'
             };
 
-            const response = await fetch(`${API_URL}/api/planning/assignments/bulk`, {
-                method: 'POST',
-                headers: {
-                    'Authorization': `Bearer ${token}`,
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({ assignments: [assignment] })
-            });
+            const response = await apiService.savePlanningAssignmentsBulk([assignment]);
 
-            if (response.ok) {
+            if (response) {
                 // Remove assignment from state
                 setSchedules(prevSchedules =>
                     prevSchedules.map(schedule => {
@@ -1294,10 +1116,10 @@ export const TeamPlanning: React.FC = () => {
     const nextWeek = schedules.find(s => s.isNext);
 
     return (
-        <div className="min-h-screen bg-gray-50 p-6 font-sans text-gray-900">
-            <div className="max-w-[1920px] mx-auto">
+        <div className="min-h-screen bg-gray-50 font-sans text-gray-900">
+            <div className="w-full">
                 {/* Header */}
-                <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-8 mb-8 transition-all hover:shadow-md">
+                <div className="bg-white rounded-2xl shadow-sm border border-gray-100 px-8 py-8 mb-8 transition-all hover:shadow-md">
                     <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
                         <div>
                             <h1 className="text-4xl font-extrabold text-gray-900 tracking-tight mb-2">
@@ -1354,7 +1176,7 @@ export const TeamPlanning: React.FC = () => {
 
                 {/* Entity Presets - Draggable and Clickable */}
                 {isAdmin && !showHistory && (
-                    <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-8">
+                    <div className="bg-white rounded-2xl shadow-sm border border-gray-200 px-8 py-8 mb-8">
                         <div className="flex justify-between items-start mb-4">
                             <div>
                                 <h3 className="text-lg font-bold text-gray-900 flex items-center gap-2">
@@ -1424,7 +1246,7 @@ export const TeamPlanning: React.FC = () => {
                                 </p>
                                 {selectedCells.size > 0 && (
                                     <button
-                                        onClick={applyPresetToSelectedCells}
+                                        onClick={() => applyPresetToSelectedCells()}
                                         className="px-4 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-md shadow-sm transition-all flex items-center gap-2"
                                     >
                                         <span>📥</span> Apply to {selectedCells.size} cell{selectedCells.size > 1 ? 's' : ''} (Enter)
@@ -1465,7 +1287,7 @@ export const TeamPlanning: React.FC = () => {
 
                 {/* Planning Grid */}
                 {!showHistory && (
-                    <div className="space-y-8">
+                    <div className="">
                         {[currentWeek, nextWeek].map((schedule) => {
                             if (!schedule) return null;
 
@@ -1493,8 +1315,8 @@ export const TeamPlanning: React.FC = () => {
                             const allTaskCodes = getAllTaskCodes();
 
                             return (
-                                <div key={schedule.id} className="bg-white rounded-2xl shadow-sm border border-gray-100 min-w-full w-fit">
-                                    <div className={`px-6 py-4 border-b border-gray-100 flex items-center justify-between ${schedule.isCurrent ? 'bg-gradient-to-r from-emerald-50 to-white' : 'bg-gradient-to-r from-blue-50 to-white'}`}>
+                                <div key={schedule.id} className="bg-white rounded-2xl shadow-sm border border-gray-100 min-w-full w-fit mb-8 overflow-hidden">
+                                    <div className={`px-8 py-5 border-b border-gray-100 flex items-center justify-between ${schedule.isCurrent ? 'bg-gradient-to-r from-emerald-50 to-white' : 'bg-gradient-to-r from-blue-50 to-white'}`}>
                                         <div className="flex items-center gap-3 cursor-pointer" onClick={toggleVisibility}>
                                             <span className={`text-2xl ${schedule.isCurrent ? 'text-emerald-600' : 'text-blue-600'}`}>
                                                 {schedule.isCurrent ? '📍' : '➡️'}
@@ -1564,7 +1386,7 @@ export const TeamPlanning: React.FC = () => {
                                     {isVisible && (
                                         <div className="">
                                             {/* Filter Bar */}
-                                            <div className="px-6 py-3 bg-gray-50 border-b border-gray-200 flex flex-wrap items-center gap-3">
+                                            <div className="px-8 py-3 bg-gray-50 border-b border-gray-200 flex flex-wrap items-center gap-3">
                                                 {/* Search by Mailer Name */}
                                                 <div className="relative">
                                                     <svg className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1638,10 +1460,10 @@ export const TeamPlanning: React.FC = () => {
                                             <table className="w-full border-collapse border border-gray-300">
                                                 <thead>
                                                     <tr className="bg-gray-50 border-b border-gray-300">
-                                                        <th className="px-4 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider sticky left-0 bg-gray-50 z-20 border border-gray-300 shadow-sm">Team</th>
-                                                        <th className="px-4 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider sticky left-[100px] bg-gray-50 z-20 border border-gray-300 shadow-sm whitespace-nowrap">Mailer</th>
+                                                        <th className="px-4 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider sticky left-0 bg-gray-50 z-20 border border-gray-300 shadow-sm w-40">Team</th>
+                                                        <th className="px-4 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider sticky left-[160px] bg-gray-50 z-20 border border-gray-300 shadow-sm whitespace-nowrap w-64">Mailer</th>
                                                         {DAYS.map((day) => (
-                                                            <th key={day} className="px-4 py-3 text-center text-xs font-bold text-gray-700 uppercase tracking-wider min-w-[100px] border border-gray-300">
+                                                            <th key={day} className="px-6 py-3 text-center text-xs font-bold text-gray-700 uppercase tracking-wider border border-gray-300" style={{ width: 'calc((100vw - 736px) / 7)', minWidth: '120px' }}>
                                                                 {day}
                                                             </th>
                                                         ))}
@@ -1655,7 +1477,7 @@ export const TeamPlanning: React.FC = () => {
                                                                     {mailerIdx === 0 && (
                                                                         <td
                                                                             rowSpan={team.mailers.length}
-                                                                            className="px-4 py-3 text-sm font-bold text-gray-800 bg-white sticky left-0 z-10 border border-gray-300 shadow-sm align-top"
+                                                                            className="px-4 py-3 text-sm font-bold text-gray-800 bg-white sticky left-0 z-10 border border-gray-300 shadow-sm align-top w-40"
                                                                         >
                                                                             <div className="flex items-center gap-2 mt-1">
                                                                                 <div className="w-1 h-4 rounded-full" style={{ backgroundColor: team.color || '#ccc' }}></div>
@@ -1663,7 +1485,7 @@ export const TeamPlanning: React.FC = () => {
                                                                             </div>
                                                                         </td>
                                                                     )}
-                                                                    <td className="px-4 py-3 text-sm font-medium text-gray-600 bg-white sticky left-[100px] z-10 border border-gray-300 shadow-sm whitespace-nowrap">
+                                                                    <td className="px-4 py-3 text-sm font-medium text-gray-600 bg-white sticky left-[160px] z-10 border border-gray-300 shadow-sm whitespace-nowrap w-64">
                                                                         <div className="flex items-center gap-2">
                                                                             <div className={`w-2 h-2 rounded-full ${mailer.isActive ? 'bg-green-400' : 'bg-red-400'}`}></div>
                                                                             {mailer.name}
@@ -1677,7 +1499,7 @@ export const TeamPlanning: React.FC = () => {
                                                                         return (
                                                                             <td
                                                                                 key={dayIdx}
-                                                                                className={`px-2 py-2 text-center text-xs font-semibold transition-all duration-150 border border-gray-300 relative ${isAdmin ? 'cursor-pointer' : 'cursor-default'}`}
+                                                                                className={`px-4 py-3 text-center text-sm font-semibold transition-all duration-150 border border-gray-300 relative ${isAdmin ? 'cursor-pointer' : 'cursor-default'}`}
                                                                                 style={{
                                                                                     backgroundColor: assignment?.taskColor || (isSelected ? '#EEF2FF' : 'transparent'),
                                                                                     boxShadow: isSelected ? 'inset 0 0 0 2px #4F46E5' : 'none'
@@ -1785,7 +1607,7 @@ export const TeamPlanning: React.FC = () => {
 
                 {/* Historical View */}
                 {showHistory && isAdmin && (
-                    <div className="bg-white rounded-xl shadow-lg p-6 border border-gray-200">
+                    <div className="bg-white shadow-sm border-b border-gray-200 px-8 py-6">
                         <h2 className="text-2xl font-bold text-gray-800 mb-4">📜 Historical Planning (3 Months)</h2>
                         <div className="space-y-6">
                             {historicalSchedules.map((schedule) => (
@@ -1897,7 +1719,6 @@ export const TeamPlanning: React.FC = () => {
                                     onClick={async () => {
                                         if (!confirm('Are you sure you want to clear these assignments?')) return;
                                         try {
-                                            const token = localStorage.getItem('auth_token');
                                             const assignments = Array.from(selectedCells).map((cellKey: string) => {
                                                 const [scheduleId, mailerId, dayOfWeek] = cellKey.split('_');
                                                 return {
@@ -1909,29 +1730,20 @@ export const TeamPlanning: React.FC = () => {
                                                 };
                                             });
 
-                                            const response = await fetch(`${API_URL}/api/planning/assignments/bulk`, {
-                                                method: 'POST',
-                                                headers: {
-                                                    'Authorization': `Bearer ${token}`,
-                                                    'Content-Type': 'application/json'
-                                                },
-                                                body: JSON.stringify({ assignments })
-                                            });
+                                            await apiService.savePlanningAssignmentsBulk(assignments);
 
-                                            if (response.ok) {
-                                                setSchedules(prevSchedules =>
-                                                    prevSchedules.map(schedule => ({
-                                                        ...schedule,
-                                                        assignments: schedule.assignments.filter(assignment => {
-                                                            const cellKey = `${assignment.scheduleId}_${assignment.mailerId}_${assignment.dayOfWeek}`;
-                                                            return !selectedCells.has(cellKey);
-                                                        })
-                                                    }))
-                                                );
-                                                setSelectedCells(new Set());
-                                                setShowBulkUpdateModal(false);
-                                                setBulkTaskInput('');
-                                            }
+                                            setSchedules(prevSchedules =>
+                                                prevSchedules.map(schedule => ({
+                                                    ...schedule,
+                                                    assignments: schedule.assignments.filter(assignment => {
+                                                        const cellKey = `${assignment.scheduleId}_${assignment.mailerId}_${assignment.dayOfWeek}`;
+                                                        return !selectedCells.has(cellKey);
+                                                    })
+                                                }))
+                                            );
+                                            setSelectedCells(new Set());
+                                            setShowBulkUpdateModal(false);
+                                            setBulkTaskInput('');
                                         } catch (error) {
                                             console.error('Error clearing assignments:', error);
                                         }

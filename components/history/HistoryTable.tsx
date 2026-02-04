@@ -12,9 +12,10 @@ interface HistoryTableProps {
 
 export const HistoryTable: React.FC<HistoryTableProps> = ({ history, entities = [], onDelete, isAdmin }) => {
     const formatDate = (dateString: string) => {
-        return new Date(dateString).toLocaleString('en-US', {
-            month: 'short',
-            day: 'numeric',
+        return new Date(dateString).toLocaleString('en-GB', {
+            day: '2-digit',
+            month: '2-digit',
+            year: 'numeric',
             hour: '2-digit',
             minute: '2-digit'
         });
@@ -255,8 +256,8 @@ export const HistoryTable: React.FC<HistoryTableProps> = ({ history, entities = 
                         {history.map((entry) => (
                             <tr key={entry.id} className="hover:bg-gray-50 transition-colors group">
                                 <td className="px-4 py-3 whitespace-nowrap">
-                                    <div className="text-gray-900 font-medium">{new Date(entry.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</div>
-                                    <div className="text-gray-400 text-[11px]">{new Date(entry.createdAt).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}</div>
+                                    <div className="text-gray-900 font-medium">{new Date(entry.createdAt).toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' })}</div>
+                                    <div className="text-gray-400 text-[11px]">{new Date(entry.createdAt).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}</div>
                                 </td>
                                 <td className="px-4 py-3 whitespace-nowrap">
                                     <div className="font-semibold text-gray-900">{entry.username}</div>

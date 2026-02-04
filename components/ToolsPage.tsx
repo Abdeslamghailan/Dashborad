@@ -346,21 +346,7 @@ const DNSChecker = () => {
         setResults(null);
 
         try {
-            const response = await fetch('/api/dashboard/dns-lookup', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`
-                },
-                body: JSON.stringify({ domains: domainList })
-            });
-
-            const data = await response.json();
-
-            if (!response.ok) {
-                throw new Error(data.message || data.error || 'DNS Lookup failed');
-            }
-
+            const data = await service.dnsLookup(domainList);
             setResults(data);
         } catch (err: any) {
             console.error('DNS Lookup failed:', err);

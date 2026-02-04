@@ -43,7 +43,7 @@ export const GlobalDashboard: React.FC = () => {
   const [entities, setEntities] = useState<Entity[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeMethod, setActiveMethod] = useState<MethodType | 'all'>('all');
-  const [availableMethods, setAvailableMethods] = useState<any[]>([]);
+  const [availableMethods, setAvailableMethods] = useState<any[]>(AVAILABLE_METHODS);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -58,13 +58,9 @@ export const GlobalDashboard: React.FC = () => {
 
     const fetchMethods = async () => {
       try {
-        const response = await fetch(`${API_URL}/api/methods`, {
-          headers: {
-            'Authorization': `Bearer ${token}`
-          }
-        });
-        if (response.ok) {
-          const data = await response.json();
+        const data = await service.getReportingMethods();
+        // If the API returns methods, use them; otherwise, keep the defaults from AVAILABLE_METHODS
+        if (data && data.length > 0) {
           setAvailableMethods(data);
         } else {
           setAvailableMethods(AVAILABLE_METHODS);
@@ -113,7 +109,7 @@ export const GlobalDashboard: React.FC = () => {
     let totalBlocked = 0;
 
     const methodsToProcess: MethodType[] = method === 'all'
-      ? (ent.enabledMethods || ['desktop'])
+      ? (ent.enabledMethods && ent.enabledMethods.length > 0 ? ent.enabledMethods : ['desktop'])
       : [method];
 
     methodsToProcess.forEach(m => {
@@ -367,8 +363,11 @@ export const GlobalDashboard: React.FC = () => {
                     let totalBlocked = 0;
 
                     entities.forEach(ent => {
-                      if (ent.enabledMethods?.includes(m.id) || (m.id === 'desktop' && !ent.enabledMethods)) {
-                        const metrics = getEntityMetrics(ent, m.id);
+                      const isEnabled = ent.enabledMethods?.includes(m.id as MethodType) ||
+                        (m.id === 'desktop' && (!ent.enabledMethods || ent.enabledMethods.length === 0));
+
+                      if (isEnabled) {
+                        const metrics = getEntityMetrics(ent, m.id as MethodType);
                         totalCount += metrics.totalCount;
                         totalConnected += metrics.totalConnected;
                         totalBlocked += metrics.totalBlocked;
@@ -428,8 +427,11 @@ export const GlobalDashboard: React.FC = () => {
                     let totalBlocked = 0;
 
                     entities.forEach(ent => {
-                      if (ent.enabledMethods?.includes(m.id) || (m.id === 'desktop' && !ent.enabledMethods)) {
-                        const metrics = getEntityMetrics(ent, m.id);
+                      const isEnabled = ent.enabledMethods?.includes(m.id as MethodType) ||
+                        (m.id === 'desktop' && (!ent.enabledMethods || ent.enabledMethods.length === 0));
+
+                      if (isEnabled) {
+                        const metrics = getEntityMetrics(ent, m.id as MethodType);
                         totalCount += metrics.totalCount;
                         totalConnected += metrics.totalConnected;
                         totalBlocked += metrics.totalBlocked;
@@ -449,7 +451,14 @@ export const GlobalDashboard: React.FC = () => {
                                   MousePointer2, Laptop, Tablet, AppWindow, Box, Activity,
                                   LayoutGrid, RefreshCw
                                 };
-                                const Icon = IconMap[m.icon] || RefreshCw;
+                                let Icon = RefreshCw;
+                                if (m.icon) {
+                                  if (typeof m.icon === 'string') {
+                                    Icon = IconMap[m.icon] || RefreshCw;
+                                  } else {
+                                    Icon = m.icon;
+                                  }
+                                }
                                 return <Icon size={16} />;
                               })()}
                             </div>

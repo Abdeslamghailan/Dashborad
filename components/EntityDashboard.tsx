@@ -90,17 +90,8 @@ export const EntityDashboard: React.FC = () => {
   useEffect(() => {
     const fetchMethods = async () => {
       try {
-        const response = await fetch(`${API_URL}/api/methods`, {
-          headers: {
-            'Authorization': `Bearer ${token}`
-          }
-        });
-        if (response.ok) {
-          const data = await response.json();
-          setAvailableMethods(data);
-        } else {
-          setAvailableMethods(AVAILABLE_METHODS);
-        }
+        const data = await service.getReportingMethods();
+        setAvailableMethods(data);
       } catch (error) {
         console.error('Failed to fetch methods:', error);
         setAvailableMethods(AVAILABLE_METHODS);

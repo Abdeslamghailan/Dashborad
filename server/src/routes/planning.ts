@@ -16,6 +16,83 @@ const isAdmin = (req: AuthRequest) => {
   return req.user && req.user.role === 'ADMIN';
 };
 
+// Helper to get week number
+const getWeekNumber = (date: Date) => {
+  const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+  const dayNum = d.getUTCDay() || 7;
+  d.setUTCDate(d.getUTCDate() + 4 - dayNum);
+  const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+  return Math.ceil((((d.getTime() - yearStart.getTime()) / 86400000) + 1) / 7);
+};
+
+// Helper to sync schedules to current date
+const syncSchedules = async () => {
+  const now = new Date();
+  const currentMonday = new Date(now);
+  currentMonday.setDate(now.getDate() - now.getDay() + (now.getDay() === 0 ? -6 : 1));
+  currentMonday.setHours(0, 0, 0, 0);
+
+  const currentSunday = new Date(currentMonday);
+  currentSunday.setDate(currentMonday.getDate() + 6);
+  currentSunday.setHours(23, 59, 59, 999);
+
+  const nextMonday = new Date(currentMonday);
+  nextMonday.setDate(currentMonday.getDate() + 7);
+
+  const nextSunday = new Date(nextMonday);
+  nextSunday.setDate(nextMonday.getDate() + 6);
+  nextSunday.setHours(23, 59, 59, 999);
+
+  const currentWeekNum = getWeekNumber(currentMonday);
+  const nextWeekNum = getWeekNumber(nextMonday);
+
+  // Clear old current/next flags
+  await prisma.planningSchedule.updateMany({
+    where: { OR: [{ isCurrent: true }, { isNext: true }] },
+    data: { isCurrent: false, isNext: false }
+  });
+
+  // Create or update current week
+  const currentWeek = await prisma.planningSchedule.upsert({
+    where: {
+      year_weekNumber: {
+        year: currentMonday.getFullYear(),
+        weekNumber: currentWeekNum
+      }
+    },
+    update: { isCurrent: true, isNext: false },
+    create: {
+      weekStart: currentMonday,
+      weekEnd: currentSunday,
+      weekNumber: currentWeekNum,
+      year: currentMonday.getFullYear(),
+      isCurrent: true,
+      isNext: false
+    }
+  });
+
+  // Create or update next week
+  const nextWeek = await prisma.planningSchedule.upsert({
+    where: {
+      year_weekNumber: {
+        year: nextMonday.getFullYear(),
+        weekNumber: nextWeekNum
+      }
+    },
+    update: { isCurrent: false, isNext: true },
+    create: {
+      weekStart: nextMonday,
+      weekEnd: nextSunday,
+      weekNumber: nextWeekNum,
+      year: nextMonday.getFullYear(),
+      isCurrent: false,
+      isNext: true
+    }
+  });
+
+  return { currentWeek, nextWeek };
+};
+
 // Get all teams with their mailers
 router.get('/teams', authenticateToken, async (req, res) => {
   try {
@@ -214,7 +291,7 @@ router.delete('/mailers/:id', authenticateToken, async (req, res) => {
 // Get current and next week schedules with assignments
 router.get('/schedules/current', authenticateToken, async (req, res) => {
   try {
-    const schedules = await prisma.planningSchedule.findMany({
+    let schedules = await prisma.planningSchedule.findMany({
       where: {
         OR: [{ isCurrent: true }, { isNext: true }]
       },
@@ -229,6 +306,38 @@ router.get('/schedules/current', authenticateToken, async (req, res) => {
       },
       orderBy: { weekStart: 'asc' }
     });
+
+    // Check if schedules need to be updated to current date
+    const now = new Date();
+    const currentMonday = new Date(now);
+    currentMonday.setDate(now.getDate() - now.getDay() + (now.getDay() === 0 ? -6 : 1));
+    currentMonday.setHours(0, 0, 0, 0);
+    const currentWeekNum = getWeekNumber(currentMonday);
+    const currentYear = currentMonday.getFullYear();
+
+    const currentSchedule = schedules.find(s => s.isCurrent);
+    
+    // If no current schedule found or it's outdated, perform a sync
+    if (!currentSchedule || currentSchedule.weekNumber !== currentWeekNum || currentSchedule.year !== currentYear) {
+      await syncSchedules();
+      // Re-fetch schedules after sync
+      schedules = await prisma.planningSchedule.findMany({
+        where: {
+          OR: [{ isCurrent: true }, { isNext: true }]
+        },
+        include: {
+          assignments: {
+            include: {
+              mailer: {
+                include: { team: true }
+              }
+            }
+          }
+        },
+        orderBy: { weekStart: 'asc' }
+      });
+    }
+
     res.json(schedules);
   } catch (error) {
     console.error('Error fetching schedules:', error);
@@ -447,78 +556,7 @@ router.post('/schedules/initialize', authenticateToken, async (req, res) => {
   }
 
   try {
-    const now = new Date();
-    const currentMonday = new Date(now);
-    currentMonday.setDate(now.getDate() - now.getDay() + (now.getDay() === 0 ? -6 : 1));
-    currentMonday.setHours(0, 0, 0, 0);
-
-    const currentSunday = new Date(currentMonday);
-    currentSunday.setDate(currentMonday.getDate() + 6);
-    currentSunday.setHours(23, 59, 59, 999);
-
-    const nextMonday = new Date(currentMonday);
-    nextMonday.setDate(currentMonday.getDate() + 7);
-
-    const nextSunday = new Date(nextMonday);
-    nextSunday.setDate(nextMonday.getDate() + 6);
-    nextSunday.setHours(23, 59, 59, 999);
-
-    // Get week numbers
-    const getWeekNumber = (date: Date) => {
-      const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
-      const dayNum = d.getUTCDay() || 7;
-      d.setUTCDate(d.getUTCDate() + 4 - dayNum);
-      const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
-      return Math.ceil((((d.getTime() - yearStart.getTime()) / 86400000) + 1) / 7);
-    };
-
-    const currentWeekNum = getWeekNumber(currentMonday);
-    const nextWeekNum = getWeekNumber(nextMonday);
-
-    // Clear old current/next flags
-    await prisma.planningSchedule.updateMany({
-      where: { OR: [{ isCurrent: true }, { isNext: true }] },
-      data: { isCurrent: false, isNext: false }
-    });
-
-    // Create or update current week
-    const currentWeek = await prisma.planningSchedule.upsert({
-      where: {
-        year_weekNumber: {
-          year: currentMonday.getFullYear(),
-          weekNumber: currentWeekNum
-        }
-      },
-      update: { isCurrent: true, isNext: false },
-      create: {
-        weekStart: currentMonday,
-        weekEnd: currentSunday,
-        weekNumber: currentWeekNum,
-        year: currentMonday.getFullYear(),
-        isCurrent: true,
-        isNext: false
-      }
-    });
-
-    // Create or update next week
-    const nextWeek = await prisma.planningSchedule.upsert({
-      where: {
-        year_weekNumber: {
-          year: nextMonday.getFullYear(),
-          weekNumber: nextWeekNum
-        }
-      },
-      update: { isCurrent: false, isNext: true },
-      create: {
-        weekStart: nextMonday,
-        weekEnd: nextSunday,
-        weekNumber: nextWeekNum,
-        year: nextMonday.getFullYear(),
-        isCurrent: false,
-        isNext: true
-      }
-    });
-
+    const { currentWeek, nextWeek } = await syncSchedules();
     res.json({ currentWeek, nextWeek });
   } catch (error) {
     console.error('Error initializing schedules:', error);
@@ -693,6 +731,102 @@ router.delete('/presets/:id', authenticateToken, async (req, res) => {
   } catch (error) {
     console.error('Error deleting preset:', error);
     res.status(500).json({ error: 'Failed to delete preset' });
+  }
+});
+
+// AI Suggest Plan (Admin only)
+router.post('/ai/suggest', authenticateToken, async (req: AuthRequest, res) => {
+  if (!isAdmin(req)) {
+    return res.status(403).json({ error: 'Admin access required' });
+  }
+
+  try {
+    const { scheduleId } = req.body;
+    
+    // Get target schedule
+    const targetSchedule = await prisma.planningSchedule.findUnique({
+      where: { id: scheduleId }
+    });
+
+    if (!targetSchedule) {
+      return res.status(404).json({ error: 'Schedule not found' });
+    }
+
+    // Get all mailers
+    const mailers = await prisma.mailer.findMany({
+      where: { isActive: true }
+    });
+
+    // Get previous schedules (up to 8 weeks back)
+    const previousSchedules = await prisma.planningSchedule.findMany({
+      where: {
+        weekStart: { lt: targetSchedule.weekStart }
+      },
+      orderBy: { weekStart: 'desc' },
+      take: 8,
+      include: {
+        assignments: true
+      }
+    });
+
+    const suggestions = [];
+
+    for (const mailer of mailers) {
+      for (let day = 0; day < 7; day++) {
+        // Collect historical tasks for this mailer on this day
+        const historicalTasks: { taskCode: string, taskColor: string }[] = [];
+        
+        for (const schedule of previousSchedules) {
+          const assignment = schedule.assignments.find(
+            a => a.mailerId === mailer.id && a.dayOfWeek === day
+          );
+          if (assignment && assignment.taskCode) {
+            historicalTasks.push({ 
+              taskCode: assignment.taskCode, 
+              taskColor: assignment.taskColor || '#E0E0E0' 
+            });
+          }
+        }
+
+        if (historicalTasks.length > 0) {
+          // Find most frequent task (mode)
+          const frequency: Record<string, { count: number, color: string }> = {};
+          historicalTasks.forEach(t => {
+            if (!frequency[t.taskCode]) {
+              frequency[t.taskCode] = { count: 0, color: t.taskColor };
+            }
+            frequency[t.taskCode].count++;
+          });
+
+          let bestTask = '';
+          let maxCount = 0;
+          let bestColor = '#E0E0E0';
+
+          for (const code in frequency) {
+            if (frequency[code].count > maxCount) {
+              maxCount = frequency[code].count;
+              bestTask = code;
+              bestColor = frequency[code].color;
+            }
+          }
+
+          if (bestTask) {
+            suggestions.push({
+              scheduleId,
+              mailerId: mailer.id,
+              dayOfWeek: day,
+              taskCode: bestTask,
+              taskColor: bestColor
+            });
+          }
+        }
+      }
+    }
+
+    res.json(suggestions);
+  } catch (error) {
+    console.error('Error in AI suggest:', error);
+    res.status(500).json({ error: 'Failed to generate suggestions' });
   }
 });
 

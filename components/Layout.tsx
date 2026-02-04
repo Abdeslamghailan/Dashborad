@@ -281,10 +281,16 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
 
         {/* Scrollable Content */}
         <main className={`flex-1 overflow-y-auto scroll-smooth ${location.pathname === '/dashboard-reporting' ? 'p-2 sm:p-4' :
-          location.pathname === '/tools' ? 'p-0' :
-            'p-4 sm:p-6 lg:p-8'
+            location.pathname === '/tools' ? 'p-0' :
+              'p-4 sm:p-6 lg:p-8'
           }`}>
-          <div className={`${location.pathname === '/proxy-partition' || location.pathname === '/dashboard-reporting' || location.pathname === '/tools' || location.pathname.startsWith('/entity/') ? 'w-full' : 'max-w-7xl mx-auto'}`}>
+          <div className={`${location.pathname === '/proxy-partition' ||
+            location.pathname === '/dashboard-reporting' ||
+            location.pathname === '/tools' ||
+            location.pathname === '/team-planning' ||
+            location.pathname.startsWith('/entity/')
+            ? 'w-full' : 'max-w-7xl mx-auto'
+            }`}>
             {children}
           </div>
         </main>

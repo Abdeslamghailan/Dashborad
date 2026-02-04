@@ -59,7 +59,7 @@ export function sanitizeObject(obj: any): any {
 }
 
 /**
- * Validate password strength
+ * Validate password strength with complexity rules
  */
 export function validatePassword(password: string): { valid: boolean; message?: string } {
   if (!password || typeof password !== 'string') {
@@ -79,12 +79,43 @@ export function validatePassword(password: string): { valid: boolean; message?: 
     return { valid: false, message: 'Password must contain at least one number' };
   }
   
-  // Check for at least one letter
-  if (!/[a-zA-Z]/.test(password)) {
-    return { valid: false, message: 'Password must contain at least one letter' };
+  // Check for at least one lowercase letter
+  if (!/[a-z]/.test(password)) {
+    return { valid: false, message: 'Password must contain at least one lowercase letter' };
+  }
+
+  // Check for at least one uppercase letter
+  if (!/[A-Z]/.test(password)) {
+    return { valid: false, message: 'Password must contain at least one uppercase letter' };
+  }
+
+  // Check for at least one special character
+  if (!/[!@#$%^&*(),.?":{}|<>]/.test(password)) {
+    return { valid: false, message: 'Password must contain at least one special character' };
   }
   
   return { valid: true };
+}
+
+/**
+ * Generate a random secure password
+ */
+export function generateRandomPassword(length: number = 16): string {
+  const charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*()_+~`|}{[]:;?><,./-=";
+  const crypto = globalThis.crypto;
+  
+  if (crypto && crypto.getRandomValues) {
+    const values = new Uint32Array(length);
+    crypto.getRandomValues(values);
+    return Array.from(values, (val) => charset[val % charset.length]).join('');
+  } else {
+    // Fallback if crypto is not available (though it should be in Node 20+)
+    let retVal = "";
+    for (let i = 0; i < length; ++i) {
+      retVal += charset.charAt(Math.floor(Math.random() * charset.length));
+    }
+    return retVal;
+  }
 }
 
 /**

@@ -577,7 +577,7 @@ export const HistoryPage: React.FC = () => {
                                                                             <div className="flex items-center gap-4">
                                                                                 <div className="flex flex-col items-end">
                                                                                     <span className="text-[10px] font-black text-indigo-600 uppercase tracking-wider">
-                                                                                        {new Date(entry.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                                                                        {new Date(entry.createdAt).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}
                                                                                     </span>
                                                                                     <div className="flex items-center gap-1.5 mt-0.5">
                                                                                         <UserIcon size={10} className="text-slate-300" />

@@ -1,35 +1,36 @@
 import React, { useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { TelegramLoginButton } from './TelegramLoginButton';
 import { Button } from './ui/Button';
-import { Footer } from './Footer';
+import { apiService } from '../services/apiService';
 
 export const LoginPage: React.FC = () => {
     const { login, loginWithPassword } = useAuth();
     const navigate = useNavigate();
-    const [isPasswordLogin, setIsPasswordLogin] = useState(false);
+    const location = useLocation();
+    const isAdminRoute = location.pathname === '/login/admin';
+    const [isPasswordLogin, setIsPasswordLogin] = useState(isAdminRoute);
     const [username, setUsername] = useState('');
     const [password, setPassword] = useState('');
     const [error, setError] = useState('');
     const [serverStatus, setServerStatus] = useState<'checking' | 'online' | 'offline'>('checking');
 
     React.useEffect(() => {
+        setIsPasswordLogin(isAdminRoute);
+    }, [isAdminRoute]);
+
+    React.useEffect(() => {
         const checkHealth = async () => {
-            // Use relative path to ensure we hit the same origin
-            const url = '/api/test';
             try {
-                console.log(`[LoginPage] Pinging health check at: ${url}`);
-                const res = await fetch(url);
-                if (res.ok) {
-                    const data = await res.json();
+                const data = await apiService.checkHealth();
+                if (data) {
                     setServerStatus('online');
                 } else {
-                    console.error(`[LoginPage] Server status check failed: ${res.status}`);
                     setServerStatus('offline');
                 }
             } catch (err) {
-                console.error(`[LoginPage] Health check failed at ${url}:`, err);
+                console.error(`[LoginPage] Health check failed:`, err);
                 setServerStatus('offline');
             }
         };
@@ -222,14 +223,16 @@ export const LoginPage: React.FC = () => {
                         </>
                     )}
 
-                    <div className="mt-6 text-center">
-                        <button
-                            onClick={() => setIsPasswordLogin(!isPasswordLogin)}
-                            className="text-sm text-indigo-600 hover:text-indigo-800 font-medium"
-                        >
-                            {isPasswordLogin ? 'Login with Telegram' : 'Login with Password'}
-                        </button>
-                    </div>
+                    {!isAdminRoute ? null : (
+                        <div className="mt-6 text-center">
+                            <button
+                                onClick={() => setIsPasswordLogin(!isPasswordLogin)}
+                                className="text-sm text-indigo-600 hover:text-indigo-800 font-medium"
+                            >
+                                {isPasswordLogin ? 'Login with Telegram' : 'Login with Password'}
+                            </button>
+                        </div>
+                    )}
 
                     <div className="mt-8 pt-6 border-t border-gray-200">
                         <p className="text-xs text-gray-500 text-center">
