@@ -18,6 +18,9 @@ const API_KEY = 'CA7m6kgrkkaEnIcC8i95DCSFTTE7IOSBNIxRmkipN-s';
 router.use(authenticateToken);
 
 router.get('/all-data', async (req, res) => {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 25000); // Increased timeout to 25s
+
   try {
     // Get the API key (Using hardcoded key for new API)
     const apiKey = API_KEY;
@@ -44,14 +47,24 @@ router.get('/all-data', async (req, res) => {
     const logUrl = apiUrl.replace(/api_key=[^&]+/, 'api_key=***');
     console.log('🔄 Proxying filtered request to external API:', logUrl);
     
-    const response = await fetch(apiUrl);
+    const response = await fetch(apiUrl, {
+      signal: controller.signal,
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+        'Accept': 'application/json'
+      }
+    });
     
+    clearTimeout(timeoutId);
+
     if (!response.ok) {
-      console.error(`❌ External API error: ${response.status} ${response.statusText}`);
+      const errorText = await response.text().catch(() => 'No error payload');
+      console.error(`❌ External API error: ${response.status} ${response.statusText}`, errorText);
       return res.status(response.status).json({ 
         error: 'External API Error', 
         status: response.status,
-        message: response.statusText 
+        message: response.statusText,
+        details: errorText.substring(0, 200)
       });
     }
     
@@ -59,10 +72,14 @@ router.get('/all-data', async (req, res) => {
     console.log('✅ Successfully fetched filtered data from external API');
     res.json(data);
   } catch (error: any) {
+    clearTimeout(timeoutId);
     console.error('🔴 Dashboard Proxy Exception:', error);
-    res.status(500).json({ 
-      error: 'Proxy Connection Failed', 
-      message: error.message 
+    
+    const isTimeout = error.name === 'AbortError';
+    res.status(isTimeout ? 504 : 500).json({ 
+      error: isTimeout ? 'Gateway Timeout' : 'Proxy Connection Failed', 
+      message: error.message,
+      code: error.code || error.name
     });
   }
 });

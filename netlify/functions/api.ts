@@ -12,9 +12,10 @@ export const handler = async (event: any, context: any) => {
       console.log('Initializing Netlify Function... env:', process.env.NODE_ENV);
       console.log('DB Connection String Present:', !!process.env.DATABASE_URL);
       
-      await ensureAdminUser();
+      // Fire and forget initialization to not block the request
+      ensureAdminUser().catch(err => console.error('Background initialization error:', err));
       isInitialized = true;
-      console.log('✅ Netlify Function Initialized successfully');
+      console.log('✅ Netlify Function Initialized (background task started)');
     } catch (error) {
       console.error('❌ Initialization failed:', error);
       // We don't block the handler, let it try to handle the request anyway

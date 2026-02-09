@@ -1709,7 +1709,7 @@ export const DashboardReporting: React.FC = () => {
             }
 
             // Add safety limit to prevent timeout on very large datasets
-            // Increased to 10000 to show more records as requested
+            // Restoration: Back to 10000 as requested by user
             params.append('limit', '10000');
 
             const queryString = params.toString();
@@ -2440,6 +2440,18 @@ export const DashboardReporting: React.FC = () => {
                         </div>
                         <div className="w-[120px] flex-shrink-0">
                             <MultiSelect label="Hours" options={filterOptions.hours} selected={selectedHours} onChange={setSelectedHours} icon={Clock} align="right" />
+                        </div>
+
+                        {/* Refresh Button */}
+                        <div className="w-20 flex justify-end">
+                            <button
+                                onClick={() => fetchData(true)}
+                                disabled={isRefetching}
+                                className="flex items-center gap-1.5 px-2 py-1.5 bg-blue-500 text-white rounded-lg text-[9px] font-bold uppercase tracking-wide hover:bg-blue-600 transition-all duration-200 shadow-sm whitespace-nowrap disabled:opacity-50"
+                            >
+                                <RefreshCw size={12} className={`stroke-[3] ${isRefetching ? 'animate-spin' : ''}`} />
+                                <span>Refresh</span>
+                            </button>
                         </div>
 
                         {/* Reset Button Container (Fixed Width to prevent jump) */}
