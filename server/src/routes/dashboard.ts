@@ -6,8 +6,9 @@ const dnsPromises = dns.promises;
 
 const router = Router();
 // New API endpoint
-const DATA_API_URL = 'http://app.cmhwarmup.com:8366/api/all-data';
+const DATA_API_URL = 'http://38.242.218.175:8366/api/all-data';
 const API_KEY = 'CA7m6kgrkkaEnIcC8i95DCSFTTE7IOSBNIxRmkipN-s';
+const NETLIFY_HARD_TIMEOUT = 9000; // 9 seconds to stay under Netlify's 10s limit
 
 // Old API key logic (disabled for new endpoint)
 // const KEY_URL = 'https://abdelgh9.pythonanywhere.com/api/debug/show-key';
@@ -19,7 +20,7 @@ router.use(authenticateToken);
 
 router.get('/all-data', async (req, res) => {
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 25000); // Increased timeout to 25s
+  const timeoutId = setTimeout(() => controller.abort(), NETLIFY_HARD_TIMEOUT);
 
   try {
     // Get the API key (Using hardcoded key for new API)
