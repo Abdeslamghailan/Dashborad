@@ -5,42 +5,22 @@ import dns from 'dns';
 const dnsPromises = dns.promises;
 
 const router = Router();
-const DATA_API_URL = 'https://abdelgh9.pythonanywhere.com/api/all-data';
-const KEY_URL = 'https://abdelgh9.pythonanywhere.com/api/debug/show-key';
+// New API endpoint
+const DATA_API_URL = 'http://app.cmhwarmup.com:8366/api/all-data';
+const API_KEY = 'CA7m6kgrkkaEnIcC8i95DCSFTTE7IOSBNIxRmkipN-s';
 
-let cachedApiKey: string | null = null;
-
-/**
- * Fetches the API key from the debug endpoint.
- * In a production environment, this should ideally be stored in environment variables.
- */
-async function getApiKey() {
-  if (cachedApiKey) return cachedApiKey;
-  
-  try {
-    console.log('🔑 Fetching API key from:', KEY_URL);
-    const response = await fetch(KEY_URL);
-    const data = await response.json() as any;
-    
-    if (data.status === 'success' && data.api_key) {
-      cachedApiKey = data.api_key;
-      console.log('✅ API key retrieved successfully');
-      return cachedApiKey;
-    }
-    console.error('❌ Failed to retrieve API key from response:', data);
-  } catch (error) {
-    console.error('🔴 Error fetching API key:', error);
-  }
-  return null;
-}
+// Old API key logic (disabled for new endpoint)
+// const KEY_URL = 'https://abdelgh9.pythonanywhere.com/api/debug/show-key';
+// let cachedApiKey: string | null = null;
+// async function getApiKey() { ... }
 
 // Apply authentication to all dashboard routes
 router.use(authenticateToken);
 
 router.get('/all-data', async (req, res) => {
   try {
-    // Get the API key
-    const apiKey = await getApiKey();
+    // Get the API key (Using hardcoded key for new API)
+    const apiKey = API_KEY;
     
     // Extract query parameters for filtering
     const { entities, date, hours, limit } = req.query;

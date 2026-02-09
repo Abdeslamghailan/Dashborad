@@ -80,6 +80,7 @@ const allowedOrigins = [
   'https://cmhw.netlify.app',
   'https://cmhw2.netlify.app',
   'https://cmhw3.netlify.app',
+  'http://app.cmhwarmup.com:8366',
 ];
 
 // Add Railway/Netlify URL if available

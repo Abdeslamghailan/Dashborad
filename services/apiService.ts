@@ -1,5 +1,5 @@
 import { Entity, DataService } from '../types';
-import { API_URL } from '../config';
+import { API_URL, REPORTING_API_URL } from '../config';
 
 // Helper function to get auth token
 const getAuthToken = () => {

@@ -8,7 +8,7 @@ import {
     Filter, Check, ChevronDown, X, RefreshCw, Copy,
     RotateCcw, Network, Calendar, Download, ChevronRight,
     BarChart3, Inbox, Ban, Clock, Search, TrendingUp, TrendingDown, AlertTriangle,
-    Zap, Eye, List, ArrowRight, FileText, FileSpreadsheet, Sparkles, Layers
+    Zap, Eye, List, ArrowRight, FileText, FileSpreadsheet, Sparkles, Layers, PieChart as PieChartIcon
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '../contexts/AuthContext';
@@ -207,39 +207,38 @@ const MetricCard = ({ value, label, type }: { value: number; label: string; type
 );
 
 // Multi-Select Filter - Modern & Smart
-const MultiSelect = ({ label, options, selected, onChange, icon: Icon, align = 'left' }: any) => {
+const MultiSelect = ({ label, options, selected, onChange, icon: Icon, align = 'left', disableQuickSelect = false }: any) => {
     const [isOpen, setIsOpen] = useState(false);
     const [search, setSearch] = useState('');
 
-    const filteredOptions = options.filter((opt: string) =>
-        opt.toLowerCase().includes(search.toLowerCase())
+    // Normalize options to ensure they are objects { label, value }
+    const normalizedOptions = options.map((opt: any) =>
+        typeof opt === 'string' ? { label: opt, value: opt } : opt
     );
 
-    const toggleOption = (option: string) => {
-        if (selected.includes(option)) {
-            onChange(selected.filter((item: string) => item !== option));
+    const filteredOptions = normalizedOptions.filter((opt: any) =>
+        opt.label.toLowerCase().includes(search.toLowerCase())
+    );
+
+    const toggleOption = (optionValue: string) => {
+        if (selected.includes(optionValue)) {
+            onChange(selected.filter((item: string) => item !== optionValue));
         } else {
-            onChange([...selected, option]);
+            onChange([...selected, optionValue]);
         }
     };
 
-    const selectAll = () => onChange(options);
+    const selectAll = () => onChange(normalizedOptions.map((o: any) => o.value));
     const clearAll = () => onChange([]);
 
     // Smart quick-select presets
     const getQuickSelects = () => {
+        if (disableQuickSelect) return [];
         if (label === 'Hours') {
             return [
                 { label: 'Morning', values: ['08', '09', '10', '11'] },
                 { label: 'Afternoon', values: ['12', '13', '14', '15', '16'] },
                 { label: 'Evening', values: ['17', '18', '19', '20', '21'] }
-            ];
-        }
-        if (label === 'Entities') {
-            return [
-                { label: 'CMH 1-5', values: ['CMH1', 'CMH2', 'CMH3', 'CMH4', 'CMH5'] },
-                { label: 'CMH 6-10', values: ['CMH6', 'CMH7', 'CMH8', 'CMH9', 'CMH10'] },
-                { label: 'CMH 11-16', values: ['CMH11', 'CMH12', 'CMH13', 'CMH14', 'CMH15', 'CMH16'] }
             ];
         }
         return [];
@@ -250,7 +249,10 @@ const MultiSelect = ({ label, options, selected, onChange, icon: Icon, align = '
         if (selected.length === options.length && options.length > 0) return `All ${label}`;
 
         if (selected.length <= 2) {
-            return selected.map((val: string) => label === 'Hours' ? `${val}:00` : val).join(', ');
+            return selected.map((val: string) => {
+                const opt = normalizedOptions.find((o: any) => o.value === val);
+                return label === 'Hours' ? `${val}:00` : (opt ? opt.label : val);
+            }).join(', ');
         }
 
         return `${selected.length} selected`;
@@ -363,13 +365,13 @@ const MultiSelect = ({ label, options, selected, onChange, icon: Icon, align = '
                             <div className="max-h-[50vh] overflow-y-auto p-2 no-scrollbar">
                                 {filteredOptions.length > 0 ? (
                                     <div className="space-y-1">
-                                        {filteredOptions.map((option: string) => {
-                                            const isSelected = selected.includes(option);
+                                        {filteredOptions.map((option: any) => {
+                                            const isSelected = selected.includes(option.value);
                                             return (
                                                 <motion.button
-                                                    key={option}
+                                                    key={option.value}
                                                     whileHover={{ x: 4 }}
-                                                    onClick={() => toggleOption(option)}
+                                                    onClick={() => toggleOption(option.value)}
                                                     className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-sm transition-all group ${isSelected
                                                         ? 'bg-gradient-to-r from-blue-50 to-indigo-50 text-blue-700 shadow-sm'
                                                         : 'hover:bg-slate-50 text-slate-700'
@@ -391,7 +393,7 @@ const MultiSelect = ({ label, options, selected, onChange, icon: Icon, align = '
                                                             )}
                                                         </div>
                                                         <span className={`font-semibold text-xs ${isSelected ? 'text-blue-700' : 'text-slate-700'}`}>
-                                                            {label === 'Hours' ? `${option}:00` : option}
+                                                            {label === 'Hours' ? `${option.label}:00` : option.label}
                                                         </span>
                                                     </div>
                                                     {isSelected && (
@@ -433,6 +435,125 @@ const MultiSelect = ({ label, options, selected, onChange, icon: Icon, align = '
                                 >
                                     Done
                                 </motion.button>
+                            </div>
+                        </motion.div>
+                    </>
+                )}
+            </AnimatePresence>
+        </div>
+    );
+};
+
+// Date Picker Component - Month View
+const DatePicker = ({ date, onChange }: { date: string, onChange: (d: string) => void }) => {
+    const [isOpen, setIsOpen] = useState(false);
+    // Parse initial date or default to today
+    const selectedDate = date ? new Date(date) : new Date();
+    // View state for navigation
+    const [viewDate, setViewDate] = useState(new Date(selectedDate));
+
+    useEffect(() => {
+        if (isOpen && date) {
+            setViewDate(new Date(date));
+        }
+    }, [isOpen, date]);
+
+    const daysInMonth = (year: number, month: number) => new Date(year, month + 1, 0).getDate();
+    const firstDayOfMonth = (year: number, month: number) => new Date(year, month, 1).getDay();
+
+    const handlePrevMonth = () => setViewDate(new Date(viewDate.getFullYear(), viewDate.getMonth() - 1, 1));
+    const handleNextMonth = () => setViewDate(new Date(viewDate.getFullYear(), viewDate.getMonth() + 1, 1));
+
+    const handleDateClick = (d: number) => {
+        const newDate = new Date(viewDate.getFullYear(), viewDate.getMonth(), d);
+        // Format YYYY-MM-DD
+        const dateStr = `${newDate.getFullYear()}-${(newDate.getMonth() + 1).toString().padStart(2, '0')}-${newDate.getDate().toString().padStart(2, '0')}`;
+        onChange(dateStr);
+        setIsOpen(false);
+    };
+
+    const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+    const weekDays = ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"];
+
+    const currentYear = viewDate.getFullYear();
+    const currentMonth = viewDate.getMonth();
+    const days = daysInMonth(currentYear, currentMonth);
+    const startDay = firstDayOfMonth(currentYear, currentMonth);
+
+    // Generate grid
+    const blanks = Array.from({ length: startDay }, (_, i) => i);
+    const dateButtons = Array.from({ length: days }, (_, i) => i + 1);
+
+    const isToday = (d: number) => {
+        const today = new Date();
+        return d === today.getDate() && currentMonth === today.getMonth() && currentYear === today.getFullYear();
+    };
+
+    const isSelected = (d: number) => {
+        if (!date) return false;
+        const sel = new Date(date);
+        return d === sel.getDate() && currentMonth === sel.getMonth() && currentYear === sel.getFullYear();
+    };
+
+    const formatDateDisplay = (dateStr: string) => {
+        if (!dateStr) return 'Select Date';
+        const d = new Date(dateStr);
+        const now = new Date();
+        const today = `${now.getFullYear()}-${(now.getMonth() + 1).toString().padStart(2, '0')}-${now.getDate().toString().padStart(2, '0')}`;
+        if (dateStr === today) return 'Today';
+        return dateStr.split('-').reverse().join('/');
+    };
+
+    return (
+        <div className="relative z-50">
+            <button
+                onClick={() => setIsOpen(!isOpen)}
+                className={`relative flex items-center gap-2 px-3 py-2 bg-white border-2 rounded-lg text-sm font-medium transition-all duration-200 min-w-[140px] justify-between ${date
+                    ? 'border-blue-500 text-blue-600'
+                    : 'border-slate-200 text-slate-600 hover:border-blue-300'
+                    }`}
+            >
+                <div className="flex items-center gap-2">
+                    <Calendar size={14} className={date ? 'text-blue-500' : 'text-slate-400'} />
+                    <span className="text-xs">{formatDateDisplay(date)}</span>
+                </div>
+                <ChevronDown size={14} className={`transition-transform duration-200 ${isOpen ? 'rotate-180 text-blue-500' : 'text-slate-400'}`} />
+            </button>
+
+            <AnimatePresence>
+                {isOpen && (
+                    <>
+                        <div className="fixed inset-0 z-[1001] bg-transparent" onClick={() => setIsOpen(false)} />
+                        <motion.div
+                            initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                            animate={{ opacity: 1, y: 0, scale: 1 }}
+                            exit={{ opacity: 0, scale: 0.95 }}
+                            className="absolute top-full mt-2 left-0 bg-white rounded-xl shadow-xl border border-slate-200 p-4 w-64 z-[1002]"
+                        >
+                            <div className="flex items-center justify-between mb-4">
+                                <button onClick={handlePrevMonth} className="p-1 hover:bg-slate-100 rounded-lg text-slate-600"><ChevronRight size={16} className="rotate-180" /></button>
+                                <span className="font-bold text-sm text-slate-800">{monthNames[currentMonth]} {currentYear}</span>
+                                <button onClick={handleNextMonth} className="p-1 hover:bg-slate-100 rounded-lg text-slate-600"><ChevronRight size={16} /></button>
+                            </div>
+                            <div className="grid grid-cols-7 gap-1 mb-2">
+                                {weekDays.map(d => <div key={d} className="text-center text-[10px] font-bold text-slate-400 uppercase">{d}</div>)}
+                            </div>
+                            <div className="grid grid-cols-7 gap-1">
+                                {blanks.map(b => <div key={`blank-${b}`} />)}
+                                {dateButtons.map(d => (
+                                    <button
+                                        key={d}
+                                        onClick={() => handleDateClick(d)}
+                                        className={`h-8 w-8 text-xs rounded-lg flex items-center justify-center transition-colors
+                                            ${isSelected(d) ? 'bg-blue-600 text-white font-bold shadow-md shadow-blue-200' :
+                                                isToday(d) ? 'bg-slate-100 text-blue-600 font-bold border border-blue-200' :
+                                                    'text-slate-700 hover:bg-slate-50'
+                                            }
+                                        `}
+                                    >
+                                        {d}
+                                    </button>
+                                ))}
                             </div>
                         </motion.div>
                     </>
@@ -1537,10 +1658,26 @@ export const DashboardReporting: React.FC = () => {
     const [isLoading, setIsLoading] = useState(true);
     const [isRefetching, setIsRefetching] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const [availableEntities, setAvailableEntities] = useState<any[]>([]); // Using array of objects {id, name}
     const [selectedEntities, setSelectedEntities] = useState<string[]>([]); // Empty = show all entities
     const [selectedHours, setSelectedHours] = useState<string[]>([new Date().getHours().toString().padStart(2, '0')]);
     const [selectedDate, setSelectedDate] = useState<string>('');
     const [showDetailedLogs, setShowDetailedLogs] = useState(false);
+
+    // Load available entities on mount
+    useEffect(() => {
+        const loadEntities = async () => {
+            try {
+                const entities = await apiService.getEntities();
+                if (entities && entities.length > 0) {
+                    setAvailableEntities(entities);
+                }
+            } catch (error) {
+                console.error('Failed to load entities for filter:', error);
+            }
+        };
+        loadEntities();
+    }, []);
 
     // Fetch data with optional filters
     const fetchData = async (showRefetchingState = false) => {
@@ -1550,14 +1687,15 @@ export const DashboardReporting: React.FC = () => {
             } else {
                 setIsLoading(true);
             }
-
             // Build query parameters for filtering
             const params = new URLSearchParams();
 
             // Add entity filter ONLY if specific entities are selected
             // Empty array = show all entities (no filter)
+            // Strip 'ent_' prefix and convert to uppercase for the API call (CMH12)
             if (selectedEntities.length > 0) {
-                params.append('entities', selectedEntities.join(','));
+                const apiEntityNames = selectedEntities.map(id => id.replace(/^ent_/, '').toUpperCase());
+                params.append('entities', apiEntityNames.join(','));
             }
 
             // Add date filter - ALWAYS send a date to prevent fetching entire database
@@ -1577,8 +1715,8 @@ export const DashboardReporting: React.FC = () => {
             const queryString = params.toString();
 
             console.log('🔍 Fetching filtered data:', {
-                entities: selectedEntities,
-                date: selectedDate,
+                selectedEntities,
+                date: filterDate,
                 hours: selectedHours.length < 24 ? selectedHours : 'all',
                 queryString
             });
@@ -1608,10 +1746,22 @@ export const DashboardReporting: React.FC = () => {
             const transformItems = (items: any[], category?: string) => {
                 return (items || []).map(item => {
                     const p = item.parsed || {};
+                    let entity = 'Unknown';
+                    if (p.session) {
+                        const parts = p.session.split('_');
+                        // Normalize entity to ent_cmh format for matching with availableEntities
+                        if (parts[0].toLowerCase().startsWith('cmh')) {
+                            entity = `ent_${parts[0].toLowerCase()}`;
+                        } else if (parts[0] === 'ent' && parts.length >= 2) {
+                            entity = `${parts[0]}_${parts[1].toLowerCase()}`;
+                        } else {
+                            entity = parts[0];
+                        }
+                    }
                     return {
                         ...p,
                         timestamp: normalizeTimestamp(p.timestamp),
-                        entity: p.session ? p.session.split('_')[0] : 'Unknown',
+                        entity: entity,
                         category: category || p.category
                     };
                 });
@@ -1624,7 +1774,18 @@ export const DashboardReporting: React.FC = () => {
                 const p = item.parsed || {};
                 const count = p.count || 0;
                 const ts = normalizeTimestamp(p.timestamp);
-                const entity = p.session ? p.session.split('_')[0] : 'Unknown';
+                let entity = 'Unknown';
+                if (p.session) {
+                    const parts = p.session.split('_');
+                    // Normalize entity to ent_cmh format for matching
+                    if (parts[0].toLowerCase().startsWith('cmh')) {
+                        entity = `ent_${parts[0].toLowerCase()}`;
+                    } else if (parts[0] === 'ent' && parts.length >= 2) {
+                        entity = `${parts[0]}_${parts[1].toLowerCase()}`;
+                    } else {
+                        entity = parts[0];
+                    }
+                }
 
                 if (count === 0) return;
 
@@ -1649,6 +1810,18 @@ export const DashboardReporting: React.FC = () => {
 
             console.log('📊 Data transformed. Spam domains:', transformedData.spam_domains.length, 'Inbox domains:', transformedData.inbox_domains.length);
             setRawData(transformedData);
+
+            // Debug: Log unique entities found in the data
+            const allEntities = [
+                ...inboxActions.map((a: any) => a.entity),
+                ...spamActions.map((a: any) => a.entity)
+            ];
+            const uniqueEntities = Array.from(new Set(allEntities));
+            console.log('📊 Unique entities found in fetched data records:', uniqueEntities);
+            if (uniqueEntities.length > 0) {
+                console.log('📊 First record entity format example:', allEntities[0]);
+            }
+
             setError(null);
         } catch (err: any) {
             console.error('Data Fetch Error:', err);
@@ -1760,19 +1933,10 @@ export const DashboardReporting: React.FC = () => {
     }, [rawData?.spam_domains?.length, rawData?.inbox_domains?.length]);
 
     const filterOptions = useMemo(() => {
-        // 1. Generate last 7 days (Today, Yesterday, etc.)
-        const dates: string[] = [];
-        for (let i = 0; i < 7; i++) {
-            const d = new Date();
-            d.setDate(d.getDate() - i);
-            dates.push(`${d.getFullYear()}-${(d.getMonth() + 1).toString().padStart(2, '0')}-${d.getDate().toString().padStart(2, '0')}`);
-        }
-
-        // 2. Generate entities CMH1 to CMH16
-        const entities: string[] = [];
-        for (let i = 1; i <= 16; i++) {
-            entities.push(`CMH${i}`);
-        }
+        // 2. Use fetched entities or fallback
+        const entities = availableEntities.length > 0
+            ? availableEntities.map((e: any) => ({ label: e.name, value: e.id }))
+            : Array.from({ length: 16 }, (_, i) => ({ label: `CMH${i + 1}`, value: `ent_cmh${i + 1}` }));
 
         // 3. Generate all 24 hours
         const hours: string[] = [];
@@ -1780,22 +1944,33 @@ export const DashboardReporting: React.FC = () => {
             hours.push(i.toString().padStart(2, '0'));
         }
 
-        return { entities, hours, dates };
-    }, []);
+        return { entities, hours };
+    }, [availableEntities]);
 
     // Set initial date if not set
+    // Set initial date if not set (Defaults to Today in component logic, so no need to force it here)
     useEffect(() => {
-        if (filterOptions.dates.length > 0 && !selectedDate) {
-            // Always default to the first date in the list (which we've ensured is Today)
-            setSelectedDate(filterOptions.dates[0]);
-        }
-    }, [filterOptions.dates, selectedDate]);
+        // No-op: Date is optional and defaults to today in fetchData if empty
+    }, []);
 
     const processedData = useMemo(() => {
         if (!rawData || !rawData.combined_actions) return null;
 
+        // Helper function to convert entity ID to display name
+        const getEntityName = (entityId: string): string => {
+            if (!entityId) return 'Unknown';
+            // Check if we have the entity in availableEntities
+            const entity = availableEntities.find((e: any) => e.id === entityId);
+            if (entity) return entity.name;
+            // Fallback: convert ent_cmh1 -> CMH1
+            if (entityId.startsWith('ent_')) {
+                return entityId.replace('ent_', '').toUpperCase();
+            }
+            return entityId;
+        };
+
         // Determine the target date
-        const targetDate = selectedDate || (filterOptions.dates.length > 0 ? filterOptions.dates[0] : new Date().toISOString().split('T')[0]);
+        const targetDate = selectedDate || new Date().toISOString().split('T')[0];
 
         // Helper to filter any data array by selected entities and date
         const filterByEntityAndDate = (arr: any[]) => {
@@ -1804,7 +1979,10 @@ export const DashboardReporting: React.FC = () => {
                 filtered = filtered.filter((item: any) => {
                     if (item.entity) return selectedEntities.includes(item.entity);
                     if (item.session) {
-                        const entityFromSession = item.session.split('_')[0];
+                        const parts = item.session.split('_');
+                        const entityFromSession = (parts.length >= 2 && parts[0] === 'ent')
+                            ? `${parts[0]}_${parts[1]}`
+                            : parts[0];
                         return selectedEntities.includes(entityFromSession);
                     }
                     return true;
@@ -1960,7 +2138,7 @@ export const DashboardReporting: React.FC = () => {
         if (topEntity) {
             insights.push({
                 icon: <TrendingUp size={16} className="text-green-400" />,
-                text: `Entity ${topEntity.name} is performing best with a ${topEntity.rate.toFixed(1)}% Inbox rate.`,
+                text: `Entity ${getEntityName(topEntity.name)} is performing best with a ${topEntity.rate.toFixed(1)}% Inbox rate.`,
                 trend: "Optimal Performance",
                 trendType: "positive"
             });
@@ -1997,7 +2175,7 @@ export const DashboardReporting: React.FC = () => {
             alerts.push({
                 type: 'danger',
                 title: 'Spam Spike Detected',
-                message: `Entity ${e} has exceeded the 15% spam threshold.`
+                message: `Entity ${getEntityName(e)} has exceeded the 15% spam threshold.`
             });
         });
         // Excessive Spam Forms Alert
@@ -2011,7 +2189,7 @@ export const DashboardReporting: React.FC = () => {
                 alerts.push({
                     type: 'danger',
                     title: 'Excessive Spam Forms',
-                    message: `Too much spam in entity ${e}: ${entitySpamForms} spam forms out of ${totalForms} total (${((entitySpamForms / totalForms) * 100).toFixed(1)}%).`
+                    message: `Too much spam in entity ${getEntityName(e)}: ${entitySpamForms} spam forms out of ${totalForms} total (${((entitySpamForms / totalForms) * 100).toFixed(1)}%).`
                 });
             }
         });
@@ -2050,7 +2228,7 @@ export const DashboardReporting: React.FC = () => {
             inboxActionTypes: aggregateActionTypes(inboxActions),
             spamRelationships: buildSpamRelationships(),
             inboxRelationships: buildInboxRelationships(),
-            displayEntity: selectedEntities.length === 0 ? 'ALL' : (selectedEntities.length === 1 ? selectedEntities[0] : `Multiple (${selectedEntities.length})`),
+            displayEntity: selectedEntities.length === 0 ? 'ALL' : (selectedEntities.length === 1 ? getEntityName(selectedEntities[0]) : `Multiple (${selectedEntities.length})`),
             displayHour: selectedHours.length === 0 ? 'ALL' : (selectedHours.length === 1 ? `${selectedHours[0]}:00` : `Multiple (${selectedHours.length})`),
             displayDate: targetDate.split('-').reverse().join('/'),
             trendData,
@@ -2153,7 +2331,7 @@ export const DashboardReporting: React.FC = () => {
                         total,
                         profilesCount,
                         spamPct: (spam / (total || 1)) * 100,
-                        entity: sActions[0]?.entity || 'Unknown'
+                        entity: getEntityName(sActions[0]?.entity || 'Unknown')
                     };
                 }).sort((a, b) => b.total - a.total),
                 stats: {
@@ -2164,7 +2342,7 @@ export const DashboardReporting: React.FC = () => {
                 }
             }
         };
-    }, [rawData, selectedEntities, selectedHours, selectedDate, filterOptions.dates]);
+    }, [rawData, selectedEntities, selectedHours, selectedDate]);
 
     if (isLoading) {
         return (
@@ -2207,7 +2385,7 @@ export const DashboardReporting: React.FC = () => {
                             <span className="text-[10px] font-bold uppercase tracking-wider">Navigate</span>
                         </div>
                         {[
-                            { id: 'overview', label: 'Overview', icon: <PieChart size={14} />, color: 'blue' },
+                            { id: 'overview', label: 'Overview', icon: <PieChartIcon size={14} />, color: 'blue' },
                             { id: 'forms', label: 'Forms', icon: <FileText size={14} />, color: 'purple' },
                             { id: 'actions', label: 'Actions', icon: <Zap size={14} />, color: 'amber' },
                             { id: 'domains', label: 'Domains', icon: <Globe size={14} />, color: 'emerald' },
@@ -2253,46 +2431,12 @@ export const DashboardReporting: React.FC = () => {
                         </div>
 
                         {/* Date Picker (Fixed Width) - Modern Design */}
-                        <div className="relative group w-[120px] flex-shrink-0">
-                            <button
-                                className={`relative flex items-center gap-1.5 px-2 py-1.5 bg-white border-2 rounded-lg text-xs font-medium transition-all duration-200 w-full justify-between ${selectedDate
-                                    ? 'border-blue-500 text-blue-600'
-                                    : 'border-slate-200 text-slate-600 hover:border-blue-300'
-                                    }`}
-                            >
-                                <div className="flex items-center gap-1.5 overflow-hidden w-full relative z-10">
-                                    <Calendar size={14} className={selectedDate ? 'text-blue-500' : 'text-slate-400'} />
-                                    <div className="relative flex items-center overflow-hidden w-full">
-                                        <span className="truncate block w-full text-left text-xs">
-                                            {(() => {
-                                                const now = new Date();
-                                                const today = `${now.getFullYear()}-${(now.getMonth() + 1).toString().padStart(2, '0')}-${now.getDate().toString().padStart(2, '0')}`;
-                                                const yesterday = new Date(now);
-                                                yesterday.setDate(now.getDate() - 1);
-                                                const yesterdayStr = `${yesterday.getFullYear()}-${(yesterday.getMonth() + 1).toString().padStart(2, '0')}-${yesterday.getDate().toString().padStart(2, '0')}`;
-
-                                                if (selectedDate === today) return 'Today';
-                                                if (selectedDate === yesterdayStr) return 'Yesterday';
-                                                return selectedDate || 'Select Date';
-                                            })()}
-                                        </span>
-                                        <select
-                                            value={selectedDate}
-                                            onChange={(e) => setSelectedDate(e.target.value)}
-                                            className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
-                                        >
-                                            {filterOptions.dates.map(date => (
-                                                <option key={date} value={date}>{date}</option>
-                                            ))}
-                                        </select>
-                                    </div>
-                                </div>
-                                <ChevronDown size={14} className={`flex-shrink-0 transition-all ${selectedDate ? 'text-blue-500' : 'text-slate-400'}`} />
-                            </button>
+                        <div className="w-[140px] flex-shrink-0">
+                            <DatePicker date={selectedDate} onChange={setSelectedDate} />
                         </div>
 
                         <div className="w-[120px] flex-shrink-0">
-                            <MultiSelect label="Entities" options={filterOptions.entities} selected={selectedEntities} onChange={setSelectedEntities} icon={Box} />
+                            <MultiSelect label="Entities" options={filterOptions.entities} selected={selectedEntities} onChange={setSelectedEntities} icon={Box} disableQuickSelect={true} />
                         </div>
                         <div className="w-[120px] flex-shrink-0">
                             <MultiSelect label="Hours" options={filterOptions.hours} selected={selectedHours} onChange={setSelectedHours} icon={Clock} align="right" />
@@ -2303,8 +2447,7 @@ export const DashboardReporting: React.FC = () => {
                             <AnimatePresence>
                                 {(selectedEntities.length > 0 || selectedHours.length !== 1 || selectedHours[0] !== new Date().getHours().toString().padStart(2, '0') || (selectedDate && selectedDate !== (() => {
                                     const now = new Date();
-                                    const today = `${now.getFullYear()}-${(now.getMonth() + 1).toString().padStart(2, '0')}-${now.getDate().toString().padStart(2, '0')}`;
-                                    return filterOptions.dates.includes(today) ? today : filterOptions.dates[0];
+                                    return `${now.getFullYear()}-${(now.getMonth() + 1).toString().padStart(2, '0')}-${now.getDate().toString().padStart(2, '0')}`;
                                 })())) && (
                                         <button
                                             onClick={() => {
@@ -2313,7 +2456,7 @@ export const DashboardReporting: React.FC = () => {
                                                 const today = `${now.getFullYear()}-${(now.getMonth() + 1).toString().padStart(2, '0')}-${now.getDate().toString().padStart(2, '0')}`;
                                                 setSelectedEntities([]);
                                                 setSelectedHours([currentHour]);
-                                                setSelectedDate(filterOptions.dates.includes(today) ? today : (filterOptions.dates[0] || ''));
+                                                setSelectedDate(today);
                                             }}
                                             className="flex items-center gap-1.5 px-2 py-1.5 bg-rose-500 text-white rounded-lg text-[9px] font-bold uppercase tracking-wide hover:bg-rose-600 transition-all duration-200 shadow-sm whitespace-nowrap"
                                         >
