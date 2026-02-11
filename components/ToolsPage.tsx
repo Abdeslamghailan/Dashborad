@@ -9,8 +9,9 @@ import { ReporterHelper } from './ReporterHelper';
 import { FileSpreadsheet, ClipboardCheck, Activity } from 'lucide-react';
 import { ConsumptionHelper } from './ConsumptionHelper';
 import { ProxySync } from './ProxySync';
-import { Share2, Fingerprint } from 'lucide-react';
+import { Share2, Fingerprint, ArrowRightLeft } from 'lucide-react';
 import { ReportIPExtractor } from './ReportIPExtractor';
+import { IPClassSplitter } from './IPClassSplitter';
 
 const WowAnimations = () => (
     <style dangerouslySetInnerHTML={{
@@ -469,92 +470,60 @@ const DNSChecker = () => {
 };
 
 export const ToolsPage: React.FC = () => {
-    const [activeTab, setActiveTab] = useState<'gFilter' | 'dns' | 'excel' | 'reporter' | 'consumption' | 'proxySync' | 'ipExtractor'>('gFilter');
+    const { user, isAdmin, isMailer } = useAuth();
+
+    // Define tabs with their permissions
+    const allTabs = [
+        { id: 'gFilter', label: 'gFilter', icon: <Mail size={16} />, color: 'bg-orange-500', component: <GmailFilterGenerator />, roles: ['ADMIN', 'MAILER'] },
+        { id: 'dns', label: 'DNS', icon: <Globe size={16} />, color: 'bg-indigo-600', component: <DNSChecker />, roles: ['ADMIN', 'MAILER', 'USER'] },
+        { id: 'excel', label: 'Excel', icon: <FileSpreadsheet size={16} />, color: 'bg-emerald-500', component: <SimulationExcel />, roles: ['ADMIN', 'MAILER', 'USER'] },
+        { id: 'reporter', label: 'Reporter', icon: <ClipboardCheck size={16} />, color: 'bg-rose-500', component: <ReporterHelper />, roles: ['ADMIN', 'MAILER'] },
+        { id: 'consumption', label: 'Consumption', icon: <Activity size={16} />, color: 'bg-indigo-600', component: <ConsumptionHelper />, roles: ['ADMIN', 'MAILER'] },
+        { id: 'proxySync', label: 'ProxySync', icon: <Share2 size={16} />, color: 'bg-indigo-600', component: <ProxySync />, roles: ['ADMIN', 'MAILER'] },
+        { id: 'ipExtractor', label: 'IP Extractor', icon: <Fingerprint size={16} />, color: 'bg-indigo-600', component: <ReportIPExtractor />, roles: ['ADMIN', 'MAILER'] },
+        { id: 'ipSplitter', label: 'IP Splitter', icon: <ArrowRightLeft size={16} />, color: 'bg-blue-600', component: <IPClassSplitter />, roles: ['ADMIN', 'MAILER', 'USER'] },
+    ] as const;
+
+    type TabId = typeof allTabs[number]['id'];
+
+    // Filter tabs based on user role
+    const filteredTabs = allTabs.filter(tab =>
+        ((tab.roles as any).includes('ADMIN') && isAdmin) ||
+        (tab.roles as any).includes(user?.role || '')
+    );
+
+    const [activeTab, setActiveTab] = useState<TabId>(filteredTabs[0]?.id || 'dns');
+
+    const activeTabObj = filteredTabs.find(t => t.id === activeTab) || filteredTabs[0];
 
     return (
-        <div className="min-h-screen bg-slate-50/50 pb-20">
+        <div className={`bg-slate-50/50 flex flex-col ${activeTab === 'ipSplitter' ? 'h-full overflow-hidden' : 'min-h-screen pb-20'}`}>
             {/* Sub-header with tabs */}
             <div className="bg-white border-b border-slate-200 sticky top-0 z-10">
-                <div className="max-w-7xl mx-auto px-8 h-16 flex items-center justify-between">
+                <div className={`${activeTab === 'ipSplitter' ? 'max-w-full' : 'max-w-7xl'} mx-auto px-8 h-16 flex items-center justify-between`}>
                     <div className="flex items-center gap-8">
                         <nav className="flex items-center gap-1">
-                            <button
-                                onClick={() => setActiveTab('gFilter')}
-                                className={`px-4 py-2 rounded-xl text-sm font-black uppercase tracking-widest transition-all flex items-center gap-2 ${activeTab === 'gFilter'
-                                    ? 'bg-orange-500 text-white shadow-[4px_4px_0px_0px_rgba(15,23,42,1)] -translate-y-0.5'
-                                    : 'text-slate-400 hover:text-slate-600 hover:bg-slate-50'
-                                    }`}
-                            >
-                                <Mail size={16} /> gFilter
-                            </button>
-                            <button
-                                onClick={() => setActiveTab('dns')}
-                                className={`px-4 py-2 rounded-xl text-sm font-black uppercase tracking-widest transition-all flex items-center gap-2 ${activeTab === 'dns'
-                                    ? 'bg-indigo-600 text-white shadow-[4px_4px_0px_0px_rgba(15,23,42,1)] -translate-y-0.5'
-                                    : 'text-slate-400 hover:text-slate-600 hover:bg-slate-50'
-                                    }`}
-                            >
-                                <Globe size={16} /> DNS
-                            </button>
-                            <button
-                                onClick={() => setActiveTab('excel')}
-                                className={`px-4 py-2 rounded-xl text-sm font-black uppercase tracking-widest transition-all flex items-center gap-2 ${activeTab === 'excel'
-                                    ? 'bg-emerald-500 text-white shadow-[4px_4px_0px_0px_rgba(15,23,42,1)] -translate-y-0.5'
-                                    : 'text-slate-400 hover:text-slate-600 hover:bg-slate-50'
-                                    }`}
-                            >
-                                <FileSpreadsheet size={16} /> Excel
-                            </button>
-                            <button
-                                onClick={() => setActiveTab('reporter')}
-                                className={`px-4 py-2 rounded-xl text-sm font-black uppercase tracking-widest transition-all flex items-center gap-2 ${activeTab === 'reporter'
-                                    ? 'bg-rose-500 text-white shadow-[4px_4px_0px_0px_rgba(15,23,42,1)] -translate-y-0.5'
-                                    : 'text-slate-400 hover:text-slate-600 hover:bg-slate-50'
-                                    }`}
-                            >
-                                <ClipboardCheck size={16} /> Reporter
-                            </button>
-                            <button
-                                onClick={() => setActiveTab('consumption')}
-                                className={`px-4 py-2 rounded-xl text-sm font-black uppercase tracking-widest transition-all flex items-center gap-2 ${activeTab === 'consumption'
-                                    ? 'bg-indigo-600 text-white shadow-[4px_4px_0px_0px_rgba(15,23,42,1)] -translate-y-0.5'
-                                    : 'text-slate-400 hover:text-slate-600 hover:bg-slate-50'
-                                    }`}
-                            >
-                                <Activity size={16} /> Consumption
-                            </button>
-                            <button
-                                onClick={() => setActiveTab('proxySync')}
-                                className={`px-4 py-2 rounded-xl text-sm font-black uppercase tracking-widest transition-all flex items-center gap-2 ${activeTab === 'proxySync'
-                                    ? 'bg-indigo-600 text-white shadow-[4px_4px_0px_0px_rgba(15,23,42,1)] -translate-y-0.5'
-                                    : 'text-slate-400 hover:text-slate-600 hover:bg-slate-50'
-                                    }`}
-                            >
-                                <Share2 size={16} /> ProxySync
-                            </button>
-                            <button
-                                onClick={() => setActiveTab('ipExtractor')}
-                                className={`px-4 py-2 rounded-xl text-sm font-black uppercase tracking-widest transition-all flex items-center gap-2 ${activeTab === 'ipExtractor'
-                                    ? 'bg-indigo-600 text-white shadow-[4px_4px_0px_0px_rgba(15,23,42,1)] -translate-y-0.5'
-                                    : 'text-slate-400 hover:text-slate-600 hover:bg-slate-50'
-                                    }`}
-                            >
-                                <Fingerprint size={16} /> IP Extractor
-                            </button>
+                            {filteredTabs.map((tab) => (
+                                <button
+                                    key={tab.id}
+                                    onClick={() => setActiveTab(tab.id)}
+                                    className={`px-4 py-2 rounded-xl text-sm font-black uppercase tracking-widest transition-all flex items-center gap-2 ${activeTab === tab.id
+                                        ? `${tab.color} text-white shadow-[4px_4px_0px_0px_rgba(15,23,42,1)] -translate-y-0.5`
+                                        : 'text-slate-400 hover:text-slate-600 hover:bg-slate-50'
+                                        }`}
+                                >
+                                    {tab.icon} {tab.label}
+                                </button>
+                            ))}
                         </nav>
                     </div>
                 </div>
             </div>
 
-            <div className="max-w-7xl mx-auto px-8 pt-4 pb-12">
-                {activeTab === 'gFilter' ? <GmailFilterGenerator /> :
-                    activeTab === 'dns' ? <DNSChecker /> :
-                        activeTab === 'excel' ? <SimulationExcel /> :
-                            activeTab === 'reporter' ? <ReporterHelper /> :
-                                activeTab === 'consumption' ? <ConsumptionHelper /> :
-                                    activeTab === 'proxySync' ? <ProxySync /> :
-                                        <ReportIPExtractor />}
+            <div className={`${activeTab === 'ipSplitter' ? 'max-w-full px-0 pt-0 pb-0 flex-1 min-h-0' : 'max-w-7xl px-8 pt-4 pb-12'} mx-auto w-full flex flex-col overflow-hidden`}>
+                {activeTabObj?.component}
             </div>
         </div>
     );
 };
+

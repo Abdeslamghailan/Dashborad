@@ -11,7 +11,8 @@ export const API_URL = (rawApiUrl && rawApiUrl !== 'undefined' && !window.locati
   : '';
 
 // Specific API URL for dashboard reporting
-export const REPORTING_API_URL = 'http://app.cmhwarmup.com:8366';
+// export const REPORTING_API_URL = 'http://app.cmhwarmup.com:8366';
+export const REPORTING_API_URL = 'https://abdelgh9.pythonanywhere.com';
 
 console.log(`[Config] API_URL resolved to: "${API_URL || '(relative)'}"`);
 console.log(`[Config] REPORTING_API_URL: "${REPORTING_API_URL}"`);
