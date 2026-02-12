@@ -380,7 +380,7 @@ export const apiService: DataService = {
   },
 
   getPlanningAiSuggest: async (scheduleId: string) => {
-    return await apiCall('/planning/ai-suggest', {
+    return await apiCall('/planning/ai/suggest', {
       method: 'POST',
       body: JSON.stringify({ scheduleId })
     });

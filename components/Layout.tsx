@@ -60,10 +60,8 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
         ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
       `}>
         {/* Logo Section */}
-        <div className="h-20 flex items-center justify-between px-6 border-b border-gray-100">
-          <div className="flex items-center gap-2 overflow-hidden rounded-2xl bg-white border border-indigo-50 shadow-sm">
-            <img src="/favicon.png" alt="CMHW Logo" className="w-14 h-14 object-contain scale-125" />
-          </div>
+        <div className="h-28 flex items-center justify-between px-6 border-b border-gray-100">
+          <img src="/cmhwarmup-logo.png" alt="CMHWARMUP Logo" className="h-20 w-auto object-contain" />
           {/* Mobile Close Button */}
           <button
             onClick={() => setIsMobileMenuOpen(false)}
@@ -225,12 +223,12 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
             Logout
           </Button>
         </div>
-      </aside>
+      </aside >
 
       {/* Main Content Area */}
-      <div className="flex-1 flex flex-col min-w-0 bg-gray-50/50">
+      < div className="flex-1 flex flex-col min-w-0 bg-gray-50/50" >
         {/* Header */}
-        <header className="h-16 bg-white border-b border-gray-200 sticky top-0 z-30 flex items-center justify-between px-4 sm:px-6 lg:px-8 shadow-sm/50 backdrop-blur-sm bg-white/90">
+        < header className="h-16 bg-white border-b border-gray-200 sticky top-0 z-30 flex items-center justify-between px-4 sm:px-6 lg:px-8 shadow-sm/50 backdrop-blur-sm bg-white/90" >
           <div className="flex items-center gap-3">
             {/* Mobile Menu Button */}
             <button
@@ -277,10 +275,10 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
               </div>
             )}
           </div>
-        </header>
+        </header >
 
         {/* Scrollable Content */}
-        <main className={`flex-1 overflow-y-auto scroll-smooth ${location.pathname === '/dashboard-reporting' ? 'p-2 sm:p-4' :
+        < main className={`flex-1 overflow-y-auto scroll-smooth ${location.pathname === '/dashboard-reporting' ? 'p-2 sm:p-4' :
           location.pathname === '/tools' ? 'p-0' :
             'p-4 sm:p-6 lg:p-8'
           }`}>
@@ -293,11 +291,11 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
             }`}>
             {children}
           </div>
-        </main>
+        </main >
 
         {/* Footer */}
-        <Footer />
-      </div>
-    </div>
+        < Footer />
+      </div >
+    </div >
   );
 };

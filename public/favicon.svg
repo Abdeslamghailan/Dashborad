@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <defs>
+    <linearGradient id="grad" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#ec4899" />
+      <stop offset="100%" stop-color="#3b82f6" />
+    </linearGradient>
+  </defs>
+  
+  <path d="M10,25 L30,85 L50,45 L70,85 L90,15" 
+        fill="none" 
+        stroke="url(#grad)" 
+        stroke-width="12" 
+        stroke-linecap="round" 
+        stroke-linejoin="round" />
+        
+  <circle cx="10" cy="25" r="6" fill="url(#grad)" />
+  
+  <!-- Arrow Head manually at 90,15 pointing top-right-ish -->
+  <!-- Vector from 70,85 to 90,15 is (20, -70). Angle is steep. -->
+  <!-- Let's just make a nice arrow head pointing up-right -->
+  <path d="M70,15 L90,15 L90,35" 
+        fill="none" 
+        stroke="url(#grad)" 
+        stroke-width="12" 
+        stroke-linecap="round" 
+        stroke-linejoin="round" />
+</svg>

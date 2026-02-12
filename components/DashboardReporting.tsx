@@ -207,9 +207,20 @@ const MetricCard = ({ value, label, type }: { value: number; label: string; type
 );
 
 // Multi-Select Filter - Modern & Smart
-const MultiSelect = ({ label, options, selected, onChange, icon: Icon, align = 'left', disableQuickSelect = false }: any) => {
+const MultiSelect = ({ label, options, selected, onChange, icon: Icon, align = 'left', disableQuickSelect = false, isExternalOpen = false, onExternalClose = () => { } }: any) => {
     const [isOpen, setIsOpen] = useState(false);
     const [search, setSearch] = useState('');
+
+    // Handle external trigger (for Advanced Hour View)
+    useEffect(() => {
+        if (isExternalOpen) setIsOpen(true);
+    }, [isExternalOpen]);
+
+    const handleClose = () => {
+        setIsOpen(false);
+        setSearch('');
+        onExternalClose();
+    };
 
     // Normalize options to ensure they are objects { label, value }
     const normalizedOptions = options.map((opt: any) =>
@@ -261,63 +272,67 @@ const MultiSelect = ({ label, options, selected, onChange, icon: Icon, align = '
     const quickSelects = getQuickSelects();
 
     return (
-        <div className="relative z-50">
-            <button
-                onClick={() => setIsOpen(!isOpen)}
-                className={`flex items-center gap-2 px-3 py-2 bg-white border-2 rounded-lg text-sm font-medium transition-all duration-200 w-full justify-between ${selected.length > 0
-                    ? 'border-blue-500 text-blue-600'
-                    : 'border-slate-200 text-slate-600 hover:border-blue-300'
-                    }`}
-            >
-                <div className="flex items-center gap-1.5 overflow-hidden w-full">
-                    <Icon size={14} className={selected.length > 0 ? 'text-blue-500' : 'text-slate-400'} />
-                    <span className="truncate block w-full text-left text-xs">
-                        {getDisplayLabel()}
-                    </span>
-                </div>
-                <div className="flex items-center gap-1 flex-shrink-0 ml-0.5">
-                    {selected.length > 0 && selected.length < options.length && (
-                        <span className="flex items-center justify-center min-w-[18px] h-[18px] px-1 text-[9px] font-bold bg-blue-500 text-white rounded-full">
-                            {selected.length}
+        <div className="relative">
+            {!isExternalOpen && (
+                <button
+                    onClick={() => setIsOpen(!isOpen)}
+                    className={`flex items-center gap-2 px-3 py-2 bg-white border-2 rounded-lg text-sm font-medium transition-all duration-200 w-full justify-between ${selected.length > 0
+                        ? 'border-blue-500 text-blue-600'
+                        : 'border-slate-200 text-slate-600 hover:border-blue-300'
+                        }`}
+                >
+                    <div className="flex items-center gap-1.5 overflow-hidden w-full">
+                        <Icon size={14} className={selected.length > 0 ? 'text-blue-500' : 'text-slate-400'} />
+                        <span className="truncate block w-full text-left text-xs">
+                            {getDisplayLabel()}
                         </span>
-                    )}
-                    <ChevronDown size={14} className={`transition-transform duration-200 ${isOpen ? 'rotate-180 text-blue-500' : 'text-slate-400'
-                        }`} />
-                </div>
-            </button>
+                    </div>
+                    <div className="flex items-center gap-1 flex-shrink-0 ml-0.5">
+                        {selected.length > 0 && selected.length < options.length && (
+                            <span className="flex items-center justify-center min-w-[18px] h-[18px] px-1 text-[9px] font-bold bg-blue-500 text-white rounded-full">
+                                {selected.length}
+                            </span>
+                        )}
+                        <ChevronDown size={14} className={`transition-transform duration-200 ${isOpen ? 'rotate-180 text-blue-500' : 'text-slate-400'
+                            }`} />
+                    </div>
+                </button>
+            )}
 
             <AnimatePresence>
                 {isOpen && (
                     <>
-                        <div className="fixed inset-0 z-[1001] bg-black/5 backdrop-blur-[2px]" onClick={() => { setIsOpen(false); setSearch(''); }} />
+                        <div className="fixed inset-0 z-[1001] bg-black/5 backdrop-blur-[2px]" onClick={handleClose} />
                         <motion.div
                             initial={{ opacity: 0, y: -15, scale: 0.92 }}
                             animate={{ opacity: 1, y: 0, scale: 1 }}
                             exit={{ opacity: 0, y: -15, scale: 0.92 }}
                             transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-                            className={`absolute ${align === 'right' ? 'right-0' : 'left-0'} top-full mt-2 w-80 bg-white border-2 border-slate-200/60 rounded-2xl shadow-2xl z-[1002] overflow-hidden`}
+                            className={`${isExternalOpen ? 'absolute right-0 top-full mt-2' : 'fixed left-1/2 -translate-x-1/2 top-1/2 -translate-y-1/2'} w-72 max-h-[70vh] bg-white border-2 border-slate-200/60 rounded-2xl shadow-2xl z-[1002] overflow-hidden flex flex-col`}
                         >
                             {/* Header with gradient */}
-                            <div className="bg-gradient-to-r from-blue-500 to-indigo-600 p-4 text-white">
-                                <div className="flex items-center justify-between mb-3">
+                            <div className="bg-gradient-to-br from-[#3b82f6] to-[#4f46e5] p-3 text-white">
+                                <div className="flex items-center justify-between mb-2">
                                     <div className="flex items-center gap-2">
-                                        <Icon size={18} className="text-white/90" />
-                                        <h3 className="font-bold text-sm">Select {label}</h3>
+                                        <div className="bg-white/20 p-1.5 rounded-lg backdrop-blur-sm">
+                                            <Icon size={16} className="text-white" />
+                                        </div>
+                                        <h3 className="font-black text-xs uppercase tracking-tight">Select {label}</h3>
                                     </div>
                                     <div className="flex items-center gap-2">
                                         <motion.button
-                                            whileHover={{ scale: 1.1 }}
-                                            whileTap={{ scale: 0.9 }}
+                                            whileHover={{ scale: 1.05 }}
+                                            whileTap={{ scale: 0.95 }}
                                             onClick={selectAll}
-                                            className="px-2.5 py-1 bg-white/20 hover:bg-white/30 rounded-lg text-[10px] font-bold backdrop-blur-sm transition-all"
+                                            className="px-3 py-1.5 bg-white/10 hover:bg-white/20 rounded-lg text-[10px] font-black uppercase tracking-wider backdrop-blur-sm transition-all"
                                         >
                                             All
                                         </motion.button>
                                         <motion.button
-                                            whileHover={{ scale: 1.1 }}
-                                            whileTap={{ scale: 0.9 }}
+                                            whileHover={{ scale: 1.05 }}
+                                            whileTap={{ scale: 0.95 }}
                                             onClick={clearAll}
-                                            className="px-2.5 py-1 bg-white/20 hover:bg-white/30 rounded-lg text-[10px] font-bold backdrop-blur-sm transition-all"
+                                            className="px-3 py-1.5 bg-white/10 hover:bg-white/20 rounded-lg text-[10px] font-black uppercase tracking-wider backdrop-blur-sm transition-all"
                                         >
                                             Clear
                                         </motion.button>
@@ -326,33 +341,33 @@ const MultiSelect = ({ label, options, selected, onChange, icon: Icon, align = '
 
                                 {/* Search bar */}
                                 <div className="relative">
-                                    <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-white/60" />
+                                    <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-white/50" />
                                     <input
                                         type="text"
                                         placeholder={`Search ${label.toLowerCase()}...`}
                                         value={search}
                                         onChange={(e) => setSearch(e.target.value)}
-                                        className="w-full pl-9 pr-4 py-2 bg-white/20 backdrop-blur-sm border border-white/30 rounded-xl text-xs text-white placeholder-white/60 focus:bg-white/30 focus:border-white/50 outline-none transition-all"
+                                        className="w-full pl-9 pr-3 py-2 bg-white/10 backdrop-blur-md border border-white/20 rounded-xl text-[11px] text-white placeholder-white/40 focus:bg-white/20 focus:border-white/40 outline-none transition-all"
                                         autoFocus
                                     />
                                 </div>
                             </div>
 
                             {/* Quick Select Chips */}
-                            {quickSelects.length > 0 && (
-                                <div className="px-4 py-3 bg-slate-50/80 border-b border-slate-200/60">
-                                    <div className="flex items-center gap-1.5 mb-2">
-                                        <Sparkles size={12} className="text-indigo-500" />
-                                        <span className="text-[10px] font-black text-slate-500 uppercase tracking-wider">Quick Select</span>
+                            {quickSelects.length > 0 && !search && (
+                                <div className="px-4 py-3 bg-slate-50/80 border-b border-slate-200/40">
+                                    <div className="flex items-center gap-2 mb-2">
+                                        <Sparkles size={10} className="text-[#4f46e5]" />
+                                        <span className="text-[9px] font-black text-slate-400 uppercase tracking-[0.2em]">Quick Select</span>
                                     </div>
-                                    <div className="flex flex-wrap gap-2">
+                                    <div className="flex flex-wrap gap-1.5">
                                         {quickSelects.map((preset) => (
                                             <motion.button
                                                 key={preset.label}
-                                                whileHover={{ scale: 1.05, y: -2 }}
-                                                whileTap={{ scale: 0.95 }}
+                                                whileHover={{ scale: 1.02 }}
+                                                whileTap={{ scale: 0.98 }}
                                                 onClick={() => onChange(preset.values)}
-                                                className="px-3 py-1.5 bg-gradient-to-r from-indigo-500 to-blue-500 text-white rounded-lg text-[11px] font-bold shadow-sm hover:shadow-md transition-all"
+                                                className="px-3 py-1.5 bg-[#4f46e5] text-white rounded-lg text-[10px] font-black shadow-md hover:shadow-indigo-500/30 transition-all border border-indigo-400/10"
                                             >
                                                 {preset.label}
                                             </motion.button>
@@ -362,7 +377,7 @@ const MultiSelect = ({ label, options, selected, onChange, icon: Icon, align = '
                             )}
 
                             {/* Options list */}
-                            <div className="max-h-[50vh] overflow-y-auto p-2 no-scrollbar">
+                            <div className="flex-1 overflow-y-auto p-2 custom-scrollbar min-h-[250px]">
                                 {filteredOptions.length > 0 ? (
                                     <div className="space-y-1">
                                         {filteredOptions.map((option: any) => {
@@ -370,68 +385,55 @@ const MultiSelect = ({ label, options, selected, onChange, icon: Icon, align = '
                                             return (
                                                 <motion.button
                                                     key={option.value}
-                                                    whileHover={{ x: 4 }}
+                                                    whileHover={{ x: 5 }}
                                                     onClick={() => toggleOption(option.value)}
-                                                    className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-sm transition-all group ${isSelected
-                                                        ? 'bg-gradient-to-r from-blue-50 to-indigo-50 text-blue-700 shadow-sm'
-                                                        : 'hover:bg-slate-50 text-slate-700'
+                                                    className={`w-full flex items-center justify-between px-4 py-3.5 rounded-2xl text-sm transition-all group ${isSelected
+                                                        ? 'bg-blue-50/50 text-blue-600'
+                                                        : 'hover:bg-slate-50 text-slate-600'
                                                         }`}
                                                 >
-                                                    <div className="flex items-center gap-3">
-                                                        <div className={`w-5 h-5 rounded-lg border-2 flex items-center justify-center transition-all ${isSelected
-                                                            ? 'bg-gradient-to-br from-blue-500 to-indigo-600 border-blue-500 shadow-sm'
-                                                            : 'border-slate-300 group-hover:border-blue-400 group-hover:bg-blue-50'
+                                                    <div className="flex items-center gap-4">
+                                                        <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all ${isSelected
+                                                            ? 'bg-gradient-to-br from-blue-500 to-indigo-600 border-blue-500 shadow-lg shadow-blue-500/20'
+                                                            : 'border-slate-200 group-hover:border-blue-400 group-hover:bg-blue-50'
                                                             }`}>
                                                             {isSelected && (
                                                                 <motion.div
-                                                                    initial={{ scale: 0, rotate: -180 }}
+                                                                    initial={{ scale: 0, rotate: -45 }}
                                                                     animate={{ scale: 1, rotate: 0 }}
-                                                                    transition={{ type: 'spring', damping: 15 }}
                                                                 >
-                                                                    <Check size={12} className="text-white stroke-[3]" />
+                                                                    <Check size={14} className="text-white stroke-[3]" />
                                                                 </motion.div>
                                                             )}
                                                         </div>
-                                                        <span className={`font-semibold text-xs ${isSelected ? 'text-blue-700' : 'text-slate-700'}`}>
+                                                        <span className={`font-black text-[13px] tracking-tight ${isSelected ? 'text-blue-700' : 'text-slate-700'}`}>
                                                             {label === 'Hours' ? `${option.label}:00` : option.label}
                                                         </span>
                                                     </div>
-                                                    {isSelected && (
-                                                        <motion.div
-                                                            initial={{ scale: 0, rotate: -90 }}
-                                                            animate={{ scale: 1, rotate: 0 }}
-                                                            className="w-2 h-2 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 shadow-sm"
-                                                        />
-                                                    )}
                                                 </motion.button>
                                             );
                                         })}
                                     </div>
                                 ) : (
-                                    <div className="py-12 text-center">
-                                        <motion.div
-                                            initial={{ scale: 0 }}
-                                            animate={{ scale: 1 }}
-                                            className="bg-gradient-to-br from-slate-100 to-slate-200 w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-3 shadow-inner"
-                                        >
-                                            <Search size={24} className="text-slate-400" />
-                                        </motion.div>
-                                        <p className="text-sm text-slate-500 font-semibold">No results found</p>
-                                        <p className="text-xs text-slate-400 mt-1">Try a different search term</p>
+                                    <div className="py-16 text-center">
+                                        <div className="bg-slate-50 w-20 h-20 rounded-3xl flex items-center justify-center mx-auto mb-4 border border-slate-100 shadow-inner">
+                                            <Search size={32} className="text-slate-200" />
+                                        </div>
+                                        <p className="text-sm text-slate-400 font-black uppercase tracking-widest">No results found</p>
                                     </div>
                                 )}
                             </div>
 
                             {/* Footer */}
-                            <div className="px-4 py-2.5 bg-slate-50/80 border-t border-slate-200/60 flex items-center justify-between">
-                                <span className="text-[10px] font-bold text-slate-500">
+                            <div className="px-6 py-4 bg-slate-50/50 border-t border-slate-200/40 flex items-center justify-between">
+                                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
                                     {selected.length} of {options.length} selected
                                 </span>
                                 <motion.button
                                     whileHover={{ scale: 1.05 }}
                                     whileTap={{ scale: 0.95 }}
-                                    onClick={() => { setIsOpen(false); setSearch(''); }}
-                                    className="px-3 py-1.5 bg-gradient-to-r from-blue-500 to-indigo-600 text-white rounded-lg text-[10px] font-bold shadow-sm hover:shadow-md transition-all"
+                                    onClick={handleClose}
+                                    className="px-6 py-2.5 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl text-xs font-black uppercase tracking-widest shadow-lg shadow-blue-600/30 hover:shadow-blue-600/50 transition-all border border-white/20"
                                 >
                                     Done
                                 </motion.button>
@@ -440,6 +442,87 @@ const MultiSelect = ({ label, options, selected, onChange, icon: Icon, align = '
                     </>
                 )}
             </AnimatePresence>
+        </div>
+    );
+};
+
+// Quick Hour Filter Component
+const QuickHourFilter = ({ selectedHours, onChange, onOpenAdvanced }: {
+    selectedHours: string[],
+    onChange: (hours: string[]) => void,
+    onOpenAdvanced: () => void
+}) => {
+    const now = new Date();
+    const currentHourNum = now.getHours();
+    const [baseHour, setBaseHour] = useState(currentHourNum);
+
+    const prevHour = (baseHour - 1 + 24) % 24;
+    const baseHourStr = baseHour.toString().padStart(2, '0');
+    const prevHourStr = prevHour.toString().padStart(2, '0');
+
+    const toggleHour = (hour: string) => {
+        if (selectedHours.includes(hour)) {
+            onChange(selectedHours.filter(h => h !== hour));
+        } else {
+            onChange([...selectedHours, hour]);
+        }
+    };
+
+    return (
+        <div className="flex items-center gap-1.5 p-1.5 bg-white border border-slate-200 rounded-2xl shadow-sm hover:shadow-md transition-all duration-300">
+            <motion.button
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                onClick={() => setBaseHour(h => (h - 1 + 24) % 24)}
+                className="p-2 hover:bg-slate-50 text-slate-400 hover:text-blue-500 rounded-xl transition-all"
+                title="Navigate backward"
+            >
+                <ChevronRight size={16} className="rotate-180" />
+            </motion.button>
+
+            <div className="flex items-center gap-1.5">
+                {[baseHourStr].map(h => {
+                    const isSelected = selectedHours.includes(h);
+                    return (
+                        <motion.button
+                            key={h}
+                            whileHover={{ y: -1 }}
+                            whileTap={{ scale: 0.98 }}
+                            onClick={() => toggleHour(h)}
+                            className={`px-4 py-2 rounded-xl text-xs font-black transition-all border whitespace-nowrap ${isSelected
+                                ? 'bg-gradient-to-br from-blue-600 to-indigo-600 border-blue-500 text-white shadow-lg shadow-blue-500/25 ring-2 ring-blue-500/10'
+                                : 'bg-white border-slate-200 text-slate-600 hover:border-blue-300 hover:bg-blue-50/30'
+                                }`}
+                        >
+                            {h}:00
+                        </motion.button>
+                    );
+                })}
+            </div>
+
+            {baseHour !== currentHourNum && (
+                <motion.button
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
+                    onClick={() => setBaseHour(h => (h + 1) % 24)}
+                    className="p-2 hover:bg-slate-50 text-slate-400 hover:text-blue-500 rounded-xl transition-all"
+                    title="Navigate forward"
+                >
+                    <ChevronRight size={16} />
+                </motion.button>
+            )}
+
+            <div className="w-px h-6 bg-slate-200/60 mx-1" />
+
+            <motion.button
+                whileHover={{ scale: 1.1, rotate: 10 }}
+                whileTap={{ scale: 0.9 }}
+                onClick={onOpenAdvanced}
+                className="p-2.5 bg-gradient-to-br from-slate-50 to-slate-100 text-blue-600 rounded-xl hover:shadow-inner transition-all border border-slate-200/50"
+                title="Full Selection View"
+            >
+                <Filter size={16} className="stroke-[2.5]" />
+            </motion.button>
         </div>
     );
 };
@@ -1660,9 +1743,33 @@ export const DashboardReporting: React.FC = () => {
     const [error, setError] = useState<string | null>(null);
     const [availableEntities, setAvailableEntities] = useState<any[]>([]); // Using array of objects {id, name}
     const [selectedEntities, setSelectedEntities] = useState<string[]>([]); // Empty = show all entities
-    const [selectedHours, setSelectedHours] = useState<string[]>([new Date().getHours().toString().padStart(2, '0')]);
-    const [selectedDate, setSelectedDate] = useState<string>('');
+    const [advancedHoursOpen, setAdvancedHoursOpen] = useState(false);
+    const [selectedDate, setSelectedDate] = useState<string>(new Date().toISOString().split('T')[0]); // Default to today
+
+    // Default to Current Hour
+    const getDefaultHour = () => {
+        const now = new Date();
+        return now.getHours().toString().padStart(2, '0');
+    };
+    const [selectedHours, setSelectedHours] = useState<string[]>([getDefaultHour()]);
     const [showDetailedLogs, setShowDetailedLogs] = useState(false);
+
+    // Helper to extract entity ID from session strings (e.g. CMH12_P_IP_3 -> ent_cmh12)
+    const getEntityFromSession = (session: string) => {
+        if (!session) return 'Unknown';
+        const s = session.toLowerCase();
+        // Normalize various entity formats to ent_xxx
+        if (s.startsWith('cmh')) {
+            const match = s.match(/^cmh[_\s]?(\d+)/);
+            return match ? `ent_cmh${match[1]}` : `ent_${s.split('_')[0]}`;
+        } else if (s.startsWith('ent_')) {
+            return s.split('_').slice(0, 2).join('_');
+        } else if (s.startsWith('ent ')) {
+            return `ent_${s.split(' ')[1]}`;
+        } else {
+            return s.split('_')[0];
+        }
+    };
 
     // Load available entities on mount
     useEffect(() => {
@@ -1735,34 +1842,44 @@ export const DashboardReporting: React.FC = () => {
 
             const normalizeTimestamp = (ts: string) => {
                 if (!ts) return '';
-                const parts = ts.split(' ');
-                if (parts.length !== 2) return ts;
-                const dateParts = parts[0].split('-');
-                const timeParts = parts[1].split(/[-:]/);
-                if (dateParts.length !== 3 || timeParts.length < 2) return ts;
-                return `${dateParts[2]}-${dateParts[1]}-${dateParts[0]} ${timeParts[0]}:${timeParts[1]}`;
+                // Handle various formats: DD-MM-YYYY HH-MM, DD-MM-YYYY HH:MM, YYYY-MM-DD HH:MM
+                const parts = ts.trim().split(' ');
+                if (parts.length < 2) return ts;
+
+                let datePart = parts[0];
+                let timePart = parts[1];
+
+                // Process date
+                const dateParts = datePart.split(/[-/]/);
+                if (dateParts.length === 3) {
+                    // Check if first part is a year (4 digits)
+                    if (dateParts[0].length === 4) {
+                        datePart = `${dateParts[0]}-${dateParts[1].padStart(2, '0')}-${dateParts[2].padStart(2, '0')}`;
+                    } else {
+                        // Assume DD-MM-YYYY
+                        datePart = `${dateParts[2]}-${dateParts[1].padStart(2, '0')}-${dateParts[0].padStart(2, '0')}`;
+                    }
+                }
+
+                // Process time
+                const timeParts = timePart.split(/[-:]/);
+                if (timeParts.length >= 2) {
+                    timePart = `${timeParts[0].padStart(2, '0')}:${timeParts[1].padStart(2, '0')}`;
+                }
+
+                return `${datePart} ${timePart}`;
             };
+
 
             const transformItems = (items: any[], category?: string) => {
                 return (items || []).map(item => {
-                    const p = item.parsed || {};
-                    let entity = 'Unknown';
-                    if (p.session) {
-                        const parts = p.session.split('_');
-                        // Normalize entity to ent_cmh format for matching with availableEntities
-                        if (parts[0].toLowerCase().startsWith('cmh')) {
-                            entity = `ent_${parts[0].toLowerCase()}`;
-                        } else if (parts[0] === 'ent' && parts.length >= 2) {
-                            entity = `${parts[0]}_${parts[1].toLowerCase()}`;
-                        } else {
-                            entity = parts[0];
-                        }
-                    }
+                    const data = item.parsed || item;
+                    const entity = getEntityFromSession(data.session);
                     return {
-                        ...p,
-                        timestamp: normalizeTimestamp(p.timestamp),
+                        ...data,
+                        timestamp: normalizeTimestamp(data.timestamp),
                         entity: entity,
-                        category: category || p.category
+                        category: category || data.category
                     };
                 });
             };
@@ -1771,27 +1888,16 @@ export const DashboardReporting: React.FC = () => {
 
             const spamActions: any[] = [];
             (result.data.spam_actions || []).forEach((item: any) => {
-                const p = item.parsed || {};
-                const count = p.count || 0;
-                const ts = normalizeTimestamp(p.timestamp);
-                let entity = 'Unknown';
-                if (p.session) {
-                    const parts = p.session.split('_');
-                    // Normalize entity to ent_cmh format for matching
-                    if (parts[0].toLowerCase().startsWith('cmh')) {
-                        entity = `ent_${parts[0].toLowerCase()}`;
-                    } else if (parts[0] === 'ent' && parts.length >= 2) {
-                        entity = `${parts[0]}_${parts[1].toLowerCase()}`;
-                    } else {
-                        entity = parts[0];
-                    }
-                }
+                const data = item.parsed || item;
+                const count = Number(data.count) || 0;
+                const ts = normalizeTimestamp(data.timestamp);
+                const entity = getEntityFromSession(data.session);
 
                 if (count === 0) return;
 
                 for (let i = 0; i < count; i++) {
                     spamActions.push({
-                        ...p,
+                        ...data,
                         count: 1,
                         timestamp: ts,
                         entity: entity,
@@ -1979,10 +2085,7 @@ export const DashboardReporting: React.FC = () => {
                 filtered = filtered.filter((item: any) => {
                     if (item.entity) return selectedEntities.includes(item.entity);
                     if (item.session) {
-                        const parts = item.session.split('_');
-                        const entityFromSession = (parts.length >= 2 && parts[0] === 'ent')
-                            ? `${parts[0]}_${parts[1]}`
-                            : parts[0];
+                        const entityFromSession = getEntityFromSession(item.session);
                         return selectedEntities.includes(entityFromSession);
                     }
                     return true;
@@ -2004,8 +2107,9 @@ export const DashboardReporting: React.FC = () => {
             if (selectedHours.length === 0) return arr;
             return arr.filter((item: any) => {
                 if (!item.timestamp) return true;
-                const date = new Date(item.timestamp.replace(' ', 'T'));
-                const hour = date.getHours().toString().padStart(2, '0');
+                const hPart = item.timestamp.split(' ')[1];
+                if (!hPart) return true;
+                const hour = hPart.split(':')[0].padStart(2, '0');
                 return selectedHours.includes(hour);
             });
         };
@@ -2027,9 +2131,11 @@ export const DashboardReporting: React.FC = () => {
             const map: Record<string, number> = {};
             arr.forEach(item => {
                 const key = item[senderField] || 'Unknown';
-                map[key] = (map[key] || 0) + 1;
+                // Use count field if available, otherwise default to 1
+                const amount = Number(item.count) || 1;
+                map[key] = (map[key] || 0) + amount;
             });
-            const total = arr.length;
+            const total = Object.values(map).reduce((sum, val) => sum + val, 0);
             return Object.entries(map).map(([name, count]) => ({ name, count, percentage: formatPercentage(count, total) })).sort((a, b) => b.count - a.count);
         };
 
@@ -2037,10 +2143,11 @@ export const DashboardReporting: React.FC = () => {
             const map: Record<string, number> = {};
             arr.forEach(item => {
                 const key = item.domain || 'Unknown';
-                map[key] = (map[key] || 0) + 1;
+                const amount = Number(item.count) || 1;
+                map[key] = (map[key] || 0) + amount;
             });
 
-            const total = arr.length;
+            const total = Object.values(map).reduce((sum, val) => sum + val, 0);
             return Object.entries(map).map(([name, count]) => ({
                 name,
                 count,
@@ -2051,16 +2158,15 @@ export const DashboardReporting: React.FC = () => {
         const aggregateActionTypes = (arr: any[]) => {
             const map: Record<string, number> = {};
             arr.forEach(item => {
-                // Count action_type (e.g., ACTION_STAR, ACTION_IMPORTANT, ACTION_CLICK, ACTION_OPEN)
                 const actionType = item.action_type || 'Unknown';
-                map[actionType] = (map[actionType] || 0) + 1;
+                const amount = Number(item.count) || 1;
+                map[actionType] = (map[actionType] || 0) + amount;
 
-                // Also count archive_action if it exists (e.g., ACTION_ARCHIVE)
                 if (item.archive_action && item.archive_action !== actionType) {
-                    map[item.archive_action] = (map[item.archive_action] || 0) + 1;
+                    map[item.archive_action] = (map[item.archive_action] || 0) + amount;
                 }
             });
-            const total = arr.length;
+            const total = Object.values(map).reduce((sum, val) => sum + val, 0);
             return Object.entries(map).map(([name, count]) => ({ name, count, percentage: formatPercentage(count, total) })).sort((a, b) => b.count - a.count);
         };
 
@@ -2070,9 +2176,10 @@ export const DashboardReporting: React.FC = () => {
                 const fromName = item.sender || 'Unknown';
                 const domain = item.domain || 'Unknown';
                 const ip = item.ip || 'N/A';
+                const amount = Number(item.count) || 1;
                 if (!map[fromName]) map[fromName] = {};
                 if (!map[fromName][domain]) map[fromName][domain] = { count: 0, ip };
-                map[fromName][domain].count++;
+                map[fromName][domain].count += amount;
                 if (ip && ip !== 'N/A') map[fromName][domain].ip = ip;
             });
             const result: any[] = [];
@@ -2087,23 +2194,24 @@ export const DashboardReporting: React.FC = () => {
 
         const buildInboxRelationships = () => {
             if (inboxRelationships.length > 0) {
-                const grandTotal = inboxRelationships.reduce((sum: number, item: any) => sum + (item.count || 1), 0);
+                const grandTotal = inboxRelationships.reduce((sum: number, item: any) => sum + (Number(item.count) || 1), 0);
                 return inboxRelationships.map((item: any) => ({
                     fromName: item.from_name || 'Unknown',
                     domain: item.domain || 'Unknown',
-                    count: item.count || 1,
-                    percentage: formatPercentage(item.count || 1, grandTotal)
+                    count: Number(item.count) || 1,
+                    percentage: formatPercentage(Number(item.count) || 1, grandTotal)
                 })).sort((a: any, b: any) => b.count - a.count);
             }
             const map: Record<string, Record<string, number>> = {};
             inboxDomains.forEach((item: any) => {
                 const fromName = item.sender || 'Unknown';
                 const domain = item.domain || 'Unknown';
+                const amount = Number(item.count) || 1;
                 if (!map[fromName]) map[fromName] = {};
-                map[fromName][domain] = (map[fromName][domain] || 0) + 1;
+                map[fromName][domain] = (map[fromName][domain] || 0) + amount;
             });
             const result: any[] = [];
-            const grandTotal = inboxDomains.length;
+            const grandTotal = Object.values(map).reduce((sum, d) => sum + Object.values(d).reduce((s, c) => s + c, 0), 0);
             Object.entries(map).forEach(([fromName, domains]) => {
                 Object.entries(domains).forEach(([domain, count]) => {
                     result.push({ fromName, domain, count, percentage: formatPercentage(count, grandTotal) });
@@ -2119,10 +2227,14 @@ export const DashboardReporting: React.FC = () => {
             trendMap[h] = { hour: `${h}:00`, spam: 0, inbox: 0 };
         }
         dailyActions.forEach((a: any) => {
-            const h = new Date(a.timestamp.replace(' ', 'T')).getHours().toString().padStart(2, '0');
-            if (trendMap[h]) {
-                if (a.category === 'spam') trendMap[h].spam += (a.count || 1);
-                else trendMap[h].inbox += (a.count || 1);
+            const hPart = a.timestamp.split(' ')[1];
+            if (hPart) {
+                const h = hPart.split(':')[0].padStart(2, '0');
+                if (trendMap[h]) {
+                    const amount = Number(a.count) || 1;
+                    if (a.category === 'spam') trendMap[h].spam += amount;
+                    else trendMap[h].inbox += amount;
+                }
             }
         });
         const trendData = Object.values(trendMap);
@@ -2204,6 +2316,29 @@ export const DashboardReporting: React.FC = () => {
             sessionsMap[a.session].push(a);
         });
 
+        const sessionStats = {
+            sessions: Object.entries(sessionsMap).map(([id, sessionActions]) => {
+                const inbox = sessionActions.filter(a => a.category === 'inbox').reduce((sum, a) => sum + (Number(a.count) || 1), 0);
+                const spam = sessionActions.filter(a => a.category === 'spam').reduce((sum, a) => sum + (Number(a.count) || 1), 0);
+                const total = inbox + spam;
+                return {
+                    id,
+                    inbox,
+                    spam,
+                    total,
+                    entity: getEntityName(sessionActions[0]?.entity),
+                    profilesCount: new Set(sessionActions.map(a => a.profile)).size,
+                    spamPct: total > 0 ? (spam / total) * 100 : 0
+                };
+            }),
+            stats: {
+                totalProfiles: new Set(actions.map((a: any) => a.profile)).size,
+                minSpam: spamCounts.length > 0 ? Math.min(...spamCounts) : 0,
+                maxSpam: spamCounts.length > 0 ? Math.max(...spamCounts) : 0,
+                avgSpam: spamCounts.length > 0 ? (spamCounts.reduce((a, b) => a + b, 0) / spamCounts.length).toFixed(2) : '0',
+            }
+        };
+
         return {
             stats: {
                 totalProfiles: new Set(actions.map((a: any) => a.profile)).size,
@@ -2220,6 +2355,7 @@ export const DashboardReporting: React.FC = () => {
                 max: spamCounts.length > 0 ? Math.max(...spamCounts) : 0,
                 avg: spamCounts.length > 0 ? (spamCounts.reduce((a, b) => a + b, 0) / spamCounts.length).toFixed(2) : '0',
             },
+            sessionStats,
             // Use 'sender' field from spam_domains and inbox_domains for from names
             spamForms: aggregateFromNames(spamDomains, 'sender'),
             inboxForms: aggregateFromNames(inboxDomains, 'sender'),
@@ -2317,29 +2453,6 @@ export const DashboardReporting: React.FC = () => {
                     });
                     return log;
                 })()
-            },
-            sessionStats: {
-                sessions: Object.entries(sessionsMap).map(([id, sActions]) => {
-                    const spam = sActions.filter(a => a.category === 'spam').length;
-                    const inbox = sActions.filter(a => a.category === 'inbox').length;
-                    const total = sActions.length;
-                    const profilesCount = new Set(sActions.map(a => a.profile)).size;
-                    return {
-                        id,
-                        spam,
-                        inbox,
-                        total,
-                        profilesCount,
-                        spamPct: (spam / (total || 1)) * 100,
-                        entity: getEntityName(sActions[0]?.entity || 'Unknown')
-                    };
-                }).sort((a, b) => b.total - a.total),
-                stats: {
-                    totalProfiles: new Set(actions.map((a: any) => a.profile)).size,
-                    minSpam: spamCounts.length > 0 ? Math.min(...spamCounts) : 0,
-                    maxSpam: spamCounts.length > 0 ? Math.max(...spamCounts) : 0,
-                    avgSpam: spamCounts.length > 0 ? (spamCounts.reduce((a, b) => a + b, 0) / spamCounts.length).toFixed(2) : '0',
-                }
             }
         };
     }, [rawData, selectedEntities, selectedHours, selectedDate]);
@@ -2405,7 +2518,7 @@ export const DashboardReporting: React.FC = () => {
                     </div>
 
                     {/* Right: Filters & Reset */}
-                    <div className="flex items-center gap-2 flex-nowrap flex-shrink-0">
+                    <div className="flex items-center gap-3 flex-nowrap flex-shrink-0">
                         {/* Updating Indicator (Fixed Width to prevent jump) */}
                         <div className="w-16 flex justify-end">
                             <AnimatePresence>
@@ -2438,12 +2551,30 @@ export const DashboardReporting: React.FC = () => {
                         <div className="w-[120px] flex-shrink-0">
                             <MultiSelect label="Entities" options={filterOptions.entities} selected={selectedEntities} onChange={setSelectedEntities} icon={Box} disableQuickSelect={true} />
                         </div>
-                        <div className="w-[120px] flex-shrink-0">
-                            <MultiSelect label="Hours" options={filterOptions.hours} selected={selectedHours} onChange={setSelectedHours} icon={Clock} align="right" />
+
+                        {/* Hour Selection - Quick & Advanced */}
+                        <div className="flex-shrink-0 relative">
+                            <QuickHourFilter
+                                selectedHours={selectedHours}
+                                onChange={setSelectedHours}
+                                onOpenAdvanced={() => setAdvancedHoursOpen(true)}
+                            />
+                            {/* Positioning the Advanced MultiSelect below the Quick Filter */}
+                            <div className="absolute top-0 right-0 w-0 h-0">
+                                <MultiSelect
+                                    label="Hours"
+                                    options={filterOptions.hours}
+                                    selected={selectedHours}
+                                    onChange={setSelectedHours}
+                                    icon={Clock}
+                                    isExternalOpen={advancedHoursOpen}
+                                    onExternalClose={() => setAdvancedHoursOpen(false)}
+                                />
+                            </div>
                         </div>
 
                         {/* Refresh Button */}
-                        <div className="w-20 flex justify-end">
+                        <div className="w-24 flex justify-end ml-2">
                             <button
                                 onClick={() => fetchData(true)}
                                 disabled={isRefetching}
@@ -2457,18 +2588,15 @@ export const DashboardReporting: React.FC = () => {
                         {/* Reset Button Container (Fixed Width to prevent jump) */}
                         <div className="w-20 flex justify-end">
                             <AnimatePresence>
-                                {(selectedEntities.length > 0 || selectedHours.length !== 1 || selectedHours[0] !== new Date().getHours().toString().padStart(2, '0') || (selectedDate && selectedDate !== (() => {
-                                    const now = new Date();
-                                    return `${now.getFullYear()}-${(now.getMonth() + 1).toString().padStart(2, '0')}-${now.getDate().toString().padStart(2, '0')}`;
-                                })())) && (
+                                {(selectedEntities.length > 0 ||
+                                    selectedHours.length !== 1 ||
+                                    selectedHours[0] !== getDefaultHour() ||
+                                    (selectedDate && selectedDate !== new Date().toISOString().split('T')[0])) && (
                                         <button
                                             onClick={() => {
-                                                const now = new Date();
-                                                const currentHour = now.getHours().toString().padStart(2, '0');
-                                                const today = `${now.getFullYear()}-${(now.getMonth() + 1).toString().padStart(2, '0')}-${now.getDate().toString().padStart(2, '0')}`;
                                                 setSelectedEntities([]);
-                                                setSelectedHours([currentHour]);
-                                                setSelectedDate(today);
+                                                setSelectedHours([getDefaultHour()]);
+                                                setSelectedDate(new Date().toISOString().split('T')[0]);
                                             }}
                                             className="flex items-center gap-1.5 px-2 py-1.5 bg-rose-500 text-white rounded-lg text-[9px] font-bold uppercase tracking-wide hover:bg-rose-600 transition-all duration-200 shadow-sm whitespace-nowrap"
                                         >

@@ -138,6 +138,7 @@ export const TeamPlanning: React.FC = () => {
     const [nextWeekTeamFilter, setNextWeekTeamFilter] = useState('');
     const [nextWeekStatusFilter, setNextWeekStatusFilter] = useState<'all' | 'active' | 'inactive'>('all');
     const [nextWeekTaskFilter, setNextWeekTaskFilter] = useState('');
+    const [isAiGenerating, setIsAiGenerating] = useState<string | null>(null);
 
     // Fetch presets from database
     const fetchPresets = async () => {
@@ -930,6 +931,33 @@ export const TeamPlanning: React.FC = () => {
         }
     };
 
+    const handleAiSuggest = async (scheduleId: string, weekLabel: string) => {
+        if (!isAdmin) return;
+        if (!confirm(`Do you want the AI to suggest planning for ${weekLabel} based on the last 8 weeks of history? This will overwrite existing plans for this week.`)) return;
+
+        try {
+            setIsAiGenerating(scheduleId);
+            const suggestions = await apiService.getPlanningAiSuggest(scheduleId);
+
+            if (suggestions && suggestions.length > 0) {
+                const response = await apiService.savePlanningAssignmentsBulk(suggestions);
+
+                if (response) {
+                    // Refresh data after AI suggestions
+                    await fetchData();
+                    alert(`AI has generated ${suggestions.length} suggestions for ${weekLabel}.`);
+                }
+            } else {
+                alert('AI could not find enough historical data to make suggestions.');
+            }
+        } catch (error: any) {
+            console.error('Error getting AI suggestions:', error);
+            alert(error.message || 'An error occurred while getting AI suggestions.');
+        } finally {
+            setIsAiGenerating(null);
+        }
+    };
+
     // Clear a single cell assignment
     const handleClearCell = async (scheduleId: string, mailerId: string, dayOfWeek: number, e: React.MouseEvent) => {
         e.stopPropagation(); // Prevent cell selection
@@ -1352,16 +1380,41 @@ export const TeamPlanning: React.FC = () => {
                                                 Export XLSX
                                             </button>
                                             {isAdmin && (
-                                                <button
-                                                    onClick={() => handleResetPlanning(schedule.id, schedule.isCurrent ? 'Current Week' : 'Next Week')}
-                                                    className="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-gray-200 text-gray-500 hover:bg-red-50 hover:text-red-600 hover:border-red-200 rounded-md text-xs font-medium transition-all shadow-sm"
-                                                    title={`Reset all assignments in ${schedule.isCurrent ? 'Current Week' : 'Next Week'}`}
-                                                >
-                                                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                                                    </svg>
-                                                    Reset
-                                                </button>
+                                                <div className="flex items-center gap-2">
+                                                    <button
+                                                        onClick={() => handleAiSuggest(schedule.id, schedule.isCurrent ? 'Current Week' : 'Next Week')}
+                                                        disabled={!!isAiGenerating}
+                                                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-bold transition-all shadow-sm ${isAiGenerating === schedule.id
+                                                            ? 'bg-indigo-100 text-indigo-400 cursor-not-allowed'
+                                                            : 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white hover:from-indigo-700 hover:to-purple-700 hover:shadow-indigo-200/50 hover:shadow-lg active:scale-95'
+                                                            }`}
+                                                        title={`Let AI suggest plans for ${schedule.isCurrent ? 'Current Week' : 'Next Week'}`}
+                                                    >
+                                                        {isAiGenerating === schedule.id ? (
+                                                            <>
+                                                                <svg className="animate-spin h-3.5 w-3.5 text-indigo-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                                                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                                                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                                                </svg>
+                                                                Thinking...
+                                                            </>
+                                                        ) : (
+                                                            <>
+                                                                <span className="text-sm">✨</span> AI Suggest
+                                                            </>
+                                                        )}
+                                                    </button>
+                                                    <button
+                                                        onClick={() => handleResetPlanning(schedule.id, schedule.isCurrent ? 'Current Week' : 'Next Week')}
+                                                        className="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-gray-200 text-gray-500 hover:bg-red-50 hover:text-red-600 hover:border-red-200 rounded-md text-xs font-medium transition-all shadow-sm"
+                                                        title={`Reset all assignments in ${schedule.isCurrent ? 'Current Week' : 'Next Week'}`}
+                                                    >
+                                                        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                                        </svg>
+                                                        Reset
+                                                    </button>
+                                                </div>
                                             )}
                                             <button
                                                 onClick={toggleVisibility}

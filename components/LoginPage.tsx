@@ -141,8 +141,8 @@ export const LoginPage: React.FC = () => {
             <div className="flex-1 flex items-center justify-center p-4">
                 <div className="bg-white rounded-2xl shadow-2xl p-8 md:p-12 max-w-md w-full">
                     <div className="text-center mb-8">
-                        <div className="w-40 h-40 bg-white rounded-[2.5rem] flex items-center justify-center mx-auto mb-6 shadow-2xl shadow-indigo-100/50 border border-slate-100 overflow-hidden">
-                            <img src="/favicon.png" alt="CMHW Logo" className="w-full h-full object-contain scale-125" />
+                        <div className="w-60 h-60 bg-white rounded-[3rem] flex items-center justify-center mx-auto mb-8 shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-slate-100 p-4">
+                            <img src="/cmhwarmup-logo.png" alt="CMHWARMUP Logo" className="w-full h-full object-contain scale-110" />
                         </div>
                         <h1 className="text-3xl font-bold text-gray-900 mb-2">CMHW Dashboard</h1>
                         <p className="text-gray-600">
