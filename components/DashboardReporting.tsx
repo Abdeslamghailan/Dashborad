@@ -1816,8 +1816,8 @@ export const DashboardReporting: React.FC = () => {
             }
 
             // Add safety limit to prevent timeout on very large datasets
-            // Restoration: Back to 10000 as requested by user
-            params.append('limit', '10000');
+            // Reduction: Set to 5000 to stay under Netlify's 6MB payload limit for functions
+            params.append('limit', '5000');
 
             const queryString = params.toString();
 
