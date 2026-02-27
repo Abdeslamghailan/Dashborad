@@ -1,7 +1,7 @@
 import { Response, NextFunction } from 'express';
-import { AuthRequest } from './auth';
-import { logChange } from '../services/historyService';
-import { logger } from '../utils/logger';
+import { AuthRequest } from './auth.js';
+import { logChange } from '../services/historyService.js';
+import { logger } from '../utils/logger.js';
 
 export const auditLogger = async (req: AuthRequest, res: Response, next: NextFunction) => {
   const { method, path, user, body } = req;
@@ -23,7 +23,7 @@ export const auditLogger = async (req: AuthRequest, res: Response, next: NextFun
       
       if (res.statusCode >= 200 && res.statusCode < 300) {
         // Fetch full user to get username
-        import('../db').then(({ default: prisma }) => {
+        import('../db.js').then(({ default: prisma }) => {
           return prisma.user.findUnique({ where: { id: user.id } });
         }).then(fullUser => {
           const username = fullUser?.username || 'Unknown';
