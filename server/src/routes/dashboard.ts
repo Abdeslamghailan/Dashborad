@@ -7,11 +7,8 @@ const dnsPromises = dns.promises;
 const router = Router();
 // New API endpoint
 // const DATA_API_URL = 'http://38.242.218.175:8366/api/all-data';
-const DATA_API_URL = 'https://abdelgh9.pythonanywhere.com/api/all-data';
-// Old API key for 38.242.218.175:8366
-// const API_KEY = 'CA7m6kgrkkaEnIcC8i95DCSFTTE7IOSBNIxRmkipN-s';
-// PythonAnywhere API key
-const API_KEY = 'K1xbr-aQw02zZwVyTLApW1ut0ORhGcdfhS46PAhXQ-c';
+const DATA_API_URL = process.env.DATA_API_URL || 'https://abdelgh9.pythonanywhere.com/api/all-data';
+const API_KEY = process.env.DATA_API_KEY;
 const NETLIFY_HARD_TIMEOUT = 9000; // 9 seconds to stay under Netlify's 10s limit
 
 // Old API key logic (disabled for new endpoint)

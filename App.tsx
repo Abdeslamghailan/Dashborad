@@ -13,6 +13,7 @@ import { TeamPlanning } from './components/TeamPlanning';
 import { SimulationExcel } from './components/SimulationExcel';
 import { DashboardReporting } from './components/DashboardReporting';
 import { ToolsPage } from './components/ToolsPage';
+import { ErrorBoundary } from './components/ui/ErrorBoundary';
 
 
 
@@ -168,7 +169,9 @@ const App: React.FC = () => {
     <Router>
       <AuthProvider>
         <ListedIPsProvider>
-          <AppRoutes />
+          <ErrorBoundary>
+            <AppRoutes />
+          </ErrorBoundary>
         </ListedIPsProvider>
       </AuthProvider>
     </Router>

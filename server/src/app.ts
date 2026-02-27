@@ -22,14 +22,19 @@ import reporterRoutes from './routes/reporter';
 import prisma from './db';
 import { initBackupService } from './services/backupService';
 import { logger } from './utils/logger.js';
+import { validateEnv } from './utils/envValidator';
+
+import { apiLimiter } from './middleware/rateLimiter';
 
 dotenv.config();
+validateEnv();
 
-// const __filename = fileURLToPath(import.meta.url);
-// const __dirname = path.dirname(__filename);
 const __dirname = process.cwd();
 
 export const app = express();
+
+// Apply global rate limiting
+app.use(apiLimiter);
 
 // Trust the first proxy (Netlify/Railway load balancer)
 app.set('trust proxy', 1);
@@ -136,7 +141,10 @@ app.use((req, res, next) => {
   next();
 });
 
+import { auditLogger } from './middleware/auditLogger';
+
 app.use(express.json({ limit: '10mb' }));
+app.use(auditLogger as any);
 
 // Request logging (development only)
 if (!isProduction) {
