@@ -58,21 +58,17 @@ export const dataService: DataService = {
     }
   },
 
-  saveEntity: async (entity: Entity, options?: { skipEvent?: boolean }) => {
+  saveEntity: async (entity: Entity, options?: { isUpdate?: boolean; skipEvent?: boolean }) => {
     try {
       const { id, name, status, reporting, limitsConfiguration, notes, noteCards, enabledMethods, methodsData } = entity;
+      const isUpdate = options?.isUpdate !== false; // Default to true if not provided
       
       // Log what we're about to send
-      console.log('[dataService] Saving entity:', id);
-      console.log('[dataService] Enabled methods:', enabledMethods);
-      console.log('[dataService] Methods data keys:', methodsData ? Object.keys(methodsData) : 'none');
-      console.log('[dataService] Reporting categories:', reporting.parentCategories.map(c => ({
-        name: c.name,
-        status: c.planConfiguration.status
-      })));
+      console.log('[dataService] Saving entity:', id, 'isUpdate:', isUpdate);
       
-      const response = await fetchWithCreds(`${API_URL}/api/entities/${id}`, {
-        method: 'PUT',
+      const url = isUpdate ? `${API_URL}/api/entities/${id}` : `${API_URL}/api/entities`;
+      const response = await fetchWithCreds(url, {
+        method: isUpdate ? 'PUT' : 'POST',
         headers: getAuthHeaders(),
         body: JSON.stringify({
           name,

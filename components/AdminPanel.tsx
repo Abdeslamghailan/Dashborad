@@ -234,14 +234,16 @@ export const AdminPanel: React.FC = () => {
 
     const handleSaveEntity = async (entity: Entity) => {
         try {
-            await apiService.saveEntity(entity);
-            fetchEntities();
+            await apiService.saveEntity(entity, { isUpdate: !!editingEntity });
+            await fetchEntities();
             setIsEntityModalOpen(false);
             setEditingEntity(null);
             showToast('success', 'Entity saved successfully');
         } catch (error: any) {
             console.error('Error saving entity:', error);
             showToast('error', error.message || 'Failed to save entity');
+            // Re-throw so the modal can show the specific error field
+            throw error;
         }
     };
 

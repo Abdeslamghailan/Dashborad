@@ -103,7 +103,7 @@ export interface Entity {
 export interface DataService {
   getEntities: () => Promise<Entity[]>;
   getEntity: (id: string) => Promise<Entity | undefined>;
-  saveEntity: (entity: Entity, options?: { skipEvent?: boolean }) => Promise<void>;
+  saveEntity: (entity: Entity, options?: { isUpdate?: boolean; skipEvent?: boolean }) => Promise<void>;
   deleteEntity: (id: string) => Promise<void>;
   resetDatabase: () => Promise<void>;
   getEntityHistory: (entityId: string, limit?: number) => Promise<any[]>;

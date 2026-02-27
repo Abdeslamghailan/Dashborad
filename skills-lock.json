@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "skills": {
+    "backend-patterns": {
+      "source": "affaan-m/everything-claude-code",
+      "sourceType": "github",
+      "computedHash": "8a68c4039e93172fa2647fe13260a7fef5456e75a4514de49831b6b8ecbd2dc4"
+    }
+  }
+}

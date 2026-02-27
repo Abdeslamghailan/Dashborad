@@ -28,6 +28,9 @@ export const EntityFormModal: React.FC<EntityFormModalProps> = ({ isOpen, onClos
         limitsConfiguration: []
     });
 
+    const [error, setError] = useState<string | null>(null);
+    const [isSaving, setIsSaving] = useState(false);
+
     useEffect(() => {
         if (initialEntity) {
             setFormData({
@@ -46,6 +49,7 @@ export const EntityFormModal: React.FC<EntityFormModalProps> = ({ isOpen, onClos
                 limitsConfiguration: []
             });
         }
+        setError(null);
     }, [initialEntity, isOpen]);
 
     const [availableMethods, setAvailableMethods] = useState<any[]>([]);
@@ -64,12 +68,19 @@ export const EntityFormModal: React.FC<EntityFormModalProps> = ({ isOpen, onClos
         }
     }, [isOpen]);
 
-    if (!isOpen) return null;
-
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        await onSave(formData);
-        onClose();
+        setError(null);
+        setIsSaving(true);
+        try {
+            await onSave(formData);
+            onClose();
+        } catch (err: any) {
+            console.error('EntityFormModal: Error saving:', err);
+            setError(err.message || 'Failed to save entity');
+        } finally {
+            setIsSaving(false);
+        }
     };
 
     const toggleMethod = (methodId: MethodType) => {
@@ -91,6 +102,8 @@ export const EntityFormModal: React.FC<EntityFormModalProps> = ({ isOpen, onClos
         }
     };
 
+    if (!isOpen) return null;
+
     return (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 backdrop-blur-sm">
             <div className="bg-white rounded-xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-hidden flex flex-col animate-in fade-in zoom-in duration-200">
@@ -111,10 +124,24 @@ export const EntityFormModal: React.FC<EntityFormModalProps> = ({ isOpen, onClos
                     </button>
                 </div>
 
+                {error && (
+                    <div className="px-6 pt-4">
+                        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg flex items-center gap-3 animate-in slide-in-from-top-2 duration-200">
+                            <div className="w-8 h-8 rounded-full bg-red-100 flex items-center justify-center flex-shrink-0 text-red-600">
+                                <X size={16} />
+                            </div>
+                            <div className="flex-1">
+                                <p className="text-sm font-bold uppercase tracking-wider mb-0.5">Save Error</p>
+                                <p className="text-xs font-medium opacity-90">{error}</p>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
                 <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-6 space-y-6">
                     <div className="grid grid-cols-2 gap-6">
                         <div className="col-span-2">
-                            <label className="block text-sm font-medium text-gray-700 mb-1">
+                            <label className={`block text-sm font-bold mb-1 uppercase tracking-tight ${error?.toLowerCase().includes('name') ? 'text-red-500' : 'text-gray-600'}`}>
                                 Entity Name <span className="text-red-500">*</span>
                             </label>
                             <input
@@ -122,19 +149,25 @@ export const EntityFormModal: React.FC<EntityFormModalProps> = ({ isOpen, onClos
                                 required
                                 value={formData.name}
                                 onChange={(e) => setFormData({ ...formData, name: e.target.value.toUpperCase() })}
-                                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all uppercase placeholder:normal-case"
+                                className={`w-full px-4 py-2 border rounded-lg focus:ring-2 outline-none transition-all uppercase placeholder:normal-case font-bold ${error?.toLowerCase().includes('name')
+                                        ? 'border-red-500 focus:ring-red-500 focus:border-red-500 bg-red-50'
+                                        : 'border-gray-200 focus:ring-sky-500 focus:border-sky-500'
+                                    }`}
                                 placeholder="e.g., MARKETING DEPARTMENT"
                             />
                         </div>
 
                         <div className="col-span-2">
-                            <label className="block text-sm font-medium text-gray-700 mb-1">
+                            <label className={`block text-sm font-bold mb-1 uppercase tracking-tight ${error?.toLowerCase().includes('status') ? 'text-red-500' : 'text-gray-600'}`}>
                                 Status
                             </label>
                             <select
                                 value={formData.status || 'active'}
                                 onChange={(e) => setFormData({ ...formData, status: e.target.value as 'active' | 'inactive' })}
-                                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all bg-white"
+                                className={`w-full px-4 py-2 border rounded-lg focus:ring-2 outline-none transition-all bg-white font-bold ${error?.toLowerCase().includes('status')
+                                        ? 'border-red-500 focus:ring-red-500 focus:border-red-500 bg-red-50'
+                                        : 'border-gray-200 focus:ring-sky-500 focus:border-sky-500'
+                                    }`}
                             >
                                 <option value="active">Active</option>
                                 <option value="inactive">Inactive</option>
@@ -157,7 +190,7 @@ export const EntityFormModal: React.FC<EntityFormModalProps> = ({ isOpen, onClos
                                             botConfig: { ...(formData.botConfig || { chatId: '' }), token: e.target.value }
                                         })}
                                         placeholder="7798410..."
-                                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all text-xs font-mono"
+                                        className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-sky-500 focus:border-sky-500 outline-none transition-all text-xs font-mono"
                                     />
                                 </div>
                                 <div className="space-y-1">
@@ -170,7 +203,7 @@ export const EntityFormModal: React.FC<EntityFormModalProps> = ({ isOpen, onClos
                                             botConfig: { ...(formData.botConfig || { token: '' }), chatId: e.target.value }
                                         })}
                                         placeholder="-100..."
-                                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all text-xs font-mono"
+                                        className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-sky-500 focus:border-sky-500 outline-none transition-all text-xs font-mono"
                                     />
                                 </div>
                             </div>
@@ -178,10 +211,10 @@ export const EntityFormModal: React.FC<EntityFormModalProps> = ({ isOpen, onClos
 
                         {/* Methods Selection */}
                         <div className="col-span-2">
-                            <label className="block text-sm font-medium text-gray-700 mb-3">
+                            <label className="block text-sm font-bold text-gray-600 mb-3 uppercase tracking-tight">
                                 Reporting Methods <span className="text-red-500">*</span>
                             </label>
-                            <p className="text-xs text-gray-500 mb-3">
+                            <p className="text-xs text-gray-500 mb-3 font-medium">
                                 Select which reporting methods this entity should have access to. Each method has its own navigation and features.
                             </p>
                             <div className="grid grid-cols-2 gap-3">
@@ -194,8 +227,8 @@ export const EntityFormModal: React.FC<EntityFormModalProps> = ({ isOpen, onClos
                                                 type="button"
                                                 onClick={() => toggleMethod(method.id)}
                                                 className={`relative flex items-center gap-3 p-4 rounded-xl border-2 transition-all duration-200 text-left ${isSelected
-                                                    ? 'border-indigo-500 bg-indigo-50/50 shadow-sm'
-                                                    : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
+                                                    ? 'border-sky-500 bg-sky-50/50 shadow-sm'
+                                                    : 'border-gray-100 hover:border-gray-200 hover:bg-gray-50'
                                                     }`}
                                             >
                                                 <div
@@ -204,12 +237,12 @@ export const EntityFormModal: React.FC<EntityFormModalProps> = ({ isOpen, onClos
                                                     <Plus size={20} />
                                                 </div>
                                                 <div className="flex-1 min-w-0">
-                                                    <div className="font-semibold text-gray-900">{method.name}</div>
-                                                    <div className="text-xs text-gray-500 truncate">{method.description}</div>
+                                                    <div className="font-bold text-gray-900 text-sm uppercase tracking-tight">{method.name}</div>
+                                                    <div className="text-[10px] text-gray-500 truncate font-semibold">{method.description}</div>
                                                 </div>
                                                 {isSelected && (
                                                     <div className="absolute top-2 right-2">
-                                                        <div className="w-5 h-5 bg-indigo-500 rounded-full flex items-center justify-center">
+                                                        <div className="w-5 h-5 bg-sky-500 rounded-full flex items-center justify-center">
                                                             <Check size={12} className="text-white" />
                                                         </div>
                                                     </div>
@@ -225,7 +258,7 @@ export const EntityFormModal: React.FC<EntityFormModalProps> = ({ isOpen, onClos
                                 )}
                             </div>
                             {(formData.enabledMethods || []).length === 0 && (
-                                <p className="text-xs text-red-500 mt-2">Please select at least one method</p>
+                                <p className="text-xs text-red-500 mt-2 font-bold uppercase tracking-tight">Please select at least one method</p>
                             )}
                         </div>
                     </div>
@@ -236,15 +269,17 @@ export const EntityFormModal: React.FC<EntityFormModalProps> = ({ isOpen, onClos
                         type="button"
                         variant="ghost"
                         onClick={onClose}
+                        className="font-bold uppercase tracking-wider text-xs"
                     >
                         Cancel
                     </Button>
                     <Button
                         onClick={handleSubmit}
-                        leftIcon={<Save size={18} />}
-                        disabled={(formData.enabledMethods || []).length === 0}
+                        leftIcon={isSaving ? <Check className="animate-pulse" size={18} /> : <Save size={18} />}
+                        disabled={(formData.enabledMethods || []).length === 0 || isSaving}
+                        className="font-bold uppercase tracking-wider text-xs bg-sky-500 hover:bg-sky-600 text-white shadow-lg"
                     >
-                        {initialEntity ? 'Update Entity' : 'Create Entity'}
+                        {isSaving ? 'Saving...' : (initialEntity ? 'Update Entity' : 'Create Entity')}
                     </Button>
                 </div>
             </div>

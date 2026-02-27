@@ -50,10 +50,12 @@ export const apiService: DataService = {
     }
   },
 
-  saveEntity: async (entity: Entity) => {
+  saveEntity: async (entity: Entity, options?: { isUpdate?: boolean; skipEvent?: boolean }) => {
     try {
-      await apiCall(`/entities/${entity.id}`, {
-        method: 'PUT',
+      const isUpdate = options?.isUpdate !== false; // Default to true if not provided
+      const url = isUpdate ? `/entities/${entity.id}` : '/entities';
+      await apiCall(url, {
+        method: isUpdate ? 'PUT' : 'POST',
         body: JSON.stringify(entity),
       });
     } catch (error) {

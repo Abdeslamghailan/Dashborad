@@ -10,11 +10,10 @@ import { authLimiter } from '../middleware/rateLimiter.js';
 
 const router = Router();
 
-// Apply rate limiting to all auth routes
-router.use(authLimiter);
+// Apply rate limiting specifically to login routes below
 
 // Telegram login endpoint
-router.post('/telegram', async (req, res) => {
+router.post('/telegram', authLimiter, async (req, res) => {
   try {
     const telegramData = req.body;
     logger.debug('Telegram authentication request received');
@@ -122,7 +121,7 @@ router.post('/telegram', async (req, res) => {
 });
 
 // Username/Password login endpoint
-router.post('/login', async (req, res) => {
+router.post('/login', authLimiter, async (req, res) => {
   try {
     const { username, password } = req.body;
 

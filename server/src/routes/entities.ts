@@ -113,6 +113,10 @@ router.post('/', authenticateToken, requireAdmin, async (req: AuthRequest, res) 
   try {
     const { name, status, reporting, limitsConfiguration, notes, noteCards, enabledMethods, methodsData, botConfig } = req.body;
 
+    if (!name) {
+      return res.status(400).json({ error: 'Entity name is required' });
+    }
+
     // Enforce ID format: ent_{name} (lowercase, spaces replaced by underscores)
     const id = `ent_${name.toLowerCase().trim().replace(/\s+/g, '_')}`;
 
@@ -157,9 +161,9 @@ router.post('/', authenticateToken, requireAdmin, async (req: AuthRequest, res) 
       ...entity,
       ...JSON.parse(entity.data)
     });
-  } catch (error) {
+  } catch (error: any) {
     console.error('Create entity error:', error);
-    res.status(500).json({ error: 'Failed to create entity' });
+    res.status(500).json({ error: error.message || 'Failed to create entity' });
   }
 });
 
@@ -703,9 +707,9 @@ router.put('/:id', authenticateToken, async (req: AuthRequest, res) => {
       ...entity,
       ...JSON.parse(entity.data)
     });
-  } catch (error) {
+  } catch (error: any) {
     console.error('Update entity error:', error);
-    res.status(500).json({ error: 'Failed to update entity' });
+    res.status(500).json({ error: error.message || 'Failed to update entity' });
   }
 });
 

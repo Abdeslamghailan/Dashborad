@@ -469,12 +469,141 @@ const DNSChecker = () => {
     );
 };
 
+const SubjectFormatter = () => {
+    const [inputValue, setInputValue] = useState('');
+    const [separator, setSeparator] = useState(':');
+    const [formattedLines, setFormattedLines] = useState<string[]>([]);
+    const [joinedResult, setJoinedResult] = useState('');
+    const [copied, setCopied] = useState<'lines' | 'joined' | null>(null);
+
+    const handleFormat = () => {
+        const lines = inputValue.split('\n').filter(line => line.trim() !== '');
+        const formatted = lines.map(line => line.trim().replace(/ /g, '<sp>'));
+        setFormattedLines(formatted);
+        setJoinedResult(formatted.join(separator));
+    };
+
+    const copyToClipboard = (text: string, type: 'lines' | 'joined') => {
+        navigator.clipboard.writeText(text);
+        setCopied(type);
+        setTimeout(() => setCopied(null), 2000);
+    };
+
+    const clearAll = () => {
+        setInputValue('');
+        setFormattedLines([]);
+        setJoinedResult('');
+    };
+
+    return (
+        <div className="space-y-8 animate-in fade-in duration-500">
+            <WowAnimations />
+            <div className="text-center space-y-4">
+                <div className="inline-flex items-center justify-center w-16 h-16 bg-white border-2 border-slate-900 rounded-xl shadow-[4px_4px_0px_0px_rgba(15,23,42,1)] mb-4 animate-wow-float">
+                    <Wand2 className="w-8 h-8 text-slate-900" />
+                </div>
+                <div className="relative inline-block animate-wow-skew-slide">
+                    <div className="absolute inset-0 bg-purple-500 transform -skew-x-6 translate-y-1"></div>
+                    <h1 className="relative text-4xl md:text-5xl font-black text-white px-8 py-2 italic tracking-tighter uppercase wow-shimmer-text">
+                        SUB Formatter
+                    </h1>
+                </div>
+                <div className="flex justify-center animate-wow-pop" style={{ animationDelay: '0.2s' }}>
+                    <div className="bg-white border-2 border-slate-900 px-6 py-2 shadow-[4px_4px_0px_0px_rgba(15,23,42,1)] -rotate-1">
+                        <p className="font-bold text-slate-900">Format subjects by replacing spaces and joining them.</p>
+                    </div>
+                </div>
+            </div>
+
+            <div className="max-w-4xl mx-auto bg-white border-2 border-slate-100 rounded-2xl shadow-xl overflow-hidden">
+                <div className="p-8 space-y-6">
+                    <div className="space-y-2">
+                        <div className="flex justify-between items-center">
+                            <label className="text-xs font-black text-slate-500 uppercase tracking-widest">Input Subjects</label>
+                            <button onClick={clearAll} className="text-xs font-bold text-slate-400 hover:text-red-500 flex items-center gap-1 transition-colors">
+                                <Trash2 size={14} /> Clear
+                            </button>
+                        </div>
+                        <textarea
+                            value={inputValue}
+                            onChange={(e) => setInputValue(e.target.value)}
+                            placeholder="Welcome to PartsBase!&#10;Reset Password Notification"
+                            className="w-full h-48 p-4 bg-slate-50 border-2 border-slate-100 rounded-xl focus:border-indigo-500 focus:ring-0 transition-all font-mono text-sm resize-none"
+                        />
+                    </div>
+
+                    <div className="flex items-center gap-4 bg-slate-50 p-4 rounded-xl border-2 border-slate-100">
+                        <span className="text-xs font-black text-slate-500 uppercase tracking-widest whitespace-nowrap">Separator:</span>
+                        <input
+                            type="text"
+                            value={separator}
+                            onChange={(e) => setSeparator(e.target.value)}
+                            className="flex-1 p-2 bg-white border-2 border-slate-200 rounded-lg font-bold"
+                            placeholder="e.g. :"
+                        />
+                    </div>
+
+                    <button
+                        onClick={handleFormat}
+                        className="w-full bg-slate-900 text-white py-4 rounded-xl font-black uppercase tracking-widest hover:bg-slate-800 transition-all shadow-[4px_4px_0px_0px_rgba(0,0,0,0.2)] active:translate-y-1 active:shadow-none flex items-center justify-center gap-2"
+                    >
+                        Format Subjects <Zap size={18} className="fill-current" />
+                    </button>
+                </div>
+            </div>
+
+            {(formattedLines.length > 0 || joinedResult) && (
+                <div className="max-w-4xl mx-auto space-y-6 animate-in slide-in-from-bottom-4 duration-500">
+                    <div className="grid gap-6">
+                        <div className="bg-white border-2 border-slate-100 rounded-2xl p-6 shadow-lg space-y-4">
+                            <div className="flex justify-between items-start">
+                                <div>
+                                    <h3 className="font-black text-slate-800 uppercase tracking-tight">Space Replaced (&lt;sp&gt;)</h3>
+                                    <p className="text-xs text-slate-500 font-medium">Each subject on its own line.</p>
+                                </div>
+                                <button
+                                    onClick={() => copyToClipboard(formattedLines.join('\n'), 'lines')}
+                                    className={`p-2 rounded-lg transition-all ${copied === 'lines' ? 'bg-green-100 text-green-600' : 'bg-slate-50 text-slate-400 hover:bg-slate-100 hover:text-slate-600'}`}
+                                >
+                                    {copied === 'lines' ? <Check size={20} /> : <Copy size={20} />}
+                                </button>
+                            </div>
+                            <div className="bg-slate-50 p-4 rounded-xl border-2 border-slate-100 font-mono text-sm text-slate-700 whitespace-pre-wrap break-all">
+                                {formattedLines.join('\n')}
+                            </div>
+                        </div>
+
+                        <div className="bg-white border-2 border-slate-100 rounded-2xl p-6 shadow-lg space-y-4">
+                            <div className="flex justify-between items-start">
+                                <div>
+                                    <h3 className="font-black text-slate-800 uppercase tracking-tight">Joined Result</h3>
+                                    <p className="text-xs text-slate-500 font-medium">All subjects joined by "{separator}".</p>
+                                </div>
+                                <button
+                                    onClick={() => copyToClipboard(joinedResult, 'joined')}
+                                    className={`p-2 rounded-lg transition-all ${copied === 'joined' ? 'bg-green-100 text-green-600' : 'bg-slate-50 text-slate-400 hover:bg-slate-100 hover:text-slate-600'}`}
+                                >
+                                    {copied === 'joined' ? <Check size={20} /> : <Copy size={20} />}
+                                </button>
+                            </div>
+                            <div className="bg-slate-50 p-4 rounded-xl border-2 border-slate-100 font-mono text-sm text-slate-700 break-all">
+                                {joinedResult}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+        </div>
+    );
+};
+
 export const ToolsPage: React.FC = () => {
     const { user, isAdmin, isMailer } = useAuth();
 
     // Define tabs with their permissions
     const allTabs = [
         { id: 'gFilter', label: 'gFilter', icon: <Mail size={16} />, color: 'bg-orange-500', component: <GmailFilterGenerator />, roles: ['ADMIN', 'MAILER'] },
+        { id: 'subjectTool', label: 'SUB', icon: <Zap size={16} />, color: 'bg-purple-600', component: <SubjectFormatter />, roles: ['ADMIN', 'MAILER'] },
         { id: 'dns', label: 'DNS', icon: <Globe size={16} />, color: 'bg-indigo-600', component: <DNSChecker />, roles: ['ADMIN', 'MAILER', 'USER'] },
         { id: 'excel', label: 'Excel', icon: <FileSpreadsheet size={16} />, color: 'bg-emerald-500', component: <SimulationExcel />, roles: ['ADMIN', 'MAILER', 'USER'] },
         { id: 'reporter', label: 'Reporter', icon: <ClipboardCheck size={16} />, color: 'bg-rose-500', component: <ReporterHelper />, roles: ['ADMIN', 'MAILER'] },
