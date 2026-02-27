@@ -1,7 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import { Mail, Globe, Search, Copy, Download, Trash2, Check, Clock, ShieldAlert, Zap, Scissors, Wand2, AlertTriangle, X } from 'lucide-react';
+import { Mail, Globe, Search, Copy, Download, Trash2, Check, Clock, ShieldAlert, Zap, Scissors, Wand2, AlertTriangle, X, Star } from 'lucide-react';
 import { Button } from './ui/Button';
 import { service } from '../services';
 import { SimulationExcel } from './SimulationExcel';
@@ -615,11 +615,35 @@ export const ToolsPage: React.FC = () => {
 
     type TabId = typeof allTabs[number]['id'];
 
+    const [pinnedTabs, setPinnedTabs] = useState<TabId[]>(() => {
+        const saved = localStorage.getItem('pinnedTools');
+        return saved ? JSON.parse(saved) : [];
+    });
+
+    useEffect(() => {
+        localStorage.setItem('pinnedTools', JSON.stringify(pinnedTabs));
+    }, [pinnedTabs]);
+
+    const togglePin = (e: React.MouseEvent, id: TabId) => {
+        e.stopPropagation();
+        setPinnedTabs(prev =>
+            prev.includes(id) ? prev.filter(t => t !== id) : [...prev, id]
+        );
+    };
+
     // Filter tabs based on user role
-    const filteredTabs = allTabs.filter(tab =>
-        ((tab.roles as any).includes('ADMIN') && isAdmin) ||
-        (tab.roles as any).includes(user?.role || '')
-    );
+    const filteredTabs = allTabs
+        .filter(tab =>
+            ((tab.roles as any).includes('ADMIN') && isAdmin) ||
+            (tab.roles as any).includes(user?.role || '')
+        )
+        .sort((a, b) => {
+            const aPinned = pinnedTabs.includes(a.id);
+            const bPinned = pinnedTabs.includes(b.id);
+            if (aPinned && !bPinned) return -1;
+            if (!aPinned && bPinned) return 1;
+            return 0;
+        });
 
     const [activeTab, setActiveTab] = useState<TabId>(filteredTabs[0]?.id || 'dns');
 
@@ -636,12 +660,22 @@ export const ToolsPage: React.FC = () => {
                                 <button
                                     key={tab.id}
                                     onClick={() => setActiveTab(tab.id)}
-                                    className={`px-4 py-2 rounded-xl text-sm font-black uppercase tracking-widest transition-all flex items-center gap-2 ${activeTab === tab.id
+                                    className={`group px-4 py-2 rounded-xl text-sm font-black uppercase tracking-widest transition-all flex items-center gap-2 ${activeTab === tab.id
                                         ? `${tab.color} text-white shadow-[4px_4px_0px_0px_rgba(15,23,42,1)] -translate-y-0.5`
                                         : 'text-slate-400 hover:text-slate-600 hover:bg-slate-50'
                                         }`}
                                 >
-                                    {tab.icon} {tab.label}
+                                    {tab.icon}
+                                    <span>{tab.label}</span>
+                                    <div
+                                        onClick={(e) => togglePin(e, tab.id)}
+                                        className={`ml-1 transition-all ${pinnedTabs.includes(tab.id)
+                                            ? 'text-yellow-400 opacity-100'
+                                            : 'text-slate-300 opacity-0 group-hover:opacity-100 hover:text-yellow-400'
+                                            }`}
+                                    >
+                                        <Star size={14} fill={pinnedTabs.includes(tab.id) ? "currentColor" : "none"} />
+                                    </div>
                                 </button>
                             ))}
                         </nav>
