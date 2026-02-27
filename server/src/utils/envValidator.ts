@@ -3,9 +3,7 @@ import { logger } from './logger.js';
 const REQUIRED_ENV_VARS = [
   'DATABASE_URL',
   'JWT_SECRET',
-  'TELEGRAM_BOT_TOKEN',
-  'DATA_API_URL',
-  'DATA_API_KEY'
+  'TELEGRAM_BOT_TOKEN'
 ];
 
 export function validateEnv() {
@@ -14,8 +12,8 @@ export function validateEnv() {
   if (missing.length > 0) {
     logger.error('CRITICAL: Missing required environment variables:', missing);
     if (process.env.NODE_ENV === 'production') {
-      console.error('FATAL ERROR: The application cannot start without these environment variables:', missing);
-      process.exit(1);
+      console.warn('⚠️ WARNING: The application is missing critical environment variables:', missing);
+      console.warn('This may cause some features to fail, but we will attempt to start anyway.');
     }
     return false;
   }
