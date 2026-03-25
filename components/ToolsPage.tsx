@@ -706,6 +706,10 @@ const ProfileExtractor: React.FC = () => {
         return pools;
     }, [proxiesMap, entityRequirements]);
 
+    const totalRequired: number = useMemo(() => Object.values(entityRequirements).reduce((a: number, b: number) => a + Number(b), 0), [entityRequirements]);
+    const totalProvided: number = useMemo(() => Object.values(proxyPools).reduce((a: number, b: string[]) => a + b.length, 0), [proxyPools]);
+    const hasMissingProxies = viewMode === 'synced' && totalProvided < totalRequired;
+
     const buildOutputText = () => {
         if (viewMode === 'simple') {
             return groups
@@ -714,9 +718,10 @@ const ProfileExtractor: React.FC = () => {
         }
 
         const entityIndices: Record<string, number> = {};
-        const lines: string[] = [];
+        const outputLines: string[] = [];
         groups.forEach(g => {
             const entity = getEntity(g.listName);
+            outputLines.push(g.listName);
             g.profiles.forEach(profile => {
                 const pool = proxyPools[entity] || [];
                 const idx = entityIndices[entity] || 0;
@@ -724,20 +729,22 @@ const ProfileExtractor: React.FC = () => {
                 if (proxy !== 'MISSING_PROXY' && !proxy.includes(':')) {
                     proxy = `${proxy}:92`;
                 }
-                lines.push(`${profile}#${g.listName}#${proxy}`);
+                outputLines.push(`${profile}#${g.listName}#${proxy}`);
                 entityIndices[entity] = idx + 1;
             });
         });
-        return lines.join('\n');
+        return outputLines.join('\n').trim();
     };
 
     const handleCopy = () => {
+        if (hasMissingProxies) return;
         navigator.clipboard.writeText(buildOutputText());
         setCopied(true);
         setTimeout(() => setCopied(false), 2000);
     };
 
     const handleDownload = () => {
+        if (hasMissingProxies) return;
         const blob = new Blob([buildOutputText()], { type: 'text/plain' });
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
@@ -873,9 +880,12 @@ const ProfileExtractor: React.FC = () => {
                             <div className="flex items-center gap-2">
                                 <button
                                     onClick={handleCopy}
-                                    className={`px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider border transition-all flex items-center gap-1.5 ${copied
-                                        ? 'bg-green-900/40 border-green-600 text-green-400'
-                                        : 'bg-slate-800 border-slate-700 text-slate-300 hover:border-slate-500 hover:text-white'
+                                    disabled={hasMissingProxies}
+                                    className={`px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider border transition-all flex items-center gap-1.5 ${hasMissingProxies
+                                        ? 'bg-slate-900 border-slate-800 text-slate-700 cursor-not-allowed'
+                                        : copied
+                                            ? 'bg-green-900/40 border-green-600 text-green-400'
+                                            : 'bg-slate-800 border-slate-700 text-slate-300 hover:border-slate-500 hover:text-white'
                                         }`}
                                 >
                                     {copied ? <Check size={10} /> : <Copy size={10} />}
@@ -883,7 +893,11 @@ const ProfileExtractor: React.FC = () => {
                                 </button>
                                 <button
                                     onClick={handleDownload}
-                                    className="px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider border border-teal-700 bg-teal-900/40 text-teal-300 hover:bg-teal-800/60 hover:text-teal-200 transition-all flex items-center gap-1.5"
+                                    disabled={hasMissingProxies}
+                                    className={`px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider border transition-all flex items-center gap-1.5 ${hasMissingProxies
+                                        ? 'bg-slate-900 border-slate-800 text-slate-700 cursor-not-allowed'
+                                        : 'border-teal-700 bg-teal-900/40 text-teal-300 hover:bg-teal-800/60 hover:text-teal-200'
+                                        }`}
                                 >
                                     <Download size={10} />
                                     Export
@@ -893,50 +907,64 @@ const ProfileExtractor: React.FC = () => {
                     </div>
 
                     <div
-                        className="h-[480px] overflow-y-auto p-6 font-mono text-xs"
+                        className="h-[480px] overflow-y-auto"
                         style={{ scrollbarWidth: 'thin', scrollbarColor: '#334155 transparent' }}
                     >
-                        {parseError ? (
-                            <div className="flex items-start gap-2 text-amber-400 text-[10px] font-bold p-3 bg-amber-950/30 border border-amber-800/40 rounded-lg uppercase">
-                                <AlertTriangle size={12} className="mt-0.5 flex-shrink-0" />
-                                <span>{parseError}</span>
+                        {hasMissingProxies && (
+                            <div className="m-4 flex items-center gap-3 bg-red-950/40 border-2 border-red-900/50 rounded-2xl p-4 animate-in slide-in-from-top-2">
+                                <div className="w-8 h-8 rounded-xl bg-red-600/20 flex items-center justify-center text-red-500">
+                                    <ShieldAlert size={18} />
+                                </div>
+                                <div className="flex flex-col">
+                                    <span className="text-[10px] font-black text-red-400 uppercase tracking-widest italic">Action Blocked</span>
+                                    <span className="text-[11px] font-black text-white uppercase italic leading-tight">Missing {totalRequired - totalProvided} Proxies</span>
+                                </div>
                             </div>
-                        ) : groups.length === 0 ? (
-                            <div className="flex flex-col items-center justify-center h-full text-center opacity-30 grayscale">
-                                <Users size={32} className="text-slate-600 mb-2" />
-                                <p className="text-slate-500 text-[10px] font-black uppercase tracking-widest">Waiting for data</p>
-                            </div>
-                        ) : (viewMode === 'simple' ? (
-                            <div className="space-y-6">
-                                {groups.map((g, i) => (
-                                    <div key={i} className="group">
-                                        <div className="flex items-center gap-2 mb-2">
-                                            <span className="w-1 h-3 rounded-full bg-emerald-500" />
-                                            <p className="text-emerald-400 font-black text-xs uppercase tracking-tight">
-                                                {g.listName}
+                        )}
+
+                        <div className="p-6 font-mono text-xs">
+                            {parseError ? (
+                                <div className="flex items-start gap-2 text-amber-400 text-[10px] font-bold p-3 bg-amber-950/30 border border-amber-800/40 rounded-lg uppercase">
+                                    <AlertTriangle size={12} className="mt-0.5 flex-shrink-0" />
+                                    <span>{parseError}</span>
+                                </div>
+                            ) : groups.length === 0 ? (
+                                <div className="flex flex-col items-center justify-center h-[300px] text-center opacity-30 grayscale">
+                                    <Users size={32} className="text-slate-600 mb-2" />
+                                    <p className="text-slate-500 text-[10px] font-black uppercase tracking-widest">Waiting for data</p>
+                                </div>
+                            ) : (viewMode === 'simple' ? (
+                                <div className="space-y-6">
+                                    {groups.map((g, i) => (
+                                        <div key={i} className="group">
+                                            <div className="flex items-center gap-2 mb-2">
+                                                <span className="w-1 h-3 rounded-full bg-emerald-500" />
+                                                <p className="text-emerald-400 font-black text-xs uppercase tracking-tight">
+                                                    {g.listName}
+                                                </p>
+                                            </div>
+                                            <div className="pl-3 border-l-2 border-slate-900 space-y-1">
+                                                {g.profiles.map((p, j) => (
+                                                    <p key={j} className="text-amber-200/90 text-[11px] font-bold">{p}</p>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            ) : (
+                                <div className="space-y-1">
+                                    {buildOutputText().split('\n').map((line, i) => (
+                                        <div key={i} className="flex gap-2">
+                                            <span className="text-slate-800 text-[10px] w-6 text-right select-none">{i + 1}</span>
+                                            <p className={`${line.includes('MISSING_PROXY') ? 'text-red-400' : 'text-amber-200/90'} font-bold`}>
+                                                {line}
                                             </p>
                                         </div>
-                                        <div className="pl-3 border-l-2 border-slate-900 space-y-1">
-                                            {g.profiles.map((p, j) => (
-                                                <p key={j} className="text-amber-200/90 text-[11px] font-bold">{p}</p>
-                                            ))}
-                                        </div>
-                                    </div>
-                                ))}
-                            </div>
-                        ) : (
-                            <div className="space-y-1">
-                                {buildOutputText().split('\n').map((line, i) => (
-                                    <div key={i} className="flex gap-2">
-                                        <span className="text-slate-800 text-[10px] w-6 text-right select-none">{i + 1}</span>
-                                        <p className={`${line.includes('MISSING_PROXY') ? 'text-red-400' : 'text-amber-200/90'} font-bold`}>
-                                            {line}
-                                        </p>
-                                    </div>
-                                ))}
-                            </div>
-                        )
-                        )}
+                                    ))}
+                                </div>
+                            )
+                            )}
+                        </div>
                     </div>
                 </div>
             </div>
