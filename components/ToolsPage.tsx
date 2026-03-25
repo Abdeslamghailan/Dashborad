@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import { Mail, Globe, Search, Copy, Download, Trash2, Check, Clock, ShieldAlert, Zap, Scissors, Wand2, AlertTriangle, X, Star } from 'lucide-react';
+import { Mail, Globe, Search, Copy, Download, Trash2, Check, Clock, ShieldAlert, Zap, Scissors, Wand2, AlertTriangle, X, Star, Users } from 'lucide-react';
 import { Button } from './ui/Button';
 import { service } from '../services';
 import { SimulationExcel } from './SimulationExcel';
@@ -51,6 +51,7 @@ const WowAnimations = () => (
 );
 
 const GmailFilterGenerator = () => {
+    const [mode, setMode] = useState<'subjects' | 'froms'>('subjects');
     const [subjects, setSubjects] = useState('');
     const [newerThan, setNewerThan] = useState('2');
     const [unit, setUnit] = useState('Hours');
@@ -62,16 +63,21 @@ const GmailFilterGenerator = () => {
     const [showAiWarning, setShowAiWarning] = useState(false);
     const [isAiProcessing, setIsAiProcessing] = useState(false);
 
+    const isFromsMode = mode === 'froms';
+
+    const buildItemQuery = (item: string) =>
+        isFromsMode ? `from:${item.trim()}` : `subject:"${item.trim()}"`;
+
     const calculateQueryLength = (subjectList: string[]) => {
-        const subjectQuery = subjectList.map(s => `subject:"${s.trim()}"`).join(' OR ');
+        const itemQuery = subjectList.map(s => buildItemQuery(s)).join(' OR ');
         const timeQuery = `newer_than:${newerThan}${unit === 'Hours' ? 'h' : unit === 'Days' ? 'd' : 'm'}`;
         const unreadQuery = unreadOnly ? 'is:unread' : '';
-        return `(${subjectQuery}) ${unreadQuery} ${timeQuery}`.trim().length;
+        return `(${itemQuery}) ${unreadQuery} ${timeQuery}`.trim().length;
     };
 
     const handleGenerate = async (forceAi = false) => {
-        let subjectList = subjects.split('\n').filter(s => s.trim() !== '');
-        if (subjectList.length === 0) return;
+        let itemList = subjects.split('\n').filter(s => s.trim() !== '');
+        if (itemList.length === 0) return;
 
         if (forceAi) {
             setIsAiProcessing(true);
@@ -80,12 +86,12 @@ const GmailFilterGenerator = () => {
         }
 
         let shortened = false;
-        if (forceAi) {
+        if (forceAi && !isFromsMode) {
             const maxChars = 1100; // Leave room for other parts of query
 
-            // AI Logic: Extract key words instead of full sentences
+            // AI Logic: Extract key words instead of full sentences (subjects only)
             const stopWords = new Set(['the', 'and', 'for', 'with', 'your', 'from', 'this', 'that', 'have', 'been', 'subject', 'regarding', 'about']);
-            let processedList = subjectList.map(s => {
+            let processedList = itemList.map(s => {
                 const words = s.replace(/[^\w\s]/gi, ' ').split(/\s+/).filter(w =>
                     w.length > 1 && !stopWords.has(w.toLowerCase())
                 );
@@ -102,15 +108,28 @@ const GmailFilterGenerator = () => {
                 }
                 currentList.push(s);
             }
-            subjectList = currentList;
+            itemList = currentList;
+        } else if (forceAi && isFromsMode) {
+            // For froms mode: just truncate if too long
+            const maxChars = 1100;
+            let currentList: string[] = [];
+            for (const s of itemList) {
+                const testList = [...currentList, s];
+                if (calculateQueryLength(testList) > maxChars) {
+                    shortened = true;
+                    break;
+                }
+                currentList.push(s);
+            }
+            itemList = currentList;
         }
 
-        const subjectQuery = subjectList.map(s => `subject:"${s.trim()}"`).join(' OR ');
+        const itemQuery = itemList.map(s => buildItemQuery(s)).join(' OR ');
         const timeQuery = `newer_than:${newerThan}${unit === 'Hours' ? 'h' : unit === 'Days' ? 'd' : 'm'}`;
         const unreadQuery = unreadOnly ? 'is:unread' : '';
 
-        const inboxQuery = `(${subjectQuery}) ${unreadQuery} ${timeQuery}`.trim();
-        const spamQuery = `in:spam (${subjectQuery}) ${unreadQuery} ${timeQuery}`.trim();
+        const inboxQuery = `(${itemQuery}) ${unreadQuery} ${timeQuery}`.trim();
+        const spamQuery = `in:spam (${itemQuery}) ${unreadQuery} ${timeQuery}`.trim();
 
         setGenerated({ inbox: inboxQuery, spam: spamQuery });
         setIsAiShortened(forceAi);
@@ -127,6 +146,7 @@ const GmailFilterGenerator = () => {
     const clearAll = () => {
         setSubjects('');
         setGenerated(null);
+        setShowAiWarning(false);
     };
 
     return (
@@ -153,7 +173,32 @@ const GmailFilterGenerator = () => {
                 <div className="p-8 space-y-6">
                     <div className="space-y-2">
                         <div className="flex justify-between items-center">
-                            <label className="text-xs font-black text-slate-500 uppercase tracking-widest">List of Subjects</label>
+                            <div className="flex items-center gap-3">
+                                <label className="text-xs font-black text-slate-500 uppercase tracking-widest">
+                                    {isFromsMode ? 'List of Froms' : 'List of Subjects'}
+                                </label>
+                                {/* Mode Toggle */}
+                                <div className="flex items-center bg-slate-100 rounded-lg p-0.5">
+                                    <button
+                                        onClick={() => { setMode('subjects'); setGenerated(null); }}
+                                        className={`px-3 py-1 rounded-md text-xs font-black uppercase tracking-wider transition-all ${!isFromsMode
+                                            ? 'bg-orange-500 text-white shadow-sm'
+                                            : 'text-slate-400 hover:text-slate-600'
+                                            }`}
+                                    >
+                                        Subjects
+                                    </button>
+                                    <button
+                                        onClick={() => { setMode('froms'); setGenerated(null); }}
+                                        className={`px-3 py-1 rounded-md text-xs font-black uppercase tracking-wider transition-all ${isFromsMode
+                                            ? 'bg-orange-500 text-white shadow-sm'
+                                            : 'text-slate-400 hover:text-slate-600'
+                                            }`}
+                                    >
+                                        Froms
+                                    </button>
+                                </div>
+                            </div>
                             <button onClick={clearAll} className="text-xs font-bold text-slate-400 hover:text-red-500 flex items-center gap-1 transition-colors">
                                 <Trash2 size={14} /> Clear
                             </button>
@@ -162,7 +207,7 @@ const GmailFilterGenerator = () => {
                             <textarea
                                 value={subjects}
                                 onChange={(e) => setSubjects(e.target.value)}
-                                placeholder="subject 1&#10;subject 2"
+                                placeholder={isFromsMode ? 'sender@example.com\nnoreply@domain.com' : 'subject 1\nsubject 2'}
                                 className="w-full h-48 p-4 bg-slate-50 border-2 border-slate-100 rounded-xl focus:border-indigo-500 focus:ring-0 transition-all font-mono text-sm resize-none"
                             />
                             <div className={`absolute bottom-4 right-4 bg-white/80 backdrop-blur px-2 py-1 rounded border text-[10px] font-bold uppercase flex items-center gap-1 ${subjects.length > 1200 ? 'text-orange-600 border-orange-200' : 'text-slate-500 border-slate-200'}`}>
@@ -293,7 +338,9 @@ const GmailFilterGenerator = () => {
                             <div className="flex justify-between items-start">
                                 <div>
                                     <h3 className="font-black text-slate-800 uppercase tracking-tight">Inbox Results</h3>
-                                    <p className="text-xs text-slate-500 font-medium">Matches recent unread messages across your provided subjects.</p>
+                                    <p className="text-xs text-slate-500 font-medium">
+                                        {isFromsMode ? 'Matches recent messages from your listed senders.' : 'Matches recent unread messages across your provided subjects.'}
+                                    </p>
                                 </div>
                                 <button
                                     onClick={() => copyToClipboard(generated.inbox, 'inbox')}
@@ -311,7 +358,9 @@ const GmailFilterGenerator = () => {
                             <div className="flex justify-between items-start">
                                 <div>
                                     <h3 className="font-black text-slate-800 uppercase tracking-tight">Spam Results</h3>
-                                    <p className="text-xs text-slate-500 font-medium">Identifies matching results that were filtered into your spam folder.</p>
+                                    <p className="text-xs text-slate-500 font-medium">
+                                        {isFromsMode ? 'Spam messages from your listed senders.' : 'Identifies matching results that were filtered into your spam folder.'}
+                                    </p>
                                 </div>
                                 <button
                                     onClick={() => copyToClipboard(generated.spam, 'spam')}
@@ -597,6 +646,227 @@ const SubjectFormatter = () => {
     );
 };
 
+interface ParsedGroup {
+    listName: string;
+    profiles: string[];
+}
+
+const ProfileExtractor: React.FC = () => {
+    const [input, setInput] = useState('');
+    const [groups, setGroups] = useState<ParsedGroup[]>([]);
+    const [copied, setCopied] = useState(false);
+    const [parseError, setParseError] = useState('');
+    const [fileName, setFileName] = useState('');
+
+    const parseInput = (text: string) => {
+        setParseError('');
+        // Normalise: collapse whitespace/newlines inside the raw text so multi-line
+        // profile lists are handled correctly.
+        const normalised = text.replace(/\r/g, '').replace(/\n/g, ' ');
+
+        // Pattern: "The selected profiles (…) in list NAME (#NNN) do not have assigned proxies"
+        // Profiles may be parenthesised on the same or across wrapped lines.
+        const pattern = /The selected profiles\s*\(([^)]+)\)\s*in list\s+([\w]+)\s*\(#\d+\)\s*do not have assigned proxies/gi;
+
+        const results: ParsedGroup[] = [];
+        let match: RegExpExecArray | null;
+        while ((match = pattern.exec(normalised)) !== null) {
+            const profilesRaw = match[1];
+            const listName = match[2];
+            const profiles = profilesRaw
+                .split(',')
+                .map(p => p.trim())
+                .filter(p => p.length > 0);
+            if (profiles.length > 0) {
+                results.push({ listName, profiles });
+            }
+        }
+
+        if (results.length === 0 && text.trim().length > 0) {
+            setParseError('No matching patterns found. Make sure the text follows the expected format.');
+        }
+        setGroups(results);
+    };
+
+    const buildOutputText = () =>
+        groups
+            .map(g => [g.listName, ...g.profiles].join('\n'))
+            .join('\n\n');
+
+    const handleCopy = () => {
+        navigator.clipboard.writeText(buildOutputText());
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+    };
+
+    const handleDownload = () => {
+        const blob = new Blob([buildOutputText()], { type: 'text/plain' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'profiles.txt';
+        a.click();
+        URL.revokeObjectURL(url);
+    };
+
+    const handleFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+        setFileName(file.name);
+        const reader = new FileReader();
+        reader.onload = ev => {
+            const text = ev.target?.result as string;
+            setInput(text);
+            parseInput(text);
+        };
+        reader.readAsText(file);
+    };
+
+    const totalProfiles = groups.reduce((acc, g) => acc + g.profiles.length, 0);
+
+    return (
+        <div className="space-y-6 animate-in fade-in duration-500 w-full max-w-[2000px] mx-auto px-10 py-10 overflow-y-auto min-h-0 flex-1">
+            {/* ── Header Card ── */}
+            <div className="bg-white border-2 border-slate-100 rounded-3xl shadow-xl shadow-slate-200/40 px-6 py-4 flex items-center justify-between">
+                <div className="flex items-center gap-4">
+                    <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-teal-500 to-emerald-600 flex items-center justify-center shadow-lg shadow-teal-500/30">
+                        <Users size={20} className="text-white" />
+                    </div>
+                    <div>
+                        <h1 className="text-xl font-black text-slate-900 tracking-tight leading-tight uppercase italic">Profile Extractor</h1>
+                        <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Extract profile IDs from raw logs</p>
+                    </div>
+                    {groups.length > 0 && (
+                        <div className="flex items-center gap-2 ml-2">
+                            <span className="px-3 py-1 rounded-full text-[10px] font-black bg-teal-50 text-teal-700 border border-teal-200 uppercase">
+                                {groups.length} lists
+                            </span>
+                            <span className="px-3 py-1 rounded-full text-[10px] font-black bg-amber-50 text-amber-700 border border-amber-200 uppercase">
+                                {totalProfiles} profiles
+                            </span>
+                        </div>
+                    )}
+                </div>
+                <div className="flex items-center gap-2">
+                    {input && (
+                        <button
+                            onClick={() => { setInput(''); setGroups([]); setParseError(''); setFileName(''); }}
+                            className="px-3 py-1.5 rounded-lg text-xs font-bold text-slate-400 hover:text-red-500 hover:bg-red-50 transition-all flex items-center gap-1.5"
+                        >
+                            <Trash2 size={13} /> Clear
+                        </button>
+                    )}
+                    <label className="px-3 py-1.5 rounded-lg text-xs font-bold border-2 border-slate-200 bg-white text-slate-600 hover:bg-slate-50 hover:border-slate-300 transition-all flex items-center gap-1.5 cursor-pointer shadow-sm">
+                        <Download size={13} className="rotate-180" />
+                        {fileName || 'Upload File'}
+                        <input type="file" accept=".txt,.log" className="hidden" onChange={handleFile} />
+                    </label>
+                </div>
+            </div>
+
+            {/* ── Two-Column Layout with Space ── */}
+            <div className="flex flex-col md:flex-row gap-6">
+
+                {/* LEFT CARD — Raw Input */}
+                <div className="flex flex-col w-full md:w-1/2 bg-white border-2 border-slate-100 rounded-3xl shadow-xl shadow-slate-200/40 overflow-hidden">
+                    {/* Panel header */}
+                    <div className="flex items-center gap-2 px-5 py-3 bg-slate-50/50 border-b border-slate-100 flex-shrink-0">
+                        <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Raw Input</span>
+                        {input && (
+                            <span className="ml-auto text-[10px] text-slate-400 font-bold uppercase tracking-widest">
+                                {input.split('\n').filter(l => l.trim()).length} blocks
+                            </span>
+                        )}
+                    </div>
+                    {/* Fixed height textarea */}
+                    <div className="relative h-[350px]">
+                        <textarea
+                            value={input}
+                            onChange={e => { setInput(e.target.value); parseInput(e.target.value); }}
+                            placeholder={`Paste text here...`}
+                            className="w-full h-full p-6 bg-white focus:outline-none font-mono text-sm text-slate-700 resize-none overflow-y-auto leading-6 placeholder:text-slate-300"
+                            style={{ scrollbarWidth: 'thin', scrollbarColor: '#cbd5e1 transparent' }}
+                        />
+                    </div>
+                </div>
+
+                {/* RIGHT CARD — Processed Output */}
+                <div className="flex flex-col w-full md:w-1/2 bg-slate-950 border-2 border-slate-900 rounded-3xl shadow-xl shadow-black/20 overflow-hidden">
+                    {/* Panel header */}
+                    <div className="flex items-center justify-between px-5 py-3 bg-slate-900/50 border-b border-slate-800 flex-shrink-0">
+                        <div className="flex items-center gap-2">
+                            <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Output</span>
+                        </div>
+                        {groups.length > 0 && (
+                            <div className="flex items-center gap-2">
+                                <button
+                                    onClick={handleCopy}
+                                    className={`px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider border transition-all flex items-center gap-1.5 ${copied
+                                        ? 'bg-green-900/40 border-green-600 text-green-400'
+                                        : 'bg-slate-800 border-slate-700 text-slate-300 hover:border-slate-500 hover:text-white'
+                                        }`}
+                                >
+                                    {copied ? <Check size={10} /> : <Copy size={10} />}
+                                    {copied ? 'Copied' : 'Copy'}
+                                </button>
+                                <button
+                                    onClick={handleDownload}
+                                    className="px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider border border-teal-700 bg-teal-900/40 text-teal-300 hover:bg-teal-800/60 hover:text-teal-200 transition-all flex items-center gap-1.5"
+                                >
+                                    <Download size={10} />
+                                    .txt
+                                </button>
+                            </div>
+                        )}
+                    </div>
+
+                    {/* Fixed height output */}
+                    <div
+                        className="h-[350px] overflow-y-auto p-6 font-mono text-sm"
+                        style={{ scrollbarWidth: 'thin', scrollbarColor: '#334155 transparent' }}
+                    >
+                        {parseError ? (
+                            <div className="flex items-start gap-2 text-amber-400 text-[10px] font-bold p-3 bg-amber-950/30 border border-amber-800/40 rounded-lg uppercase">
+                                <AlertTriangle size={12} className="mt-0.5 flex-shrink-0" />
+                                <span>{parseError}</span>
+                            </div>
+                        ) : groups.length === 0 ? (
+                            <div className="flex flex-col items-center justify-center h-full text-center opacity-30 grayscale">
+                                <Users size={32} className="text-slate-600 mb-2" />
+                                <p className="text-slate-500 text-[10px] font-black uppercase">Waiting for input</p>
+                            </div>
+                        ) : (
+                            <div className="space-y-6">
+                                {groups.map((g, i) => (
+                                    <div key={i} className="group">
+                                        {/* List name row */}
+                                        <div className="flex items-center gap-2 mb-2">
+                                            <span className="w-1 h-3 rounded-full bg-emerald-500" />
+                                            <p className="text-emerald-400 font-black text-xs uppercase tracking-tight" style={{ textShadow: '0 0 10px rgba(52,211,153,0.3)' }}>
+                                                {g.listName}
+                                            </p>
+                                            <span className="ml-auto text-[9px] text-slate-600 font-bold uppercase tracking-widest">{g.profiles.length} ids</span>
+                                        </div>
+                                        {/* Profile IDs */}
+                                        <div className="pl-3 border-l-2 border-slate-900 space-y-1">
+                                            {g.profiles.map((p, j) => (
+                                                <div key={j} className="flex items-center gap-3">
+                                                    <span className="text-slate-700 text-[9px] w-5 text-right font-bold select-none">{j + 1}</span>
+                                                    <p className="text-amber-200/90 text-[11px] font-bold">{p}</p>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
+};
+
 export const ToolsPage: React.FC = () => {
     const { user, isAdmin, isMailer } = useAuth();
 
@@ -611,6 +881,7 @@ export const ToolsPage: React.FC = () => {
         { id: 'proxySync', label: 'ProxySync', icon: <Share2 size={16} />, color: 'bg-indigo-600', component: <ProxySync />, roles: ['ADMIN', 'MAILER'] },
         { id: 'ipExtractor', label: 'IP Extractor', icon: <Fingerprint size={16} />, color: 'bg-indigo-600', component: <ReportIPExtractor />, roles: ['ADMIN', 'MAILER'] },
         { id: 'ipSplitter', label: 'IP Splitter', icon: <ArrowRightLeft size={16} />, color: 'bg-blue-600', component: <IPClassSplitter />, roles: ['ADMIN', 'MAILER', 'USER'] },
+        { id: 'profileExtractor', label: 'Profile Extractor', icon: <Users size={16} />, color: 'bg-teal-600', component: <ProfileExtractor />, roles: ['ADMIN', 'MAILER'] },
     ] as const;
 
     type TabId = typeof allTabs[number]['id'];
@@ -649,11 +920,14 @@ export const ToolsPage: React.FC = () => {
 
     const activeTabObj = filteredTabs.find(t => t.id === activeTab) || filteredTabs[0];
 
+    const fullHeightTabs = ['ipSplitter', 'profileExtractor'];
+    const isFullHeight = fullHeightTabs.includes(activeTab);
+
     return (
-        <div className={`bg-slate-50/50 flex flex-col ${activeTab === 'ipSplitter' ? 'h-full overflow-hidden' : 'min-h-screen pb-20'}`}>
+        <div className={`bg-slate-50/50 flex flex-col ${isFullHeight ? 'h-full overflow-hidden' : 'min-h-screen pb-20'}`}>
             {/* Sub-header with tabs */}
             <div className="bg-white border-b border-slate-200 sticky top-0 z-10">
-                <div className={`${activeTab === 'ipSplitter' ? 'max-w-full' : 'max-w-7xl'} mx-auto px-8 h-16 flex items-center justify-between`}>
+                <div className={`${isFullHeight ? 'max-w-full' : 'max-w-7xl'} mx-auto px-8 h-16 flex items-center justify-between`}>
                     <div className="flex items-center gap-8">
                         <nav className="flex items-center gap-1">
                             {filteredTabs.map((tab) => (
@@ -683,7 +957,7 @@ export const ToolsPage: React.FC = () => {
                 </div>
             </div>
 
-            <div className={`${activeTab === 'ipSplitter' ? 'max-w-full px-0 pt-0 pb-0 flex-1 min-h-0' : 'max-w-7xl px-8 pt-4 pb-12'} mx-auto w-full flex flex-col overflow-hidden`}>
+            <div className={`${isFullHeight ? 'max-w-full px-0 pt-0 pb-0 flex-1 min-h-0' : 'max-w-7xl px-8 pt-4 pb-12'} mx-auto w-full flex flex-col overflow-hidden`}>
                 {activeTabObj?.component}
             </div>
         </div>
