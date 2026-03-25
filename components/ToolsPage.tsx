@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { Mail, Globe, Search, Copy, Download, Trash2, Check, Clock, ShieldAlert, Zap, Scissors, Wand2, AlertTriangle, X, Star, Users } from 'lucide-react';
@@ -653,19 +653,17 @@ interface ParsedGroup {
 
 const ProfileExtractor: React.FC = () => {
     const [input, setInput] = useState('');
+    const [proxiesMap, setProxiesMap] = useState<Record<string, string>>({});
     const [groups, setGroups] = useState<ParsedGroup[]>([]);
     const [copied, setCopied] = useState(false);
     const [parseError, setParseError] = useState('');
     const [fileName, setFileName] = useState('');
 
+    const [viewMode, setViewMode] = useState<'synced' | 'simple'>('synced');
+
     const parseInput = (text: string) => {
         setParseError('');
-        // Normalise: collapse whitespace/newlines inside the raw text so multi-line
-        // profile lists are handled correctly.
         const normalised = text.replace(/\r/g, '').replace(/\n/g, ' ');
-
-        // Pattern: "The selected profiles (…) in list NAME (#NNN) do not have assigned proxies"
-        // Profiles may be parenthesised on the same or across wrapped lines.
         const pattern = /The selected profiles\s*\(([^)]+)\)\s*in list\s+([\w]+)\s*\(#\d+\)\s*do not have assigned proxies/gi;
 
         const results: ParsedGroup[] = [];
@@ -688,10 +686,50 @@ const ProfileExtractor: React.FC = () => {
         setGroups(results);
     };
 
-    const buildOutputText = () =>
-        groups
-            .map(g => [g.listName, ...g.profiles].join('\n'))
-            .join('\n\n');
+    const getEntity = (listName: string) => listName.split('_')[0];
+
+    const entityRequirements = useMemo(() => {
+        const reqs: Record<string, number> = {};
+        groups.forEach(g => {
+            const entity = getEntity(g.listName);
+            reqs[entity] = (reqs[entity] || 0) + g.profiles.length;
+        });
+        return reqs;
+    }, [groups]);
+
+    const proxyPools = useMemo(() => {
+        const pools: Record<string, string[]> = {};
+        Object.keys(entityRequirements).forEach(entity => {
+            const raw = proxiesMap[entity] || '';
+            pools[entity] = raw.split('\n').map(l => l.trim()).filter(l => l);
+        });
+        return pools;
+    }, [proxiesMap, entityRequirements]);
+
+    const buildOutputText = () => {
+        if (viewMode === 'simple') {
+            return groups
+                .map(g => [g.listName, ...g.profiles].join('\n'))
+                .join('\n\n');
+        }
+
+        const entityIndices: Record<string, number> = {};
+        const lines: string[] = [];
+        groups.forEach(g => {
+            const entity = getEntity(g.listName);
+            g.profiles.forEach(profile => {
+                const pool = proxyPools[entity] || [];
+                const idx = entityIndices[entity] || 0;
+                let proxy = pool[idx] || 'MISSING_PROXY';
+                if (proxy !== 'MISSING_PROXY' && !proxy.includes(':')) {
+                    proxy = `${proxy}:92`;
+                }
+                lines.push(`${profile}#${g.listName}#${proxy}`);
+                entityIndices[entity] = idx + 1;
+            });
+        });
+        return lines.join('\n');
+    };
 
     const handleCopy = () => {
         navigator.clipboard.writeText(buildOutputText());
@@ -704,7 +742,7 @@ const ProfileExtractor: React.FC = () => {
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = 'profiles.txt';
+        a.download = viewMode === 'synced' ? 'synced_profiles.txt' : 'simple_profiles.txt';
         a.click();
         URL.revokeObjectURL(url);
     };
@@ -722,11 +760,14 @@ const ProfileExtractor: React.FC = () => {
         reader.readAsText(file);
     };
 
-    const totalProfiles = groups.reduce((acc, g) => acc + g.profiles.length, 0);
+    const updateProxyForEntity = (entity: string, value: string) => {
+        setProxiesMap(prev => ({ ...prev, [entity]: value }));
+    };
+
+    const entities = Object.keys(entityRequirements);
 
     return (
         <div className="space-y-6 animate-in fade-in duration-500 w-full max-w-[2000px] mx-auto px-10 py-10 overflow-y-auto min-h-0 flex-1">
-            {/* ── Header Card ── */}
             <div className="bg-white border-2 border-slate-100 rounded-3xl shadow-xl shadow-slate-200/40 px-6 py-4 flex items-center justify-between">
                 <div className="flex items-center gap-4">
                     <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-teal-500 to-emerald-600 flex items-center justify-center shadow-lg shadow-teal-500/30">
@@ -734,23 +775,13 @@ const ProfileExtractor: React.FC = () => {
                     </div>
                     <div>
                         <h1 className="text-xl font-black text-slate-900 tracking-tight leading-tight uppercase italic">Profile Extractor</h1>
-                        <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Extract profile IDs from raw logs</p>
+                        <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Synced & simple result modes</p>
                     </div>
-                    {groups.length > 0 && (
-                        <div className="flex items-center gap-2 ml-2">
-                            <span className="px-3 py-1 rounded-full text-[10px] font-black bg-teal-50 text-teal-700 border border-teal-200 uppercase">
-                                {groups.length} lists
-                            </span>
-                            <span className="px-3 py-1 rounded-full text-[10px] font-black bg-amber-50 text-amber-700 border border-amber-200 uppercase">
-                                {totalProfiles} profiles
-                            </span>
-                        </div>
-                    )}
                 </div>
                 <div className="flex items-center gap-2">
                     {input && (
                         <button
-                            onClick={() => { setInput(''); setGroups([]); setParseError(''); setFileName(''); }}
+                            onClick={() => { setInput(''); setProxiesMap({}); setGroups([]); setParseError(''); setFileName(''); }}
                             className="px-3 py-1.5 rounded-lg text-xs font-bold text-slate-400 hover:text-red-500 hover:bg-red-50 transition-all flex items-center gap-1.5"
                         >
                             <Trash2 size={13} /> Clear
@@ -764,38 +795,79 @@ const ProfileExtractor: React.FC = () => {
                 </div>
             </div>
 
-            {/* ── Two-Column Layout with Space ── */}
-            <div className="flex flex-col md:flex-row gap-6">
-
-                {/* LEFT CARD — Raw Input */}
-                <div className="flex flex-col w-full md:w-1/2 bg-white border-2 border-slate-100 rounded-3xl shadow-xl shadow-slate-200/40 overflow-hidden">
-                    {/* Panel header */}
-                    <div className="flex items-center gap-2 px-5 py-3 bg-slate-50/50 border-b border-slate-100 flex-shrink-0">
-                        <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Raw Input</span>
-                        {input && (
-                            <span className="ml-auto text-[10px] text-slate-400 font-bold uppercase tracking-widest">
-                                {input.split('\n').filter(l => l.trim()).length} blocks
-                            </span>
-                        )}
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                {/* COL 1 — Raw Logs */}
+                <div className="flex flex-col bg-white border-2 border-slate-100 rounded-3xl shadow-xl shadow-slate-200/40 overflow-hidden">
+                    <div className="flex items-center gap-2 px-5 py-3 bg-slate-50/50 border-b border-slate-100">
+                        <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">1. paste raw logs</span>
                     </div>
-                    {/* Fixed height textarea */}
-                    <div className="relative h-[350px]">
+                    <div className="relative h-[480px]">
                         <textarea
                             value={input}
                             onChange={e => { setInput(e.target.value); parseInput(e.target.value); }}
-                            placeholder={`Paste text here...`}
+                            placeholder={`Paste log messages here...`}
                             className="w-full h-full p-6 bg-white focus:outline-none font-mono text-sm text-slate-700 resize-none overflow-y-auto leading-6 placeholder:text-slate-300"
                             style={{ scrollbarWidth: 'thin', scrollbarColor: '#cbd5e1 transparent' }}
                         />
                     </div>
                 </div>
 
-                {/* RIGHT CARD — Processed Output */}
-                <div className="flex flex-col w-full md:w-1/2 bg-slate-950 border-2 border-slate-900 rounded-3xl shadow-xl shadow-black/20 overflow-hidden">
-                    {/* Panel header */}
-                    <div className="flex items-center justify-between px-5 py-3 bg-slate-900/50 border-b border-slate-800 flex-shrink-0">
+                {/* COL 2 — Individual Proxy Inputs */}
+                <div className="flex flex-col bg-slate-50/30 border-2 border-slate-100 rounded-3xl shadow-xl shadow-slate-200/40 overflow-hidden">
+                    <div className="flex items-center justify-between px-5 py-3 bg-white border-b border-slate-100">
+                        <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">2. entity proxies</span>
+                    </div>
+                    <div className="h-[480px] overflow-y-auto p-4 space-y-4" style={{ scrollbarWidth: 'thin', scrollbarColor: '#cbd5e1 transparent' }}>
+                        {entities.length === 0 ? (
+                            <div className="h-full flex flex-col items-center justify-center opacity-20 grayscale py-12">
+                                <Search size={24} className="mb-2" />
+                                <p className="text-[10px] font-black uppercase">No entities found in logs</p>
+                            </div>
+                        ) : (
+                            entities.map(entity => {
+                                const required = entityRequirements[entity];
+                                const provided = proxyPools[entity]?.length || 0;
+                                const isSatisfied = provided >= required;
+                                return (
+                                    <div key={entity} className="bg-white border-2 border-slate-100 rounded-2xl overflow-hidden shadow-sm transition-all hover:border-slate-200">
+                                        <div className="flex items-center justify-between px-4 py-2 bg-slate-50 border-b border-slate-100">
+                                            <span className="text-[11px] font-black text-slate-800 tracking-tight">{entity}</span>
+                                            <div className="flex items-center gap-2">
+                                                <span className={`text-[9px] font-black uppercase px-2 py-0.5 rounded-full ${isSatisfied ? 'bg-teal-50 text-teal-600' : 'bg-amber-50 text-amber-600'}`}>
+                                                    {provided} / {required}
+                                                </span>
+                                            </div>
+                                        </div>
+                                        <textarea
+                                            value={proxiesMap[entity] || ''}
+                                            onChange={e => updateProxyForEntity(entity, e.target.value)}
+                                            placeholder={`Paste proxies for ${entity} here...`}
+                                            className="w-full h-32 p-3 font-mono text-[10px] text-slate-600 focus:outline-none resize-none placeholder:text-slate-200"
+                                            style={{ scrollbarWidth: 'thin', scrollbarColor: '#cbd5e1 transparent' }}
+                                        />
+                                    </div>
+                                );
+                            })
+                        )}
+                    </div>
+                </div>
+
+                {/* COL 3 — Result */}
+                <div className="flex flex-col bg-slate-950 border-2 border-slate-900 rounded-3xl shadow-xl shadow-black/20 overflow-hidden">
+                    <div className="flex items-center justify-between px-5 py-3 bg-slate-900/50 border-b border-slate-800 shrink-0">
                         <div className="flex items-center gap-2">
-                            <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Output</span>
+                            <button
+                                onClick={() => setViewMode('synced')}
+                                className={`px-2 py-1 rounded-md text-[9px] font-black uppercase tracking-tighter transition-all ${viewMode === 'synced' ? 'bg-teal-600 text-white' : 'text-slate-500 hover:text-slate-300'}`}
+                            >
+                                Synced
+                            </button>
+                            <button
+                                onClick={() => setViewMode('simple')}
+                                className={`px-2 py-1 rounded-md text-[9px] font-black uppercase tracking-tighter transition-all ${viewMode === 'simple' ? 'bg-teal-600 text-white' : 'text-slate-500 hover:text-slate-300'}`}
+                            >
+                                Simple
+                            </button>
                         </div>
                         {groups.length > 0 && (
                             <div className="flex items-center gap-2">
@@ -814,15 +886,14 @@ const ProfileExtractor: React.FC = () => {
                                     className="px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider border border-teal-700 bg-teal-900/40 text-teal-300 hover:bg-teal-800/60 hover:text-teal-200 transition-all flex items-center gap-1.5"
                                 >
                                     <Download size={10} />
-                                    .txt
+                                    Export
                                 </button>
                             </div>
                         )}
                     </div>
 
-                    {/* Fixed height output */}
                     <div
-                        className="h-[350px] overflow-y-auto p-6 font-mono text-sm"
+                        className="h-[480px] overflow-y-auto p-6 font-mono text-xs"
                         style={{ scrollbarWidth: 'thin', scrollbarColor: '#334155 transparent' }}
                     >
                         {parseError ? (
@@ -833,32 +904,38 @@ const ProfileExtractor: React.FC = () => {
                         ) : groups.length === 0 ? (
                             <div className="flex flex-col items-center justify-center h-full text-center opacity-30 grayscale">
                                 <Users size={32} className="text-slate-600 mb-2" />
-                                <p className="text-slate-500 text-[10px] font-black uppercase">Waiting for input</p>
+                                <p className="text-slate-500 text-[10px] font-black uppercase tracking-widest">Waiting for data</p>
                             </div>
-                        ) : (
+                        ) : (viewMode === 'simple' ? (
                             <div className="space-y-6">
                                 {groups.map((g, i) => (
                                     <div key={i} className="group">
-                                        {/* List name row */}
                                         <div className="flex items-center gap-2 mb-2">
                                             <span className="w-1 h-3 rounded-full bg-emerald-500" />
-                                            <p className="text-emerald-400 font-black text-xs uppercase tracking-tight" style={{ textShadow: '0 0 10px rgba(52,211,153,0.3)' }}>
+                                            <p className="text-emerald-400 font-black text-xs uppercase tracking-tight">
                                                 {g.listName}
                                             </p>
-                                            <span className="ml-auto text-[9px] text-slate-600 font-bold uppercase tracking-widest">{g.profiles.length} ids</span>
                                         </div>
-                                        {/* Profile IDs */}
                                         <div className="pl-3 border-l-2 border-slate-900 space-y-1">
                                             {g.profiles.map((p, j) => (
-                                                <div key={j} className="flex items-center gap-3">
-                                                    <span className="text-slate-700 text-[9px] w-5 text-right font-bold select-none">{j + 1}</span>
-                                                    <p className="text-amber-200/90 text-[11px] font-bold">{p}</p>
-                                                </div>
+                                                <p key={j} className="text-amber-200/90 text-[11px] font-bold">{p}</p>
                                             ))}
                                         </div>
                                     </div>
                                 ))}
                             </div>
+                        ) : (
+                            <div className="space-y-1">
+                                {buildOutputText().split('\n').map((line, i) => (
+                                    <div key={i} className="flex gap-2">
+                                        <span className="text-slate-800 text-[10px] w-6 text-right select-none">{i + 1}</span>
+                                        <p className={`${line.includes('MISSING_PROXY') ? 'text-red-400' : 'text-amber-200/90'} font-bold`}>
+                                            {line}
+                                        </p>
+                                    </div>
+                                ))}
+                            </div>
+                        )
                         )}
                     </div>
                 </div>
@@ -866,7 +943,6 @@ const ProfileExtractor: React.FC = () => {
         </div>
     );
 };
-
 export const ToolsPage: React.FC = () => {
     const { user, isAdmin, isMailer } = useAuth();
 
