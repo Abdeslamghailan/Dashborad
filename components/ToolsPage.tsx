@@ -656,10 +656,16 @@ const ProfileExtractor: React.FC = () => {
     const [proxiesMap, setProxiesMap] = useState<Record<string, string>>({});
     const [groups, setGroups] = useState<ParsedGroup[]>([]);
     const [copied, setCopied] = useState(false);
+    const [copiedName, setCopiedName] = useState(false);
     const [parseError, setParseError] = useState('');
     const [fileName, setFileName] = useState('');
 
     const [viewMode, setViewMode] = useState<'synced' | 'simple'>('synced');
+
+    const randomName = useMemo(() => {
+        if (groups.length === 0) return '';
+        return `PROFILES_${Math.random().toString(36).substring(2, 8).toUpperCase()}`;
+    }, [groups]);
 
     const parseInput = (text: string) => {
         setParseError('');
@@ -701,7 +707,12 @@ const ProfileExtractor: React.FC = () => {
         const pools: Record<string, string[]> = {};
         Object.keys(entityRequirements).forEach(entity => {
             const raw = proxiesMap[entity] || '';
-            pools[entity] = raw.split('\n').map(l => l.trim()).filter(l => l);
+            const lines = raw.split('\n').map(l => l.trim()).filter(l => l);
+            for (let i = lines.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [lines[i], lines[j]] = [lines[j], lines[i]];
+            }
+            pools[entity] = lines;
         });
         return pools;
     }, [proxiesMap, entityRequirements]);
@@ -743,13 +754,20 @@ const ProfileExtractor: React.FC = () => {
         setTimeout(() => setCopied(false), 2000);
     };
 
+    const handleCopyName = () => {
+        if (!randomName) return;
+        navigator.clipboard.writeText(randomName);
+        setCopiedName(true);
+        setTimeout(() => setCopiedName(false), 2000);
+    };
+
     const handleDownload = () => {
         if (hasMissingProxies) return;
         const blob = new Blob([buildOutputText()], { type: 'text/plain' });
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = viewMode === 'synced' ? 'synced_profiles.txt' : 'simple_profiles.txt';
+        a.download = randomName ? `${randomName}.txt` : 'profiles.txt';
         a.click();
         URL.revokeObjectURL(url);
     };
@@ -878,6 +896,18 @@ const ProfileExtractor: React.FC = () => {
                         </div>
                         {groups.length > 0 && (
                             <div className="flex items-center gap-2">
+                                {randomName && (
+                                    <button
+                                        onClick={handleCopyName}
+                                        className={`px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider border transition-all flex items-center gap-1.5 ${copiedName
+                                            ? 'bg-purple-900/40 border-purple-600 text-purple-400'
+                                            : 'bg-slate-800 border-slate-700 text-slate-300 hover:border-slate-500 hover:text-white'
+                                            }`}
+                                    >
+                                        {copiedName ? <Check size={10} /> : <Copy size={10} />}
+                                        {copiedName ? 'Name Copied' : 'Copy Name'}
+                                    </button>
+                                )}
                                 <button
                                     onClick={handleCopy}
                                     disabled={hasMissingProxies}
