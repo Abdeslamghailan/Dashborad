@@ -9,7 +9,7 @@ import { ReporterHelper } from './ReporterHelper';
 import { FileSpreadsheet, ClipboardCheck, Activity } from 'lucide-react';
 import { ConsumptionHelper } from './ConsumptionHelper';
 import { ProxySync } from './ProxySync';
-import { Share2, Fingerprint, ArrowRightLeft } from 'lucide-react';
+import { Share2, Fingerprint, ArrowRightLeft, RotateCcw, FileText, Filter, ClipboardList } from 'lucide-react';
 import { ReportIPExtractor } from './ReportIPExtractor';
 import { IPClassSplitter } from './IPClassSplitter';
 
@@ -1001,6 +1001,405 @@ const ProfileExtractor: React.FC = () => {
         </div>
     );
 };
+const IPLinePurge = () => {
+    const [zone1, setZone1] = useState('');
+    const [zone2, setZone2] = useState('');
+    const [output, setOutput] = useState('');
+    const [stats, setStats] = useState<{ total: number; removed: number; final: number } | null>(null);
+    const [copied, setCopied] = useState(false);
+
+    const handlePurge = () => {
+        if (!zone1.trim() || !zone2.trim()) return;
+
+        const blacklist = new Set(
+            zone1
+                .split(/[\s,]+/)
+                .map(ip => ip.trim())
+                .filter(ip => ip.length > 0)
+        );
+
+        if (blacklist.size === 0) return;
+
+        const lines = zone2.split('\n');
+        const initialCount = lines.length;
+
+        const resultLines = lines.filter(line => {
+            const trimmed = line.trim();
+            if (!trimmed) return true;
+            for (const ip of blacklist) {
+                if (line.includes(ip)) {
+                    return false;
+                }
+            }
+            return true;
+        });
+
+        const finalCount = resultLines.length;
+        const removedCount = initialCount - finalCount;
+
+        setOutput(resultLines.join('\n'));
+        setStats({
+            total: initialCount,
+            removed: removedCount,
+            final: finalCount
+        });
+    };
+
+    const handleClear = () => {
+        setZone1('');
+        setZone2('');
+        setOutput('');
+        setStats(null);
+    };
+
+    const handleCopy = () => {
+        if (!output) return;
+        navigator.clipboard.writeText(output);
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+    };
+
+    return (
+        <div className="min-h-screen flex flex-col items-center justify-center py-10 px-8">
+            <div className="space-y-8 animate-in fade-in duration-500 w-full max-w-5xl">
+                <div className="text-center space-y-4">
+                    <div className="inline-flex items-center justify-center w-16 h-16 bg-indigo-500 rounded-2xl shadow-lg mb-4 text-white">
+                        <Zap className="w-8 h-8 fill-current" />
+                    </div>
+                    <div className="relative inline-block">
+                        <h1 className="text-3xl md:text-4xl font-black text-slate-900 tracking-tight">
+                            IP Line Purge
+                        </h1>
+                    </div>
+                    <div className="flex justify-center">
+                        <p className="text-slate-500 font-medium text-sm max-w-2xl">
+                            Rapidly remove lines from your dataset that contain blacklisted IP addresses. Perfect for cleaning proxy lists, server logs, or access files.
+                        </p>
+                    </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
+                    <div className="bg-white border-2 border-slate-100 rounded-2xl shadow-xl overflow-hidden flex flex-col">
+                        <div className="px-5 py-3 border-b border-slate-100 flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                                <ShieldAlert className="w-4 h-4 text-red-500" />
+                                <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">ZONE 1: BLACKLISTED IPS</span>
+                            </div>
+                            <span className="text-[10px] font-bold text-slate-400 bg-slate-100 px-2 py-0.5 rounded-full">
+                                {zone1.split(/[\s,]+/).filter(ip => ip.trim().length > 0).length} Count
+                            </span>
+                        </div>
+                        <textarea
+                            value={zone1}
+                            onChange={(e) => setZone1(e.target.value)}
+                            className="w-full h-[400px] p-4 bg-white focus:outline-none font-mono text-sm text-slate-700 resize-none placeholder:text-slate-300"
+                            placeholder="199.248.56.77:92&#10;198.181.0.59:92..."
+                            spellCheck={false}
+                            style={{ scrollbarWidth: 'thin', scrollbarColor: '#cbd5e1 transparent' }}
+                        />
+                    </div>
+
+                    <div className="bg-white border-2 border-slate-100 rounded-2xl shadow-xl overflow-hidden flex flex-col">
+                        <div className="px-5 py-3 border-b border-slate-100 flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                                <FileText className="w-4 h-4 text-indigo-500" />
+                                <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">ZONE 2: TARGET DATA TO CLEAN</span>
+                            </div>
+                            <span className="text-[10px] font-bold text-slate-400 bg-slate-100 px-2 py-0.5 rounded-full">
+                                {zone2 ? zone2.split('\n').length : 0} Lines
+                            </span>
+                        </div>
+                        <textarea
+                            value={zone2}
+                            onChange={(e) => setZone2(e.target.value)}
+                            className="w-full h-[400px] p-4 bg-white focus:outline-none font-mono text-sm text-slate-700 resize-none placeholder:text-slate-300"
+                            placeholder="5847#162.33.167.213:92&#10;5848#23.174..."
+                            spellCheck={false}
+                            style={{ scrollbarWidth: 'thin', scrollbarColor: '#cbd5e1 transparent' }}
+                        />
+                    </div>
+                </div>
+
+                <div className="flex justify-center gap-4">
+                    <button
+                        onClick={handlePurge}
+                        className="flex items-center gap-2 px-8 py-3 bg-indigo-600 text-white rounded-xl font-bold hover:bg-indigo-700 transition-colors shadow-lg shadow-indigo-600/20"
+                    >
+                        <Zap size={18} className="fill-current" /> Purge Lines
+                    </button>
+                    <button
+                        onClick={handleClear}
+                        className="flex items-center gap-2 px-8 py-3 bg-white border-2 border-slate-200 text-slate-600 rounded-xl font-bold hover:bg-slate-50 hover:text-slate-900 transition-colors"
+                    >
+                        <RotateCcw size={18} /> Clear All
+                    </button>
+                </div>
+
+                {stats && (
+                    <div className="bg-white border-2 border-slate-100 rounded-2xl shadow-xl overflow-hidden p-6 mt-8 animate-in slide-in-from-bottom-4">
+                        <div className="flex items-center justify-between mb-6">
+                            <div className="flex items-center gap-8">
+                                <div>
+                                    <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">TOTAL LINES</div>
+                                    <div className="text-2xl font-black text-slate-900">{stats.total}</div>
+                                </div>
+                                <div>
+                                    <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">REMOVED</div>
+                                    <div className="text-2xl font-black text-red-500">-{stats.removed}</div>
+                                </div>
+                                <div>
+                                    <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">FINAL COUNT</div>
+                                    <div className="text-2xl font-black text-green-500">{stats.final}</div>
+                                </div>
+                            </div>
+                            <button
+                                onClick={handleCopy}
+                                className="flex items-center gap-2 px-4 py-2 bg-indigo-50 text-indigo-700 rounded-lg font-bold hover:bg-indigo-100 transition-colors text-sm"
+                            >
+                                {copied ? <Check size={16} /> : <Copy size={16} />}
+                                {copied ? 'Copied' : 'Copy Results'}
+                            </button>
+                        </div>
+
+                        <div className="bg-slate-950 rounded-xl p-4 h-[400px] overflow-y-auto" style={{ scrollbarWidth: 'thin', scrollbarColor: '#334155 transparent' }}>
+                            <pre className="font-mono text-xs text-slate-300 whitespace-pre-wrap break-all">{output}</pre>
+                        </div>
+                    </div>
+                )}
+            </div>
+        </div>
+    );
+};
+
+interface ProfileEntry {
+    id: string;
+    statuses: { status: string; date: string; color: string }[];
+}
+
+const ProfileStatusFilter: React.FC = () => {
+    const [input, setInput] = useState('');
+    const [profiles, setProfiles] = useState<ProfileEntry[]>([]);
+    const [selectedStatus, setSelectedStatus] = useState<string | null>(null);
+    const [copiedIds, setCopiedIds] = useState(false);
+    const [parseError, setParseError] = useState('');
+
+    const parseInput = (text: string) => {
+        setParseError('');
+        setSelectedStatus(null);
+        const lines = text.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+        const result: ProfileEntry[] = [];
+
+        for (const line of lines) {
+            // Support tab-separated format (960\t[...]) and space-separated as fallback
+            const tabIdx = line.indexOf('\t');
+            const delimIdx = tabIdx !== -1 ? tabIdx : line.indexOf(' ');
+            if (delimIdx === -1) continue;
+            const id = line.slice(0, delimIdx).trim();
+            const jsonPart = line.slice(delimIdx + 1).trim();
+            try {
+                const parsed = JSON.parse(jsonPart);
+                if (Array.isArray(parsed)) {
+                    result.push({
+                        id,
+                        statuses: parsed.map((s: any) => ({ status: s.status, date: s.date, color: s.color }))
+                    });
+                }
+            } catch {
+                // skip unparseable lines
+            }
+        }
+
+        if (result.length === 0 && text.trim().length > 0) {
+            setParseError('Could not parse any profiles. Expected format: 960\t[{"status":"..."}]');
+        }
+        setProfiles(result);
+    };
+
+    const allStatuses = useMemo(() => {
+        const statusMap = new Map<string, string>(); // status -> color
+        for (const p of profiles) {
+            for (const s of p.statuses) {
+                if (!statusMap.has(s.status)) statusMap.set(s.status, s.color);
+            }
+        }
+        return Array.from(statusMap.entries()).sort((a, b) => a[0].localeCompare(b[0]));
+    }, [profiles]);
+
+    // For each status, count how many profiles have it (appear at least once)
+    const statusCounts = useMemo(() => {
+        const counts: Record<string, number> = {};
+        for (const p of profiles) {
+            const seen = new Set<string>();
+            for (const s of p.statuses) {
+                if (!seen.has(s.status)) {
+                    seen.add(s.status);
+                    counts[s.status] = (counts[s.status] || 0) + 1;
+                }
+            }
+        }
+        return counts;
+    }, [profiles]);
+
+    const filteredIds = useMemo(() => {
+        if (!selectedStatus) return [];
+        return profiles
+            .filter(p => p.statuses.some(s => s.status === selectedStatus))
+            .map(p => p.id);
+    }, [profiles, selectedStatus]);
+
+    const selectedColor = useMemo(() => {
+        if (!selectedStatus) return '#6366f1';
+        return allStatuses.find(([s]) => s === selectedStatus)?.[1] || '#6366f1';
+    }, [selectedStatus, allStatuses]);
+
+    const handleCopyIds = () => {
+        navigator.clipboard.writeText(filteredIds.join('\n'));
+        setCopiedIds(true);
+        setTimeout(() => setCopiedIds(false), 2000);
+    };
+
+    const handleClear = () => {
+        setInput('');
+        setProfiles([]);
+        setSelectedStatus(null);
+        setParseError('');
+        setCopiedIds(false);
+    };
+
+    return (
+        <div className="flex flex-col h-full min-h-screen bg-slate-50/50">
+            {/* Header */}
+            <div className="bg-white border-b border-slate-200 px-8 py-4 flex items-center justify-between">
+                <div className="flex items-center gap-4">
+                    <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-violet-500 to-indigo-600 flex items-center justify-center shadow-lg shadow-violet-500/30">
+                        <ClipboardList size={20} className="text-white" />
+                    </div>
+                    <div>
+                        <h1 className="text-xl font-black text-slate-900 tracking-tight leading-tight uppercase italic">Profile Status Filter</h1>
+                        <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Paste logs and filter by status</p>
+                    </div>
+                </div>
+                {profiles.length > 0 && (
+                    <button
+                        onClick={handleClear}
+                        className="flex items-center gap-2 text-xs font-bold text-red-400 hover:text-red-600 hover:bg-red-50 px-3 py-1.5 rounded-lg transition-all"
+                    >
+                        <Trash2 size={14} /> Clear All
+                    </button>
+                )}
+            </div>
+
+            {/* Body */}
+            <div className="flex flex-1 gap-6 p-8 min-h-0">
+                {/* Left: Input */}
+                <div className="w-[420px] shrink-0 flex flex-col bg-white border-2 border-slate-100 rounded-2xl shadow-lg overflow-hidden">
+                    <div className="flex items-center justify-between px-5 py-3 border-b border-slate-100 bg-slate-50/50">
+                        <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Input Logs</span>
+                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${profiles.length > 0 ? 'bg-violet-100 text-violet-600' : 'bg-slate-100 text-slate-400'
+                            }`}>{profiles.length} profiles loaded</span>
+                    </div>
+                    <textarea
+                        value={input}
+                        onChange={e => { setInput(e.target.value); parseInput(e.target.value); }}
+                        placeholder={`Paste your logs here...\nExample:\n33 [{"status":"Unlocked",...}]`}
+                        className="flex-1 p-5 font-mono text-xs text-slate-700 resize-none focus:outline-none placeholder:text-slate-300 leading-5"
+                        style={{ scrollbarWidth: 'thin', scrollbarColor: '#cbd5e1 transparent' }}
+                    />
+                    {parseError && (
+                        <div className="mx-4 mb-4 flex items-center gap-2 bg-amber-50 border border-amber-200 rounded-xl p-3 text-amber-700 text-[10px] font-bold uppercase">
+                            <AlertTriangle size={12} className="shrink-0" />
+                            {parseError}
+                        </div>
+                    )}
+                </div>
+
+                {/* Right: Status Filter + Results */}
+                <div className="flex-1 flex flex-col gap-6 min-h-0">
+                    {/* Status pills panel */}
+                    <div className="bg-white border-2 border-slate-100 rounded-2xl shadow-lg p-6">
+                        <div className="flex items-center gap-2 mb-4">
+                            <Filter size={14} className="text-slate-400" />
+                            <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Select Status</span>
+                        </div>
+                        {allStatuses.length === 0 ? (
+                            <p className="text-slate-300 text-sm font-medium italic">Paste data to see available statuses</p>
+                        ) : (
+                            <div className="flex flex-wrap gap-2">
+                                {allStatuses.map(([status, color]) => {
+                                    const isSelected = selectedStatus === status;
+                                    return (
+                                        <button
+                                            key={status}
+                                            onClick={() => setSelectedStatus(isSelected ? null : status)}
+                                            className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold transition-all border-2 ${isSelected
+                                                ? 'text-white border-transparent shadow-md scale-105'
+                                                : 'bg-white text-slate-600 border-slate-200 hover:border-slate-300 hover:bg-slate-50'
+                                                }`}
+                                            style={isSelected ? { backgroundColor: color, borderColor: color } : {}}
+                                        >
+                                            {status}
+                                            <span className={`text-[10px] font-black px-1.5 py-0.5 rounded-full ${isSelected ? 'bg-white/25 text-white' : 'bg-slate-100 text-slate-500'
+                                                }`}>
+                                                {statusCounts[status] || 0}
+                                            </span>
+                                        </button>
+                                    );
+                                })}
+                            </div>
+                        )}
+                    </div>
+
+                    {/* Results panel */}
+                    {selectedStatus && (
+                        <div className="bg-white border-2 border-slate-100 rounded-2xl shadow-lg flex flex-col overflow-hidden animate-in slide-in-from-top-2 duration-300">
+                            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100">
+                                <div className="flex items-center gap-3">
+                                    <div className="w-3 h-3 rounded-full" style={{ backgroundColor: selectedColor }} />
+                                    <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                                        Results: {selectedStatus}
+                                    </span>
+                                    <span className="text-[10px] font-bold bg-slate-100 text-slate-500 px-2 py-0.5 rounded-full">
+                                        {filteredIds.length} profiles
+                                    </span>
+                                </div>
+                                <button
+                                    onClick={handleCopyIds}
+                                    className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-bold transition-all border ${copiedIds
+                                        ? 'bg-green-50 text-green-600 border-green-200'
+                                        : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100'
+                                        }`}
+                                >
+                                    {copiedIds ? <Check size={13} /> : <Copy size={13} />}
+                                    {copiedIds ? 'Copied!' : 'Copy IDs'}
+                                </button>
+                            </div>
+                            <div
+                                className="p-6 overflow-y-auto"
+                                style={{ maxHeight: '380px', scrollbarWidth: 'thin', scrollbarColor: '#cbd5e1 transparent' }}
+                            >
+                                {filteredIds.length === 0 ? (
+                                    <p className="text-slate-300 text-sm font-medium italic">No profiles found with this status.</p>
+                                ) : (
+                                    <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-3">
+                                        {filteredIds.map(id => (
+                                            <div
+                                                key={id}
+                                                className="flex items-center justify-center bg-slate-50 border-2 border-slate-100 rounded-xl py-3 px-2 font-mono text-sm font-black text-slate-700 hover:border-slate-300 hover:bg-white transition-all"
+                                            >
+                                                {id}
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    )}
+                </div>
+            </div>
+        </div>
+    );
+};
+
 export const ToolsPage: React.FC = () => {
     const { user, isAdmin, isMailer } = useAuth();
 
@@ -1016,6 +1415,8 @@ export const ToolsPage: React.FC = () => {
         { id: 'ipExtractor', label: 'IP Extractor', icon: <Fingerprint size={16} />, color: 'bg-indigo-600', component: <ReportIPExtractor />, roles: ['ADMIN', 'MAILER'] },
         { id: 'ipSplitter', label: 'IP Splitter', icon: <ArrowRightLeft size={16} />, color: 'bg-blue-600', component: <IPClassSplitter />, roles: ['ADMIN', 'MAILER', 'USER'] },
         { id: 'profileExtractor', label: 'Profile Extractor', icon: <Users size={16} />, color: 'bg-teal-600', component: <ProfileExtractor />, roles: ['ADMIN', 'MAILER'] },
+        { id: 'ipLinePurge', label: 'IP Purge', icon: <Zap size={16} />, color: 'bg-indigo-600', component: <IPLinePurge />, roles: ['ADMIN'] },
+        { id: 'profileStatusFilter', label: 'Status Filter', icon: <Filter size={16} />, color: 'bg-violet-600', component: <ProfileStatusFilter />, roles: ['ADMIN'] },
     ] as const;
 
     type TabId = typeof allTabs[number]['id'];
