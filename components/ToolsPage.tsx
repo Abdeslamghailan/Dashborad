@@ -1437,19 +1437,25 @@ export const ToolsPage: React.FC = () => {
         );
     };
 
-    // Filter tabs based on user role
-    const filteredTabs = allTabs
-        .filter(tab =>
-            ((tab.roles as any).includes('ADMIN') && isAdmin) ||
-            (tab.roles as any).includes(user?.role || '')
-        )
-        .sort((a, b) => {
-            const aPinned = pinnedTabs.includes(a.id);
-            const bPinned = pinnedTabs.includes(b.id);
-            if (aPinned && !bPinned) return -1;
-            if (!aPinned && bPinned) return 1;
-            return 0;
-        });
+    // Filter and sort tabs based on user role and pin status
+    const filteredTabs = useMemo(() => {
+        return allTabs
+            .filter(tab =>
+                ((tab.roles as any).includes('ADMIN') && isAdmin) ||
+                (tab.roles as any).includes(user?.role || '')
+            )
+            .sort((a, b) => {
+                const aPinned = pinnedTabs.includes(a.id);
+                const bPinned = pinnedTabs.includes(b.id);
+
+                // Prioritize pinned tabs globally
+                if (aPinned && !bPinned) return -1;
+                if (!aPinned && bPinned) return 1;
+
+                // Stable secondary sort (original order)
+                return allTabs.indexOf(a) - allTabs.indexOf(b);
+            });
+    }, [isAdmin, user?.role, pinnedTabs]);
 
     const [activeTab, setActiveTab] = useState<TabId>(filteredTabs[0]?.id || 'dns');
 
