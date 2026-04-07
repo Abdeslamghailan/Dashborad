@@ -66,7 +66,7 @@ const GmailFilterGenerator = () => {
     const isFromsMode = mode === 'froms';
 
     const buildItemQuery = (item: string) =>
-        isFromsMode ? `from:${item.trim()}` : `subject:"${item.trim()}"`;
+        isFromsMode ? `from:"${item.trim()}"` : `subject:"${item.trim()}"`;
 
     const calculateQueryLength = (subjectList: string[]) => {
         const itemQuery = subjectList.map(s => buildItemQuery(s)).join(' OR ');
@@ -1060,7 +1060,7 @@ const IPLinePurge = () => {
     };
 
     return (
-        <div className="min-h-screen flex flex-col items-center justify-center py-10 px-8">
+        <div className="flex flex-col items-center py-10 px-8">
             <div className="space-y-8 animate-in fade-in duration-500 w-full max-w-5xl">
                 <div className="text-center space-y-4">
                     <div className="inline-flex items-center justify-center w-16 h-16 bg-indigo-500 rounded-2xl shadow-lg mb-4 text-white">
