@@ -23,3 +23,4 @@ const startServer = async () => {
 
 startServer();
 
+// CMHW integration proxy active

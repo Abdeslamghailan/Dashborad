@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import { Mail, Globe, Search, Copy, Download, Trash2, Check, Clock, ShieldAlert, Zap, Scissors, Wand2, AlertTriangle, X, Star, Users } from 'lucide-react';
+import { Mail, Globe, Search, Copy, Download, Trash2, Check, Clock, ShieldAlert, Zap, Scissors, Wand2, AlertTriangle, X, Star, Users, ShieldCheck } from 'lucide-react';
 import { Button } from './ui/Button';
 import { service } from '../services';
 import { SimulationExcel } from './SimulationExcel';
@@ -9,9 +9,10 @@ import { ReporterHelper } from './ReporterHelper';
 import { FileSpreadsheet, ClipboardCheck, Activity } from 'lucide-react';
 import { ConsumptionHelper } from './ConsumptionHelper';
 import { ProxySync } from './ProxySync';
-import { Share2, Fingerprint, ArrowRightLeft, RotateCcw, FileText, Filter, ClipboardList } from 'lucide-react';
+import { Share2, Fingerprint, ArrowRightLeft, RotateCcw, FileText, Filter, ClipboardList, Droplets } from 'lucide-react';
 import { ReportIPExtractor } from './ReportIPExtractor';
 import { IPClassSplitter } from './IPClassSplitter';
+import { DropFlow } from './cmhw/DropFlow';
 
 const WowAnimations = () => (
     <style dangerouslySetInnerHTML={{
@@ -1417,6 +1418,7 @@ export const ToolsPage: React.FC = () => {
         { id: 'profileExtractor', label: 'Profile Extractor', icon: <Users size={16} />, color: 'bg-teal-600', component: <ProfileExtractor />, roles: ['ADMIN', 'MAILER'] },
         { id: 'ipLinePurge', label: 'IP Purge', icon: <Zap size={16} />, color: 'bg-indigo-600', component: <IPLinePurge />, roles: ['ADMIN'] },
         { id: 'profileStatusFilter', label: 'Status Filter', icon: <Filter size={16} />, color: 'bg-violet-600', component: <ProfileStatusFilter />, roles: ['ADMIN'] },
+        { id: 'dropFlow', label: 'Drop-Flow', icon: <Droplets size={16} />, color: 'bg-indigo-700', component: <DropFlow />, roles: ['ADMIN'] },
     ] as const;
 
     type TabId = typeof allTabs[number]['id'];
@@ -1461,7 +1463,7 @@ export const ToolsPage: React.FC = () => {
 
     const activeTabObj = filteredTabs.find(t => t.id === activeTab) || filteredTabs[0];
 
-    const fullHeightTabs = ['ipSplitter', 'profileExtractor'];
+    const fullHeightTabs = ['ipSplitter', 'profileExtractor', 'dropFlow'];
     const isFullHeight = fullHeightTabs.includes(activeTab);
 
     return (

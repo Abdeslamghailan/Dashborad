@@ -19,6 +19,7 @@ import scriptsRoutes from './routes/scripts.js';
 import methodsRoutes from './routes/methods.js';
 import dashboardRoutes from './routes/dashboard.js';
 import reporterRoutes from './routes/reporter.js';
+import cmhwRoutes from './routes/cmhw.js';
 import prisma from './db.js';
 import { initBackupService } from './services/backupService.js';
 import { logger } from './utils/logger.js';
@@ -170,6 +171,7 @@ app.use('/api/scripts', scriptsRoutes);
 app.use('/api/methods', methodsRoutes);
 app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/reporter', reporterRoutes);
+app.use('/api/cmhw', cmhwRoutes);
 
 // Health check
 app.get('/api/health', async (req, res) => {

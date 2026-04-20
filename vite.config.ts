@@ -15,8 +15,14 @@ export default defineConfig(({ mode }) => {
           'sharan-unsuspendible-milagros.ngrok-free.dev'
         ],
         proxy: {
+          '/cmhw-api': {
+            target: 'http://localhost:5002',
+            changeOrigin: true,
+            rewrite: (path: string) => path.replace(/^\/cmhw-api/, ''),
+            secure: false
+          },
           '/api': {
-            target: 'http://localhost:3002',
+            target: 'http://127.0.0.1:3002',
             changeOrigin: true,
             secure: false
           }
