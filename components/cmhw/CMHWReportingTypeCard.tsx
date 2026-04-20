@@ -50,7 +50,7 @@ export const CMHWReportingTypeCard: React.FC<CMHWReportingTypeCardProps> = ({
     const [content, setContent] = useState(rt.content || '');
     const [extraEntities, setExtraEntities] = useState(rt.extra_entities || []);
     const [replaceFrom, setReplaceFrom] = useState(rt.replace_from || 1);
-    const [isV2, setIsV2] = useState(rt.is_v2 || false);
+    const [isV2, setIsV2] = useState(rt.is_v2 === true || rt.is_v2 === 1 || rt.is_v2 === '1' || rt.is_v2 === 'true');
     const [editingContent, setEditingContent] = useState(false);
 
     React.useEffect(() => {
@@ -58,7 +58,7 @@ export const CMHWReportingTypeCard: React.FC<CMHWReportingTypeCardProps> = ({
         setContent(rt.content || '');
         setExtraEntities(rt.extra_entities || []);
         setReplaceFrom(rt.replace_from || 1);
-        setIsV2(rt.is_v2 || false);
+        setIsV2(rt.is_v2 === true || rt.is_v2 === 1 || rt.is_v2 === '1' || rt.is_v2 === 'true');
     }, [rt]);
 
     const handleSave = () => {

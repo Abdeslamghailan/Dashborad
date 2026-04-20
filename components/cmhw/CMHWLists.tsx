@@ -85,13 +85,19 @@ export const CMHWLists: React.FC = () => {
         const rt = ent.reporting_types?.find((r: any) => r.id === rtId);
         if (!rt) return;
 
+        const isV2 = rt.is_v2 === true || rt.is_v2 === 1 || rt.is_v2 === '1';
+
         const data = {
             reportingType: rt.name,
+            reporting_type: rt.name,
             entity: entityName,
             content: rt.content,
-            isV2: rt.is_v2,
+            isV2: isV2,
+            is_v2: isV2,
             extraEntities: rt.extra_entities || [],
-            replaceFrom: rt.replace_from || 1
+            extra_entities: rt.extra_entities || [],
+            replaceFrom: rt.replace_from || 1,
+            replace_from: rt.replace_from || 1
         };
 
         try {
@@ -106,10 +112,16 @@ export const CMHWLists: React.FC = () => {
 
     const filteredRTs = useMemo(() => {
         if (!entity?.reporting_types) return [];
-        return entity.reporting_types.filter((r: any) => {
+        let rts = entity.reporting_types;
+        // Fix for backend returning all plans in every entity
+        if (rts.length > 0 && 'entity_id' in rts[0]) {
+            rts = rts.filter((r: any) => r.entity_id === entity.id);
+        }
+        return rts.filter((r: any) => {
+            const isV2 = r.is_v2 === true || r.is_v2 === 1 || r.is_v2 === '1';
             if (filter === 'all') return true;
-            if (filter === 'v2') return r.is_v2;
-            if (filter === 'classic') return !r.is_v2;
+            if (filter === 'v2') return isV2;
+            if (filter === 'classic') return !isV2;
             return true;
         });
     }, [entity, filter]);

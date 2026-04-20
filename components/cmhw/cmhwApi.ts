@@ -10,15 +10,17 @@
 const BASE_URL = '/api/cmhw';
 
 async function request(path: string, options: any = {}) {
+  const { headers: optHeaders, body: optBody, ...restOptions } = options;
   const res = await fetch(BASE_URL + path, {
+    ...restOptions,
+    method: restOptions.method || 'GET',
     headers: {
       'Content-Type': 'application/json',
       'X-Requested-With': 'XMLHttpRequest',
-      ...options.headers,
+      ...optHeaders,
     },
     credentials: 'include',
-    ...options,
-    body: options.body ? JSON.stringify(options.body) : undefined,
+    body: optBody ? JSON.stringify(optBody) : undefined,
   });
 
   if (res.status === 204) return null;
