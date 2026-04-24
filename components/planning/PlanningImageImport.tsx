@@ -37,8 +37,8 @@ export const PlanningImageImport: React.FC<PlanningImageImportProps> = ({
         try {
             const data = await onImport(image);
             setResults(data);
-        } catch (error) {
-            alert('Failed to process image. Make sure the API is configured correctly.');
+        } catch (error: any) {
+            alert(`Failed to process image: ${error.message || 'Unknown error'}. Make sure the API is configured correctly.`);
         } finally {
             setLoading(false);
         }
