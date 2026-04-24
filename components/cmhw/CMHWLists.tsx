@@ -96,7 +96,12 @@ export const CMHWLists: React.FC = () => {
             };
 
             const res = await cmhwApi.createSessionToken(data);
-            const url = `http://95.216.72.6:90/seed/email/sessions#CMHW-MANAGER|${res.token}`;
+            // If the dashboard is on HTTPS (Netlify), browsers may block opening an HTTP URL.
+            // We use the IP directly but suggest checking protocol.
+            const targetHost = '95.216.72.6:90';
+            const url = `http://${targetHost}/seed/email/sessions#CMHW-MANAGER|${res.token}`;
+            
+            console.log('Opening session URL:', url);
             window.open(url, '_blank');
         } catch (e: any) {
             console.error('Generate failed', e);

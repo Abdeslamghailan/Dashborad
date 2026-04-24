@@ -210,7 +210,14 @@ app.get('/api/test', (req, res) => {
   res.json({ 
     status: 'success', 
     message: 'API endpoint reached successfully!',
-    env: process.env.NODE_ENV,
+    env: {
+      NODE_ENV: process.env.NODE_ENV,
+      NETLIFY: !!process.env.NETLIFY,
+      HAS_DATABASE_URL: !!process.env.DATABASE_URL,
+      HAS_JWT_SECRET: !!process.env.JWT_SECRET,
+      HAS_CMHW_API_URL: !!process.env.CMHW_API_URL,
+      CMHW_API_URL_VALUE: process.env.CMHW_API_URL || 'DEFAULT'
+    },
     time: new Date().toISOString()
   });
 });

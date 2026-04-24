@@ -855,62 +855,67 @@ router.post('/import-image', authenticateToken, async (req: AuthRequest, res) =>
 
     const scheduleId = targetSchedule.id;
 
-    // Fetch all valid mailer IDs from the database
-    const allMailers = await prisma.mailer.findMany({ select: { id: true } });
-    const validMailerIds = new Set(allMailers.map(m => m.id));
+    // Fetch all mailers from the database to map by name
+    const allMailers = await prisma.mailer.findMany({ select: { id: true, name: true } });
+    console.log(`[import-image] Found ${allMailers.length} mailers in database for matching.`);
+    
+    // Create a name -> id map (case-insensitive-ish)
+    const mailerMap: Record<string, string> = {};
+    allMailers.forEach(m => {
+      mailerMap[m.name.toLowerCase().trim()] = m.id;
+    });
 
-    // Helper to add assignments for a mailer
-    const addDays = (mailerId: string, days: number[], taskCode: string, color?: string) => {
-      return days.map(day => ({ scheduleId, mailerId, dayOfWeek: day, taskCode, taskColor: color || '#90EE90' }));
+    // Helper to add assignments for a mailer by NAME
+    const addDaysByName = (name: string, days: number[], taskCode: string, color?: string) => {
+      const id = mailerMap[name.toLowerCase().trim()];
+      if (!id) return []; // Skip if mailer not found
+      return days.map(day => ({ scheduleId, mailerId: id, dayOfWeek: day, taskCode, taskColor: color || '#90EE90' }));
     };
 
-    const rawAssignments = [
-      // DESKTOP TEAM
-      ...addDays('2ba78c56-a363-4e5f-8075-7f3e8df3e382', [0,1,2,3,4], 'CMH6-CMH8'),
-      ...addDays('02b702d6-f717-4084-bf76-4f26b7f96345', [2], 'Night Desktop + Night tool it', '#000000'),
-      ...addDays('3756e89f-d428-48ce-a8de-e89d0db0ae34', [0,3,4,5,6], 'CMH3-CMH9'),
-      ...addDays('ba9d4e37-c5ce-4b10-aebb-8b7efd26c1f6', [0,1,2], 'CMH5', '#FFFFE0'),
-      ...addDays('ba9d4e37-c5ce-4b10-aebb-8b7efd26c1f6', [5,6], 'CMH5-CMH12', '#FFFFE0'),
-      ...addDays('8a311fca-1c66-4493-b442-28b64cf648cb', [0], 'CMH12'),
-      ...addDays('8a311fca-1c66-4493-b442-28b64cf648cb', [1,2], 'CMH12-CMH3-CMH9'),
-      ...addDays('8a311fca-1c66-4493-b442-28b64cf648cb', [3], 'CMH5-CMH12'),
-      ...addDays('8a311fca-1c66-4493-b442-28b64cf648cb', [4], 'CMH6-CMH12'),
-      ...addDays('717875ea-bcdf-4eee-a192-0a6a3e95cc7e', [0,1,2], 'CMH2-CMH1'),
-      ...addDays('717875ea-bcdf-4eee-a192-0a6a3e95cc7e', [4,5,6], 'CMH2-CMH8'),
-      ...addDays('cd13d7ac-0d40-4b6c-b84f-90c1da16a3f5', [0], 'CMH1'),
-      ...addDays('cd13d7ac-0d40-4b6c-b84f-90c1da16a3f5', [3,4], 'CMH2-CMH1'),
-      ...addDays('cd13d7ac-0d40-4b6c-b84f-90c1da16a3f5', [5,6], 'CMH1-CMH6'),
-      ...addDays('23d7d370-1602-47c5-91f6-9d1683f260b0', [0,1,2,3,4], 'TeamWarmup'),
+    const assignments = [
+      // DESKTOP TEAM (Mapping by real names from your DB)
+      ...addDaysByName('Khadija Hafid', [0,1,2,3,4], 'CMH6-CMH8'),
+      ...addDaysByName('Hicham EL OUAFIR', [2], 'Night Desktop + Night tool it', '#000000'),
+      ...addDaysByName('Mohamed fertoul', [0,3,4,5,6], 'CMH3-CMH9'),
+      ...addDaysByName('Yousra EL HAFYAN', [0,1,2], 'CMH5', '#FFFFE0'),
+      ...addDaysByName('Yousra EL HAFYAN', [5,6], 'CMH5-CMH12', '#FFFFE0'),
+      ...addDaysByName('Issam Hailoua', [0], 'CMH12'),
+      ...addDaysByName('Issam Hailoua', [1,2], 'CMH12-CMH3-CMH9'),
+      ...addDaysByName('Issam Hailoua', [3], 'CMH5-CMH12'),
+      ...addDaysByName('Issam Hailoua', [4], 'CMH6-CMH12'),
+      ...addDaysByName('Abdelali Ketlas', [0,1,2], 'CMH2-CMH1'),
+      ...addDaysByName('Abdelali Ketlas', [4,5,6], 'CMH2-CMH8'),
+      ...addDaysByName('Younes Ahamdi', [0], 'CMH1'),
+      ...addDaysByName('Younes Ahamdi', [3,4], 'CMH2-CMH1'),
+      ...addDaysByName('Younes Ahamdi', [5,6], 'CMH1-CMH6'),
+      ...addDaysByName('Yousra Hamdan', [0,1,2,3,4], 'TeamWarmup'),
 
       // WEBAUTOMAT TEAM
-      ...addDays('8e4b6de6-d985-45cb-ab89-622811e61e6b', [0], 'CMH7-CMH11-CMH14'),
-      ...addDays('8e4b6de6-d985-45cb-ab89-622811e61e6b', [1,2], 'CMH12-CMH13-CMH7-CMH11'),
-      ...addDays('8e4b6de6-d985-45cb-ab89-622811e61e6b', [5,6], 'CMH1-CMH2-CMH3-CMH9-CMH10'),
-      ...addDays('22423ff9-57fa-4557-873e-37f1276dae20', [0], 'CMH12-CMH13'),
-      ...addDays('22423ff9-57fa-4557-873e-37f1276dae20', [3,4,5,6], 'CMH12-CMH13-CMH7-CMH11'),
-      ...addDays('2937a5f0-6b71-4c80-8a26-14355d121ea0', [0,1,2], 'CMH9-CMH10-CMH15'),
-      ...addDays('2937a5f0-6b71-4c80-8a26-14355d121ea0', [3,4], 'CMH5-CMH6-CMH8-CMH14-CMH15'),
-      ...addDays('9292b714-0d1c-4e9c-b669-d101cafc581f', [0,1,2], 'CMH5-CMH6-CMH8'),
-      ...addDays('9292b714-0d1c-4e9c-b669-d101cafc581f', [5,6], 'CMH5-CMH6-CMH8-CMH14-CMH15'),
-      ...addDays('8314890e-4afa-4eab-8ba5-34b7fa5afc2f', [0,1,2], 'CMH1-CMH2-CMH3'),
-      ...addDays('8314890e-4afa-4eab-8ba5-34b7fa5afc2f', [3,4], 'CMH1-CMH2-CMH3-CMH9-CMH10'),
+      ...addDaysByName('Mohamed ELMHASSANI', [0], 'CMH7-CMH11-CMH14'),
+      ...addDaysByName('Mohamed ELMHASSANI', [1,2], 'CMH12-CMH13-CMH7-CMH11'),
+      ...addDaysByName('Mohamed ELMHASSANI', [5,6], 'CMH1-CMH2-CMH3-CMH9-CMH10'),
+      ...addDaysByName('Morad Oulhaj', [0], 'CMH12-CMH13'),
+      ...addDaysByName('Morad Oulhaj', [3,4,5,6], 'CMH12-CMH13-CMH7-CMH11'),
+      ...addDaysByName('Aya Bakali-Korami', [0,1,2], 'CMH9-CMH10-CMH15'),
+      ...addDaysByName('Aya Bakali-Korami', [3,4], 'CMH5-CMH6-CMH8-CMH14-CMH15'),
+      ...addDaysByName('Ayoub Aharmouch', [0,1,2], 'CMH5-CMH6-CMH8'),
+      ...addDaysByName('Ayoub Aharmouch', [5,6], 'CMH5-CMH6-CMH8-CMH14-CMH15'),
+      ...addDaysByName('Faiza El omari', [0,1,2], 'CMH1-CMH2-CMH3'),
+      ...addDaysByName('Faiza El omari', [3,4], 'CMH1-CMH2-CMH3-CMH9-CMH10'),
 
       // HOTMAIL/YAHOO
-      ...addDays('803b9337-3181-41d3-b39b-a798ca7aa0eb', [0,1,2,3,4], 'HOTMAIL'),
-      ...addDays('f114b6bd-eb9e-4001-b9c6-f840a123a0eb', [0,1,2,3,4], 'YAHOO'),
+      ...addDaysByName('Oussama Rich', [0,1,2,3,4], 'HOTMAIL'),
+      ...addDaysByName('Abdeljalil Boughnaim', [0,1,2,3,4], 'HOTMAIL'), // Map to Hotmail too as per screenshot
+      ...addDaysByName('Ilyas Houari', [0,1,2,3,4], 'YAHOO'),
     ];
-
-    // Filter out assignments with mailer IDs that don't exist in the database
-    // This prevents FK constraint errors in the bulk save step
-    const assignments = rawAssignments.filter(a => validMailerIds.has(a.mailerId));
 
     if (assignments.length === 0) {
       return res.status(400).json({ 
-        error: 'None of the mapped mailer IDs exist in this database. The image import template may be misconfigured for this environment.' 
+        error: 'No matching mailers found in the database. Please ensure your Mailer names match the screenshot (e.g., "Khadija Hafid").' 
       });
     }
 
-    console.log(`[import-image] Returning ${assignments.length}/${rawAssignments.length} valid assignments for schedule ${scheduleId}`);
+    console.log(`[import-image] Returning ${assignments.length} dynamic assignments matched by name.`);
     
     res.json({
       success: true,

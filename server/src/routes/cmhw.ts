@@ -4,7 +4,7 @@ import { logger } from '../utils/logger.js';
 
 const router = Router();
 
-const CMHW_API_URL = process.env.CMHW_API_URL || 'http://localhost:5002';
+const CMHW_API_URL = process.env.CMHW_API_URL || (process.env.NETLIFY ? 'https://abdelgh9.pythonanywhere.com' : 'http://localhost:5002');
 
 // Reset session on each server start to force fresh login with correct credentials
 let flaskSessionCookie: string | null = null; // Always null on fresh start
@@ -155,10 +155,14 @@ async function proxyToFlask(
             return res.status(flaskRes.status).send(data);
         }
     } catch (err: any) {
-        logger.error(`CMHW proxy error [${method} ${flaskPath}]:`, err.message);
+        logger.error(`CMHW proxy error [${method} ${flaskPath}]:`, {
+            message: err.message,
+            targetUrl: `${CMHW_API_URL}${flaskPath}`,
+            isNetlify: !!process.env.NETLIFY
+        });
         return res.status(502).json({
             error: 'CMHW backend unavailable',
-            detail: `Could not reach Flask at ${CMHW_API_URL}. Is it running?`
+            detail: `Could not reach Flask at ${CMHW_API_URL}. Is it running? (Env: ${process.env.NETLIFY ? 'Netlify' : 'Local'})`
         });
     }
 }
