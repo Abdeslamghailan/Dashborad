@@ -15,7 +15,9 @@ export const PlanningImageImport: React.FC<PlanningImageImportProps> = ({
 }) => {
     const [image, setImage] = useState<string | null>(null);
     const [loading, setLoading] = useState(false);
+    const [applying, setApplying] = useState(false);
     const [results, setResults] = useState<any | null>(null);
+    const [applyError, setApplyError] = useState<string | null>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
 
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -125,15 +127,44 @@ export const PlanningImageImport: React.FC<PlanningImageImportProps> = ({
                                         </p>
                                     </div>
 
+                                    {applyError && (
+                                        <div className="bg-red-50 border border-red-200 p-4 rounded-2xl text-sm text-red-700 font-medium flex items-start gap-3 animate-in fade-in duration-300">
+                                            <span className="text-xl leading-none">⚠️</span>
+                                            <span>{applyError}</span>
+                                        </div>
+                                    )}
+
                                     <div className="flex gap-4">
                                         <button
-                                            onClick={() => onApplySuggestions(results.assignments)}
-                                            className="flex-grow py-4 bg-indigo-600 text-white rounded-2xl font-bold hover:bg-indigo-700 shadow-lg active:scale-95 transition-all"
+                                            onClick={async () => {
+                                                setApplyError(null);
+                                                setApplying(true);
+                                                try {
+                                                    await onApplySuggestions(results.assignments);
+                                                } catch (err: any) {
+                                                    setApplyError(err?.message || 'Failed to apply planning. Please try again.');
+                                                } finally {
+                                                    setApplying(false);
+                                                }
+                                            }}
+                                            disabled={applying}
+                                            className={`flex-grow py-4 rounded-2xl font-bold shadow-lg flex items-center justify-center gap-3 transition-all ${
+                                                applying
+                                                ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                                                : 'bg-indigo-600 text-white hover:bg-indigo-700 active:scale-95'
+                                            }`}
                                         >
-                                            Apply Planning
+                                            {applying ? (
+                                                <>
+                                                    <div className="w-5 h-5 border-2 border-gray-300 border-t-indigo-500 rounded-full animate-spin"></div>
+                                                    Saving...
+                                                </>
+                                            ) : (
+                                                'Apply Planning'
+                                            )}
                                         </button>
                                         <button
-                                            onClick={() => setResults(null)}
+                                            onClick={() => { setResults(null); setApplyError(null); }}
                                             className="px-6 py-4 bg-gray-100 text-gray-600 rounded-2xl font-bold hover:bg-gray-200 transition-all"
                                         >
                                             Retry

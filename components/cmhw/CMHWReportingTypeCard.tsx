@@ -16,7 +16,7 @@ interface CMHWReportingTypeCardProps {
     entityName: string;
     onSave: (id: number, data: any) => void;
     onDelete: (id: number) => void;
-    onGenerate: (id: number, entityName: string) => void;
+    onGenerate: (id: number, entityName: string, localData?: any) => void;
     onSyncToday?: (id: number) => void;
 }
 
@@ -76,7 +76,7 @@ export const CMHWReportingTypeCard: React.FC<CMHWReportingTypeCardProps> = ({
     return (
         <div className="bg-white border border-slate-200/70 rounded-2xl mb-5 shadow-sm hover:shadow-md transition-shadow duration-300">
 
-            {/* ── Top Row: Rebautomat V2 Toggle ───────────────────── */}
+            {/* ── Top Row: Webautomat V2 Toggle ───────────────────── */}
             <div className="flex items-center justify-end px-7 pt-5 pb-0">
                 <div className="flex items-center gap-2">
                     <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest select-none">
@@ -216,7 +216,7 @@ export const CMHWReportingTypeCard: React.FC<CMHWReportingTypeCardProps> = ({
 
                         {/* Generate */}
                         <button
-                            onClick={() => onGenerate(rt.id, entityName)}
+                            onClick={() => onGenerate(rt.id, entityName, { name, content, extraEntities, replaceFrom, isV2 })}
                             className="px-5 py-1.5 text-[11px] font-semibold text-white bg-teal-500 border border-teal-500 rounded-md hover:bg-teal-600 transition-all"
                         >
                             Generate

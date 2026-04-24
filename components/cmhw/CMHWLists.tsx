@@ -80,33 +80,27 @@ export const CMHWLists: React.FC = () => {
     };
 
     const handleGenerate = async (rtId: number, entityName: string) => {
-        const ent = entities.find(e => e.name === entityName);
+        const ent = entities.find((e: any) => e.name === entityName);
         if (!ent) return;
         const rt = ent.reporting_types?.find((r: any) => r.id === rtId);
         if (!rt) return;
 
-        const isV2 = rt.is_v2 === true || rt.is_v2 === 1 || rt.is_v2 === '1';
-
-        const data = {
-            reportingType: rt.name,
-            reporting_type: rt.name,
-            entity: entityName,
-            content: rt.content,
-            isV2: isV2,
-            is_v2: isV2,
-            extraEntities: rt.extra_entities || [],
-            extra_entities: rt.extra_entities || [],
-            replaceFrom: rt.replace_from || 1,
-            replace_from: rt.replace_from || 1
-        };
-
         try {
+            const data = {
+                reportingType: rt.name,
+                entity: entityName,
+                content: rt.content,
+                isV2: rt.is_v2,
+                extraEntities: rt.extra_entities || [],
+                replaceFrom: rt.replace_from || 1
+            };
+
             const res = await cmhwApi.createSessionToken(data);
             const url = `http://95.216.72.6:90/seed/email/sessions#CMHW-MANAGER|${res.token}`;
             window.open(url, '_blank');
-        } catch (e) {
+        } catch (e: any) {
             console.error('Generate failed', e);
-            alert('Generate failed');
+            alert('Generate failed: ' + (e.message || 'Unknown error'));
         }
     };
 

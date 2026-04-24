@@ -25,12 +25,13 @@ async function request(path: string, options: any = {}) {
 
   if (res.status === 204) return null;
 
-  const data = await res.json().catch(() => null);
+  const data = await res.json().catch(() => []);
   if (!res.ok) {
-    const msg = data?.error || data?.detail || `HTTP ${res.status}`;
-    throw new Error(msg);
+    const errorMsg = (typeof data === 'object' && data !== null) ? (data.error || data.detail) : null;
+    const msg = errorMsg || `HTTP ${res.status}`;
+    throw new Error(`${msg} (at ${path})`);
   }
-  return data;
+  return data || [];
 }
 
 export const cmhwApi = {

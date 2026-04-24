@@ -191,6 +191,8 @@ export const TeamPlanning: React.FC = () => {
                 onClose={() => setShowImageImportModal(false)}
                 onImport={importFromImage}
                 onApplySuggestions={async (assignments) => {
+                    // Let errors propagate so the modal can display them.
+                    // Only close the modal on success.
                     await applyBulkAssignments(assignments);
                     setShowImageImportModal(false);
                 }}

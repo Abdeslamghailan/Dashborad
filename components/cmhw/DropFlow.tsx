@@ -246,8 +246,10 @@ function calcIntervalL(dropIdx: number, stepCfg: string | number, intervalsStr: 
 const ListCategoryCard: React.FC<{
     cat: any;
     entity: Entity;
+    flaskEntity: FlaskEntity | null;
     dayPlan: Record<string, any>;
-}> = ({ cat, entity, dayPlan }) => {
+    onRefresh: () => Promise<void>;
+}> = ({ cat, entity, flaskEntity, dayPlan, onRefresh }) => {
     const [name, setName] = useState(cat.name || '');
     const [replaceFrom, setReplaceFrom] = useState(1);
     const [editMode, setEditMode] = useState(true);
@@ -296,27 +298,24 @@ const ListCategoryCard: React.FC<{
     useEffect(() => { setContent(rawContent); }, [rawContent]);
 
     const handleGenerate = async () => {
-        const data = {
-            reportingType: name.trim() || cat.name,
-            reporting_type: name.trim() || cat.name,
-            entity: entity.name,
-            content: content.trim(),
-            isV2: isV2,
-            is_v2: isV2,
-            extraEntities: extraEntities,
-            extra_entities: extraEntities,
-            replaceFrom: parseInt(String(replaceFrom)) || 1,
-            replace_from: parseInt(String(replaceFrom)) || 1,
-            users: users.split('\n').map(u => u.trim()).filter(u => u)
-        };
-
         try {
+            // Match reference app exactly: just use local state and call createSessionToken
+            const isV2Normalized = isV2 === true || (isV2 as any) === 1 || (isV2 as any) === '1' || (isV2 as any) === 'true';
+            const data = {
+                reportingType: (name.trim() || cat.name),
+                entity: entity.name,
+                content: content.trim(),
+                isV2: isV2Normalized,
+                extraEntities: extraEntities || [],
+                replaceFrom: parseInt(String(replaceFrom)) || 1,
+            };
+
             const res = await cmhwApi.createSessionToken(data);
             const url = `http://95.216.72.6:90/seed/email/sessions#CMHW-MANAGER|${res.token}`;
             window.open(url, '_blank');
-        } catch (e) {
+        } catch (e: any) {
             console.error('Generate failed', e);
-            alert('Generate failed');
+            alert('Generate failed: ' + (e.message || 'Unknown error'));
         }
     };
 
@@ -502,7 +501,13 @@ const ListCategoryCard: React.FC<{
 };
 
 // ─── Lists From Task Today  ───────────────────────────────────────────────────
-const ListsFromTaskToday: React.FC<{ entity: Entity | null; entityName: string; methodFilter: string }> = ({ entity, entityName, methodFilter }) => {
+const ListsFromTaskToday: React.FC<{ 
+    entity: Entity | null; 
+    flaskEntity: FlaskEntity | null;
+    entityName: string; 
+    methodFilter: string;
+    onRefresh: () => Promise<void>;
+}> = ({ entity, flaskEntity, entityName, methodFilter, onRefresh }) => {
     const [dayPlan, setDayPlan] = useState<Record<string, any>>({});
     const [loading, setLoading] = useState(false);
     const [mailerUsers, setMailerUsers] = useState<string>('');
@@ -572,7 +577,14 @@ const ListsFromTaskToday: React.FC<{ entity: Entity | null; entityName: string; 
     return (
         <div className="max-w-[1600px] mx-auto grid grid-cols-1 lg:grid-cols-2 gap-6 pb-20">
             {allCats.map(cat => (
-                <ListCategoryCard key={cat.id} cat={cat} entity={entity} dayPlan={dayPlan} />
+                <ListCategoryCard 
+                    key={cat.id} 
+                    cat={cat} 
+                    entity={entity} 
+                    flaskEntity={flaskEntity}
+                    dayPlan={dayPlan} 
+                    onRefresh={onRefresh}
+                />
             ))}
         </div>
     );
@@ -922,15 +934,21 @@ export const DropFlow: React.FC = () => {
         const rt = ent.reporting_types?.find((r: any) => r.id === rtId);
         if (!rt) return;
         try {
-            const res = await cmhwApi.createSessionToken({
-                reportingType: rt.name, reporting_type: rt.name,
-                entity: entityName, content: rt.content,
-                isV2: rt.is_v2, is_v2: rt.is_v2,
-                extraEntities: rt.extra_entities || [], extra_entities: rt.extra_entities || [],
-                replaceFrom: rt.replace_from || 1, replace_from: rt.replace_from || 1
-            });
+            const isV2 = rt.is_v2 === true || rt.is_v2 === 1 || rt.is_v2 === '1' || rt.is_v2 === 'true';
+            const data = {
+                reportingType: rt.name,
+                entity: entityName,
+                content: rt.content,
+                isV2: isV2,
+                extraEntities: rt.extra_entities || [],
+                replaceFrom: rt.replace_from || 1
+            };
+            const res = await cmhwApi.createSessionToken(data);
             window.open(`http://95.216.72.6:90/seed/email/sessions#CMHW-MANAGER|${res.token}`, '_blank');
-        } catch (e) { console.error('Generate failed', e); alert('Generate failed'); }
+        } catch (e: any) {
+            console.error('Generate failed', e);
+            alert('Generate failed: ' + (e.message || 'Unknown error'));
+        }
     };
 
     const filteredRTs = useMemo(() => {
@@ -1054,8 +1072,10 @@ export const DropFlow: React.FC = () => {
                     ) : (
                         <ListsFromTaskToday
                             entity={fullEntity}
+                            flaskEntity={flaskEntity}
                             entityName={selectedEntityName!}
                             methodFilter={methodFilter}
+                            onRefresh={refreshData}
                         />
                     )}
                 </div>

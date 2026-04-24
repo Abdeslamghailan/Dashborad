@@ -208,19 +208,27 @@ const calculateDropInterval = (
 
     if (currentStep <= 0) return '-';
 
-    const startIdx = currentIdx;
-    let endIdx = startIdx + currentStep - 1;
+    const startIdx = currentIdx % totalInRepo;
+    let resultIntervals: string[] = [];
+    let remainingStep = currentStep;
+    let tempIdx = startIdx;
 
-    if (endIdx < totalInRepo) {
-        const startVal = allValues[startIdx];
-        const endVal = allValues[endIdx];
-        return `${startVal}-${endVal}`;
-    } else {
-        const firstPartEnd = allValues[totalInRepo - 1];
-        const secondPartEnd = allValues[endIdx % totalInRepo];
-        const startVal = allValues[startIdx];
-        return `${startVal}-${firstPartEnd}, ${allValues[0]}-${secondPartEnd}`;
+    // Standard rotation: can cross multiple ranges in a single drop
+    while (remainingStep > 0) {
+        // How many left in current rotation of allValues?
+        const leftInTotal = totalInRepo - tempIdx;
+        const take = Math.min(remainingStep, leftInTotal);
+        
+        const startVal = allValues[tempIdx];
+        const endVal = allValues[tempIdx + take - 1];
+        
+        resultIntervals.push(startVal === endVal ? `${startVal}` : `${startVal}-${endVal}`);
+        
+        remainingStep -= take;
+        tempIdx = 0; // Wrap to beginning for next part
     }
+
+    return resultIntervals.join(', ');
 };
 
 // Get array of last 50 days
@@ -407,6 +415,13 @@ export const DayPlan: React.FC<Props> = ({ entity }) => {
         return entity.reporting.parentCategories
             .filter(cat => cat.profiles.some(p => p.profileName === profileName && !p.isMirror))
             .map(cat => ({ id: cat.id, name: cat.name }));
+    };
+
+    // Helper: Compute days since a fixed epoch (2024-01-01) for stable rotation
+    const getGlobalDayIndex = (date: Date = new Date()) => {
+        const epoch = new Date('2024-01-01');
+        const diff = date.getTime() - epoch.getTime();
+        return Math.floor(diff / (1000 * 60 * 60 * 24));
     };
 
     // Category data calculation (must be declared before saveDayPlan)
@@ -687,11 +702,15 @@ export const DayPlan: React.FC<Props> = ({ entity }) => {
     }, [customSteps, customStarts, saveDayPlan, isReadOnly, isLoading]);
 
     // Calculate default START values based on yesterday's last drop
-    const getDefaultStart = (catData: CategoryData, sessionIdx: number, stepsSource: Record<string, string | number> = customSteps): number => {
+    const getDefaultStart = (catData: CategoryData, sessionIdx: number): number => {
         const session = catData.sessions[sessionIdx];
-        const step = getEffectiveStep(catData.category.id, sessionIdx, session.stepPerSession, stepsSource);
-        // Yesterday is dateIdx = 1 (index 1 in dates array), last drop is numDrops - 1
-        const yesterdayLastDropIdx = 1 * catData.numDrops + (catData.numDrops - 1);
+        // Use default steps from config to maintain rotation stability
+        const step = session.stepPerSession;
+        
+        // Use fixed epoch to determine yesterday's absolute position
+        const yesterdayGlobalDay = getGlobalDayIndex() - 1;
+        const yesterdayLastDropIdx = yesterdayGlobalDay * catData.numDrops + (catData.numDrops - 1);
+        
         const lastInterval = calculateDropInterval(yesterdayLastDropIdx, step, session.intervalsInRepo, catData.numDrops);
         const endValue = getIntervalEndValue(lastInterval);
         return endValue > 0 ? endValue + 1 : session.startValue;
@@ -1006,7 +1025,9 @@ export const DayPlan: React.FC<Props> = ({ entity }) => {
                 ? calcLimitHandling[`${catData.category.id}:${i}`]
                 : (isToday ? limitHandling[`${catData.category.id}:${i}`] : undefined);
 
-            if (isCalculateMode || (isToday && handling && handling !== 'dismissed') || catData.category.name.toLowerCase().includes('quality')) {
+            // Always use calculateSessionPlan for Today's and Calculator's active categories
+            // This ensures consistent logic (spill-over/handling) throughout the UI
+            if (isCalculateMode || isToday || catData.category.name.toLowerCase().includes('quality')) {
                 return calculateSessionPlan(
                     catData,
                     i,
@@ -1216,7 +1237,6 @@ export const DayPlan: React.FC<Props> = ({ entity }) => {
         const session = catData.sessions[sessionIdx];
         let rangeStr = session.intervalsInRepo;
 
-        // If 'duplicate' mode is on and we are using paused intervals, we treat them as wrapping without alert
         const usingPaused = (activeView === 'calculator' && selectedPausedIntervalType !== 'none') || selectedHistoryEntries.size > 0;
 
         const ranges = parseRanges(rangeStr);
@@ -1224,10 +1244,16 @@ export const DayPlan: React.FC<Props> = ({ entity }) => {
 
         const stepConfig = getEffectiveStep(catData.category.id, sessionIdx, session.stepPerSession, stepsSource);
         const startConfig = getEffectiveStart(catData, sessionIdx, startsSource, stepsSource, session.startValue);
-        const defaultStart = getDefaultStart(catData, sessionIdx, stepsSource);
+        const dStart = getDefaultStart(catData, sessionIdx);
 
-        // --- PHASE 1: DETECTION (Simulate with 'ignore' to find the wrap point) ---
-        let detectPos = typeof startConfig === 'number' ? startConfig : defaultStart;
+        // All values for wrapping/alerts
+        const allValues: number[] = [];
+        ranges.forEach(([s, e]) => {
+            for (let i = s; i <= e; i++) allValues.push(i);
+        });
+
+        // --- PHASE 1: DETECTION ---
+        let detectPos = typeof startConfig === 'number' ? startConfig : dStart;
         let alert: SessionLimitAlert | undefined;
         let alertDropIdx: number | undefined;
 
@@ -1235,96 +1261,42 @@ export const DayPlan: React.FC<Props> = ({ entity }) => {
             const override = getStartOverride(drop, startConfig);
             if (override !== null) detectPos = override;
 
-            let rIdx = ranges.findIndex(([s, e]) => detectPos >= s && detectPos <= e);
-            if (rIdx === -1) {
-                rIdx = ranges.findIndex(([s]) => s > detectPos);
-                if (rIdx === -1) rIdx = 0;
-                detectPos = ranges[rIdx][0];
-            }
-
-            const [rStart, rEnd] = ranges[rIdx];
-            const isOverflow = piChoice === 'continue' && detectPos > rEnd && rIdx === ranges.length - 1;
-
-            let detRanges = ranges;
-            let detRIdx = rIdx;
-            let detPos = detectPos;
-
-            if (isOverflow) {
-                const resumeRanges = parseRanges(session.availableRepo);
-                const resumeIdx = resumeRanges.findIndex(([s, e]) => detPos >= s && detPos <= e);
-                if (resumeIdx !== -1) {
-                    detRanges = resumeRanges;
-                    detRIdx = resumeIdx;
-                } else {
-                    const nextRIdx = resumeRanges.findIndex(([s]) => s > detPos);
-                    if (nextRIdx !== -1) {
-                        detRanges = resumeRanges;
-                        detRIdx = nextRIdx;
-                        detPos = detRanges[detRIdx][0];
-                    }
-                }
-            }
-
-            const [curRStart, curREnd] = detRanges[detRIdx];
-            const avail = (piChoice === 'continue' && detRanges === ranges && detRIdx === ranges.length - 1 && detPos > curREnd)
-                ? Infinity
-                : (curREnd - detPos + 1);
-
             const step = getStepForDrop(drop, stepConfig);
+            if (step <= 0) continue;
 
-            if (step > 0 && avail < step) {
-                // If using paused intervals and choice is 'duplicate', don't alert, just wrap
-                if (usingPaused && piChoice === 'duplicate') {
-                    // Continue simulation
-                } else {
-                    // This drop WRAPS in 'ignore' mode
+            const valIdx = allValues.indexOf(detectPos);
+            if (valIdx === -1 || valIdx + step > allValues.length) {
+                // Hits end of available set
+                if (!(usingPaused && piChoice === 'duplicate')) {
+                    const lastValidIdx = valIdx === -1 ? (allValues.findIndex(v => v > detectPos) || 0) : valIdx;
+                    const lastAvail = allValues.length - lastValidIdx;
+                    
                     alert = {
                         sessionId: `${catData.category.id}:${sessionIdx}`,
                         sessionName: session.profileName,
-                        limit: curREnd,
-                        lastInterval: `${detPos}-${curREnd}`,
-                        remainingSeeds: avail
+                        limit: allValues[allValues.length - 1],
+                        lastInterval: valIdx === -1 ? 'N/A' : `${detectPos}-${allValues[allValues.length - 1]}`,
+                        remainingSeeds: Math.max(0, step - lastAvail)
                     };
                     alertDropIdx = drop;
                     break;
                 }
             }
-
-            if (step > 0) {
-                detectPos = detPos + step;
-                if (detectPos > curREnd) {
-                    const isLast = detRIdx === detRanges.length - 1;
-                    if (isLast) {
-                        if (piChoice === 'continue' && detRanges === ranges) {
-                            const resRanges = parseRanges(session.availableRepo);
-                            if (resRanges.length > 0) {
-                                detectPos = resRanges[0][0];
-                            }
-                        } else {
-                            detectPos = detRanges[0][0];
-                        }
-                    } else {
-                        detectPos = detRanges[detRIdx + 1][0];
-                    }
-                }
-            }
+            // Move position for next drop
+            const nextIdx = (valIdx === -1 ? 0 : valIdx) + step;
+            detectPos = allValues[nextIdx % allValues.length];
         }
 
-        // --- PHASE 2: CALCULATION (Apply handling options) ---
-        let currentPosition = typeof startConfig === 'number' ? startConfig : defaultStart;
+        // --- PHASE 2: CALCULATION ---
+        let currentPos = typeof startConfig === 'number' ? startConfig : dStart;
         const intervals: string[] = [];
         const actualSteps: number[] = [];
         const isHistory: boolean[] = [];
-        let carryOverStep: number | null = null;
-        let plannedDropIdx = 0;
-        const isQualityContext = catData.category.name.toLowerCase().includes('quality') ||
+        const isQualityContext = catData.category.name.toLowerCase().includes('quality') || 
             (activeView === 'calculator' && (selectedPausedCategory === 'Quality' || selectedPausedIntervalType === 'quality'));
 
-        // Effective handling: if not specified and piChoice is 'duplicate', we default to 'ignore' (wrap)
-        // If 'continue', we default to undefined (which triggers spill-over in the else block)
         const effectiveHandling = handling || (piChoice === 'duplicate' ? 'ignore' : undefined);
 
-        // Pre-calculate split for 'split_today'
         let extraPerDrop = 0;
         let splitRemainder = 0;
         if (effectiveHandling === 'split_today' && alert && alertDropIdx > 0) {
@@ -1333,207 +1305,74 @@ export const DayPlan: React.FC<Props> = ({ entity }) => {
         }
 
         for (let drop = 0; drop < catData.numDrops; drop++) {
-            // Only apply overrides if we're not in the middle of a carry-over
-            if (carryOverStep === null) {
-                const override = getStartOverride(plannedDropIdx, startConfig);
-                if (override !== null) currentPosition = override;
+            const override = getStartOverride(drop, startConfig);
+            if (override !== null) currentPos = override;
+
+            let dropStep = getStepForDrop(drop, stepConfig);
+            if (effectiveHandling === 'split_today' && alert && drop < alertDropIdx) {
+                dropStep += extraPerDrop + (drop < splitRemainder ? 1 : 0);
             }
 
-            let rangeIdx = ranges.findIndex(([start, end]) => currentPosition >= start && currentPosition <= end);
-            if (rangeIdx === -1) {
-                // If not found, try to find the next valid start
-                rangeIdx = ranges.findIndex(([start]) => start > currentPosition);
-                if (rangeIdx === -1) {
-                    // We are past all ranges
-                    if (piChoice === 'continue') {
-                        // In continue mode, we stay past all ranges and just use the currentPosition
-                        rangeIdx = ranges.length - 1;
-                    } else {
-                        // Wrap to first
-                        rangeIdx = 0;
-                        currentPosition = ranges[rangeIdx][0];
-                    }
-                } else {
-                    currentPosition = ranges[rangeIdx][0];
-                }
-            }
-
-            const [rangeStart, rangeEnd] = ranges[rangeIdx];
-            const isOverflow = piChoice === 'continue' && currentPosition > rangeEnd && rangeIdx === ranges.length - 1;
-
-            let currentRanges = ranges;
-            let currentRIdx = rangeIdx;
-
-            if (isOverflow) {
-                // If we are past the current simulation set, try to find the next valid seed in the normal available repo
-                const resumeRanges = parseRanges(session.availableRepo);
-                const resumeRIdx = resumeRanges.findIndex(([s, e]) => currentPosition >= s && currentPosition <= e);
-
-                if (resumeRIdx !== -1) {
-                    currentRanges = resumeRanges;
-                    currentRIdx = resumeRIdx;
-                } else {
-                    // Look for the absolute next valid seed in the available repo that is > currentPosition
-                    const nextAvailableRIdx = resumeRanges.findIndex(([s]) => s > currentPosition);
-                    if (nextAvailableRIdx !== -1) {
-                        currentRanges = resumeRanges;
-                        currentRIdx = nextAvailableRIdx;
-                        currentPosition = currentRanges[currentRIdx][0];
-                    }
-                }
-            }
-
-            const [effStart, effEnd] = currentRanges[currentRIdx];
-            const availableInRange = (piChoice === 'continue' && currentRanges === ranges && currentRIdx === ranges.length - 1 && currentPosition > effEnd)
-                ? Infinity
-                : (effEnd - currentPosition + 1);
-
-            let currentStep: number;
-            if (carryOverStep !== null) {
-                // Use the remainder from the previous drop
-                currentStep = carryOverStep;
-                carryOverStep = null;
-            } else {
-                // Get fresh step from config
-                currentStep = getStepForDrop(plannedDropIdx, stepConfig);
-
-                // Option: Split Today (Distribute across PRECEDING drops)
-                if (effectiveHandling === 'split_today' && alert && plannedDropIdx < alertDropIdx) {
-                    currentStep += extraPerDrop;
-                    if (plannedDropIdx < splitRemainder) currentStep += 1;
-                }
-
-                plannedDropIdx++;
-            }
-
-            // Options: Use This Drop / Use Next Drop (Original behaviors)
-            if (carryOverStep === null) { // Only apply if not already splitting
-                if (effectiveHandling === 'this_drop' && alert && plannedDropIdx === alertDropIdx) {
-                    intervals.push(`${currentPosition}-${effEnd}`);
-                    actualSteps.push(availableInRange);
-                    isHistory.push(currentRanges === ranges && isQualityContext);
-
-                    const isLast = currentRIdx === currentRanges.length - 1;
-                    if (isLast) {
-                        if (piChoice === 'continue' && currentRanges === ranges) {
-                            const resRanges = parseRanges(session.availableRepo);
-                            if (resRanges.length > 0) {
-                                currentPosition = resRanges[0][0];
-                            }
-                        } else {
-                            currentPosition = currentRanges[0][0];
-                        }
-                    } else {
-                        currentPosition = currentRanges[currentRIdx + 1][0];
-                    }
-                    continue;
-                }
-
-                if (effectiveHandling === 'next_drop' && alert && plannedDropIdx === alertDropIdx + 1) {
-                    intervals.push(`${currentPosition}-${effEnd}`);
-                    actualSteps.push(availableInRange);
-                    isHistory.push(currentRanges === ranges && isQualityContext);
-
-                    const isLast = currentRIdx === currentRanges.length - 1;
-                    if (isLast) {
-                        if (piChoice === 'continue' && currentRanges === ranges) {
-                            const resRanges = parseRanges(session.availableRepo);
-                            if (resRanges.length > 0) {
-                                currentPosition = resRanges[0][0];
-                            }
-                        } else {
-                            currentPosition = currentRanges[0][0];
-                        }
-                    } else {
-                        currentPosition = currentRanges[currentRIdx + 1][0];
-                    }
-                    continue;
-                }
-            }
-
-            // Normal calculation (with SPILL OVER wrap)
-            if (currentStep <= 0) {
+            if (dropStep <= 0) {
                 intervals.push('-');
                 actualSteps.push(0);
-            } else if (availableInRange >= currentStep) {
-                const endVal = currentPosition + currentStep - 1;
-                intervals.push(`${currentPosition}-${endVal}`);
-                actualSteps.push(currentStep);
-                isHistory.push(currentRanges === ranges && isQualityContext);
-                currentPosition = endVal + 1;
+                isHistory.push(false);
+                continue;
+            }
 
-                // Navigation to next range
-                const [curRStart, curREnd] = currentRanges[currentRIdx];
-                if (currentPosition > curREnd) {
-                    const isLast = currentRIdx === currentRanges.length - 1;
-                    if (isLast) {
-                        if (piChoice === 'continue') {
-                            if (currentRanges === ranges) {
-                                // Transition from simulation set to normal repo
-                                const resumeRanges = parseRanges(session.availableRepo);
-                                if (resumeRanges.length > 0) {
-                                    currentRanges = resumeRanges;
-                                    currentRIdx = 0;
-                                    currentPosition = currentRanges[0][0];
-                                }
-                            }
-                        } else {
-                            currentRIdx = 0;
-                            currentPosition = currentRanges[0][0];
-                        }
-                    } else {
-                        currentRIdx++;
-                        currentPosition = currentRanges[currentRIdx][0];
-                    }
-                }
-            } else {
-                // Wrap condition: availableInRange < currentStep
-                if (effectiveHandling === 'ignore') {
-                    // Skip leftovers and wrap immediately
-                    const isLast = currentRIdx === currentRanges.length - 1;
-                    if (isLast) {
-                        if (piChoice === 'continue' && currentRanges === ranges) {
-                            const resumeRanges = parseRanges(session.availableRepo);
-                            if (resumeRanges.length > 0) {
-                                currentPosition = resumeRanges[0][0];
-                            }
-                        } else {
-                            currentPosition = currentRanges[0][0];
-                        }
-                    } else {
-                        currentPosition = currentRanges[currentRIdx + 1][0];
-                    }
-
-                    // Calculate from the new start position
-                    const endVal = currentPosition + currentStep - 1;
-                    intervals.push(`${currentPosition}-${endVal}`);
-                    actualSteps.push(currentStep);
-                    isHistory.push(currentRanges === ranges && isQualityContext);
-                    currentPosition = endVal + 1;
-                } else {
-                    // DEFAULT: Spill over to the next drop
-                    intervals.push(`${currentPosition}-${effEnd}`);
-                    actualSteps.push(availableInRange);
-                    isHistory.push(currentRanges === ranges && isQualityContext);
-
-                    // Carry over the remainder to the next iteration (next row)
-                    carryOverStep = currentStep - availableInRange;
-
-                    const isLast = currentRIdx === currentRanges.length - 1;
-                    if (isLast) {
-                        if (piChoice === 'continue' && currentRanges === ranges) {
-                            const resumeRanges = parseRanges(session.availableRepo);
-                            if (resumeRanges.length > 0) {
-                                currentPosition = resumeRanges[0][0];
-                            }
-                        } else {
-                            currentPosition = currentRanges[0][0];
-                        }
-                    } else {
-                        currentPosition = currentRanges[currentRIdx + 1][0];
-                    }
+            // Options: This/Next drop logic
+            if (effectiveHandling === 'this_drop' && alert && drop === alertDropIdx) {
+                // Use remaining before wrap
+                const idx = allValues.indexOf(currentPos);
+                const take = idx === -1 ? 0 : (allValues.length - idx);
+                if (take > 0) {
+                   intervals.push(`${currentPos}-${allValues[allValues.length-1]}`);
+                   actualSteps.push(take);
+                   isHistory.push(isQualityContext);
+                   currentPos = allValues[0]; // Wrap
+                   continue;
                 }
             }
+
+            if (effectiveHandling === 'next_drop' && alert && drop === alertDropIdx + 1) {
+                // Same logic for next drop
+                const idx = allValues.indexOf(currentPos);
+                const take = idx === -1 ? 0 : (allValues.length - idx);
+                if (take > 0) {
+                   intervals.push(`${currentPos}-${allValues[allValues.length-1]}`);
+                   actualSteps.push(take);
+                   isHistory.push(isQualityContext);
+                   currentPos = allValues[0]; // Wrap
+                   continue;
+                }
+            }
+
+            // Normal Generation with within-cell wrapping
+            let valIdx = allValues.indexOf(currentPos);
+            if (valIdx === -1) valIdx = allValues.findIndex(v => v > currentPos);
+            if (valIdx === -1) valIdx = 0;
+            currentPos = allValues[valIdx];
+
+            let cellIntervals: string[] = [];
+            let rem = dropStep;
+            let tempIdx = valIdx;
+
+            while (rem > 0) {
+                const take = Math.min(rem, allValues.length - tempIdx);
+                const s = allValues[tempIdx];
+                const e = allValues[tempIdx + take - 1];
+                cellIntervals.push(s === e ? `${s}` : `${s}-${e}`);
+                rem -= take;
+                tempIdx = 0; // Wrap
+            }
+
+            intervals.push(cellIntervals.join(', '));
+            actualSteps.push(dropStep);
+            isHistory.push(isQualityContext);
+            
+            // Set position for next drop
+            const finalIdx = (valIdx + dropStep) % allValues.length;
+            currentPos = allValues[finalIdx];
         }
 
         return { intervals, actualSteps, isHistory, alert, alertDropIdx };
@@ -1975,7 +1814,13 @@ export const DayPlan: React.FC<Props> = ({ entity }) => {
                                         <div className="w-px h-2.5 bg-slate-200" />
                                         <div className="flex items-center gap-1">
                                             <div className="w-1 h-1 bg-emerald-400 rounded-full" />
-                                            <span>Step: <span className="text-slate-700 font-bold">{catData.totalStep}</span></span>
+                                            <span>Step: <span className="text-slate-700 font-bold">{
+                                                catData.sessions.reduce((sum, s, sIdx) => {
+                                                    const stepValue = getEffectiveStep(catData.category.id, sIdx, s.stepPerSession, activeView === 'calculator' ? calcSteps : customSteps);
+                                                    // Only sum if it's a number
+                                                    return sum + (typeof stepValue === 'number' ? stepValue : 0);
+                                                }, 0)
+                                            }</span></span>
                                         </div>
                                     </div>
                                 </div>

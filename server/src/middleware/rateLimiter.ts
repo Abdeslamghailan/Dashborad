@@ -4,10 +4,12 @@ import { logger } from '../utils/logger.js';
 // General API rate limiter
 export const apiLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100, // Limit each IP to 100 requests per windowMs
-  message: 'Too many requests from this IP, please try again later.',
+  max: 1000, // Increased limit for heavy reporting usage
+  message: 'Too many requests, please try again later.',
   standardHeaders: true,
   legacyHeaders: false,
+  // Skip rate limiting for local development
+  skip: (req) => req.ip === '::1' || req.ip === '127.0.0.1' || req.ip?.includes('localhost'),
   handler: (req, res) => {
     logger.security('Rate limit exceeded', { 
       ip: req.ip,

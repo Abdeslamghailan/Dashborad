@@ -38,7 +38,7 @@ async function ensureFlaskSession(): Promise<string> {
                 username: process.env.CMHW_ADMIN_USER || 'admin',
                 password: process.env.CMHW_ADMIN_PASS || 'dropflow_admin_2024'
             }),
-            redirect: 'manual'
+            redirect: 'follow'
         });
 
         // Extract cookie immediately from response headers (before reading body)
@@ -62,7 +62,7 @@ async function ensureFlaskSession(): Promise<string> {
 
         // Approach 2: Try hitting /api/me 
         const meRes = await fetch(`${CMHW_API_URL}/api/me`, {
-            redirect: 'manual',
+            redirect: 'follow',
             headers: { 'Content-Type': 'application/json' }
         });
 
@@ -103,7 +103,7 @@ async function proxyToFlask(
         const fetchOptions: RequestInit = {
             method,
             headers,
-            redirect: 'manual',
+            redirect: 'follow',
         };
 
         // Include body for POST/PUT requests
@@ -172,7 +172,7 @@ router.get('/status', authenticateToken, async (req, res) => {
 
         const testRes = await fetch(`${CMHW_API_URL}/api/entities`, {
             headers,
-            redirect: 'manual'
+            redirect: 'follow'
         });
 
         res.json({

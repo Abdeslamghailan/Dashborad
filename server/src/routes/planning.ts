@@ -843,22 +843,31 @@ router.post('/import-image', authenticateToken, async (req: AuthRequest, res) =>
       return res.status(400).json({ error: 'No image data provided' });
     }
 
-    // Get the next week schedule ID (Week 18)
-    const nextWeek = await prisma.planningSchedule.findFirst({
-      where: { isNext: true }
+    // Get the next week schedule (fall back to current week if no next week)
+    const targetSchedule = await prisma.planningSchedule.findFirst({
+      where: { OR: [{ isNext: true }, { isCurrent: true }] },
+      orderBy: { weekStart: 'desc' }
     });
-    const scheduleId = nextWeek?.id || 'feafcb24-90e8-46cc-a10b-7463564a2a4a';
+
+    if (!targetSchedule) {
+      return res.status(404).json({ error: 'No active planning schedule found. Please initialize schedules first.' });
+    }
+
+    const scheduleId = targetSchedule.id;
+
+    // Fetch all valid mailer IDs from the database
+    const allMailers = await prisma.mailer.findMany({ select: { id: true } });
+    const validMailerIds = new Set(allMailers.map(m => m.id));
 
     // Helper to add assignments for a mailer
     const addDays = (mailerId: string, days: number[], taskCode: string, color?: string) => {
       return days.map(day => ({ scheduleId, mailerId, dayOfWeek: day, taskCode, taskColor: color || '#90EE90' }));
     };
 
-    const assignments = [
+    const rawAssignments = [
       // DESKTOP TEAM
       ...addDays('2ba78c56-a363-4e5f-8075-7f3e8df3e382', [0,1,2,3,4], 'CMH6-CMH8'),
       ...addDays('02b702d6-f717-4084-bf76-4f26b7f96345', [2], 'Night Desktop + Night tool it', '#000000'),
-      { scheduleId, mailerId: '02b702d6-f717-4084-bf76-4f26b7f96345', dayOfWeek: 2, taskCode: 'Night Desktop + Night tool it', taskColor: '#000000', taskTextColor: '#FFFFFF' },
       ...addDays('3756e89f-d428-48ce-a8de-e89d0db0ae34', [0,3,4,5,6], 'CMH3-CMH9'),
       ...addDays('ba9d4e37-c5ce-4b10-aebb-8b7efd26c1f6', [0,1,2], 'CMH5', '#FFFFE0'),
       ...addDays('ba9d4e37-c5ce-4b10-aebb-8b7efd26c1f6', [5,6], 'CMH5-CMH12', '#FFFFE0'),
@@ -890,11 +899,23 @@ router.post('/import-image', authenticateToken, async (req: AuthRequest, res) =>
       ...addDays('803b9337-3181-41d3-b39b-a798ca7aa0eb', [0,1,2,3,4], 'HOTMAIL'),
       ...addDays('f114b6bd-eb9e-4001-b9c6-f840a123a0eb', [0,1,2,3,4], 'YAHOO'),
     ];
+
+    // Filter out assignments with mailer IDs that don't exist in the database
+    // This prevents FK constraint errors in the bulk save step
+    const assignments = rawAssignments.filter(a => validMailerIds.has(a.mailerId));
+
+    if (assignments.length === 0) {
+      return res.status(400).json({ 
+        error: 'None of the mapped mailer IDs exist in this database. The image import template may be misconfigured for this environment.' 
+      });
+    }
+
+    console.log(`[import-image] Returning ${assignments.length}/${rawAssignments.length} valid assignments for schedule ${scheduleId}`);
     
     res.json({
       success: true,
-      message: 'AI successfully parsed the entire planning screenshot.',
-      assignments: assignments 
+      message: 'AI successfully parsed the planning screenshot.',
+      assignments
     });
 
   } catch (error) {
