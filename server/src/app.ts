@@ -146,7 +146,7 @@ app.use((req, res, next) => {
   next();
 });
 
-import { auditLogger } from './middleware/auditLogger';
+import { auditLogger } from './middleware/auditLogger.js';
 
 app.use(express.json({ limit: '10mb' }));
 app.use(auditLogger as any);
