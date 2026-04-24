@@ -418,6 +418,12 @@ router.post('/schedules', authenticateToken, async (req, res) => {
       description: `${existing ? 'Updated' : 'Created'} schedule for Week ${weekNumber}, ${year}`,
       newValue: schedule
     });
+  } catch (error) {
+    console.error('Error in /schedules:', error);
+    res.status(500).json({ error: 'Failed to operate on schedule' });
+  }
+});
+
 // Reset planning (Admin only)
 router.post('/reset', authenticateToken, async (req: AuthRequest, res) => {
   if (!isAdmin(req)) {
