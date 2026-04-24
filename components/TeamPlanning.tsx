@@ -63,17 +63,6 @@ export const TeamPlanning: React.FC = () => {
         nextWeek: false
     });
 
-    if (loading) {
-        return (
-            <div className="flex items-center justify-center min-h-screen">
-                <div className="text-center">
-                    <div className="w-16 h-16 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-                    <p className="text-gray-600 font-semibold">Loading planning data...</p>
-                </div>
-            </div>
-        );
-    }
-
     // Add Enter key listener for Quick Assign
     React.useEffect(() => {
         const handleKeyDown = (e: KeyboardEvent) => {
@@ -86,6 +75,17 @@ export const TeamPlanning: React.FC = () => {
         window.addEventListener('keydown', handleKeyDown);
         return () => window.removeEventListener('keydown', handleKeyDown);
     }, [selectedPreset, selectedCells, applyPresetToSelectedCells]);
+
+    if (loading) {
+        return (
+            <div className="flex items-center justify-center min-h-screen">
+                <div className="text-center">
+                    <div className="w-16 h-16 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+                    <p className="text-gray-600 font-semibold">Loading planning data...</p>
+                </div>
+            </div>
+        );
+    }
 
     const currentWeek = schedules.find(s => s.isCurrent);
     const nextWeek = schedules.find(s => s.isNext);

@@ -13,33 +13,6 @@ export const usePlanningActions = (schedules: PlanningSchedule[], setSchedules: 
     const getCellKey = (scheduleId: string, mailerId: string, dayOfWeek: number) => 
         `${scheduleId}|${mailerId}|${dayOfWeek}`;
 
-    const handleCellMouseDown = useCallback((scheduleId: string, mailerId: string, dayOfWeek: number, event: React.MouseEvent) => {
-        const key = getCellKey(scheduleId, mailerId, dayOfWeek);
-        setIsMultiSelecting(true);
-
-        const isModifierPressed = event.ctrlKey || event.metaKey || event.shiftKey;
-
-        if (event.ctrlKey || event.metaKey) {
-            const newSelection = new Set(selectedCells);
-            if (newSelection.has(key)) newSelection.delete(key);
-            else newSelection.add(key);
-            setSelectedCells(newSelection);
-        } else if (event.shiftKey && lastSelectedCell && lastSelectedCell.scheduleId === scheduleId) {
-            // Range selection logic
-            const newSelection = new Set(selectedCells);
-            // ... (Simplified for brevity, would implement full range selection in production)
-            newSelection.add(key);
-            setSelectedCells(newSelection);
-        } else {
-            // If a preset is selected and no modifiers are pressed, apply it immediately (Click-to-fill)
-            if (selectedPreset && !isModifierPressed) {
-                applyPresetToSelectedCells(selectedPreset);
-            }
-            setSelectedCells(new Set([key]));
-        }
-        setLastSelectedCell({ scheduleId, mailerId, dayOfWeek });
-    }, [selectedCells, lastSelectedCell, selectedPreset, applyPresetToSelectedCells]);
-
     const applyPresetToSelectedCells = async (presetToApply?: EntityPreset) => {
         const preset = presetToApply || selectedPreset;
         if (!preset || selectedCells.size === 0) return;
@@ -84,6 +57,33 @@ export const usePlanningActions = (schedules: PlanningSchedule[], setSchedules: 
             console.error('Bulk update failed:', error);
         }
     };
+
+    const handleCellMouseDown = useCallback((scheduleId: string, mailerId: string, dayOfWeek: number, event: React.MouseEvent) => {
+        const key = getCellKey(scheduleId, mailerId, dayOfWeek);
+        setIsMultiSelecting(true);
+
+        const isModifierPressed = event.ctrlKey || event.metaKey || event.shiftKey;
+
+        if (event.ctrlKey || event.metaKey) {
+            const newSelection = new Set(selectedCells);
+            if (newSelection.has(key)) newSelection.delete(key);
+            else newSelection.add(key);
+            setSelectedCells(newSelection);
+        } else if (event.shiftKey && lastSelectedCell && lastSelectedCell.scheduleId === scheduleId) {
+            // Range selection logic
+            const newSelection = new Set(selectedCells);
+            // ... (Simplified for brevity, would implement full range selection in production)
+            newSelection.add(key);
+            setSelectedCells(newSelection);
+        } else {
+            // If a preset is selected and no modifiers are pressed, apply it immediately (Click-to-fill)
+            if (selectedPreset && !isModifierPressed) {
+                applyPresetToSelectedCells(selectedPreset);
+            }
+            setSelectedCells(new Set([key]));
+        }
+        setLastSelectedCell({ scheduleId, mailerId, dayOfWeek });
+    }, [selectedCells, lastSelectedCell, selectedPreset, applyPresetToSelectedCells]);
 
     const applyBulkAssignments = async (assignments: any[]) => {
         if (!assignments || assignments.length === 0) return;
