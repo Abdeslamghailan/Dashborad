@@ -65,9 +65,9 @@ export const usePlanningData = () => {
         try {
             setLoading(true);
             const [teamsData, schedulesData, presetsData] = await Promise.all([
-                apiService.getTeams(),
-                apiService.getSchedules(),
-                apiService.getEntityPresets()
+                apiService.getPlanningTeams(),
+                apiService.getPlanningSchedulesCurrent(),
+                apiService.getPlanningPresets()
             ]);
             setTeams(teamsData || []);
             setSchedules(schedulesData || []);
@@ -81,7 +81,7 @@ export const usePlanningData = () => {
 
     const fetchHistory = async () => {
         try {
-            const historyData = await apiService.getPlanningHistory();
+            const historyData = await apiService.getPlanningSchedulesHistory();
             setHistory(historyData || []);
         } catch (error) {
             console.error('Failed to fetch history:', error);
@@ -90,10 +90,70 @@ export const usePlanningData = () => {
 
     const fetchPresets = async () => {
         try {
-            const presetsData = await apiService.getEntityPresets();
+            const presetsData = await apiService.getPlanningPresets();
             setPresets(presetsData || []);
         } catch (error) {
             console.error('Failed to fetch presets:', error);
+        }
+    };
+
+    const saveTeam = async (team: Partial<Team>) => {
+        try {
+            await apiService.savePlanningTeam(team);
+            await fetchData();
+        } catch (error) {
+            console.error('Failed to save team:', error);
+            throw error;
+        }
+    };
+
+    const deleteTeam = async (id: string) => {
+        try {
+            await apiService.deletePlanningTeam(id);
+            await fetchData();
+        } catch (error) {
+            console.error('Failed to delete team:', error);
+            throw error;
+        }
+    };
+
+    const saveMailer = async (mailer: Partial<Mailer>) => {
+        try {
+            await apiService.savePlanningMailer(mailer);
+            await fetchData();
+        } catch (error) {
+            console.error('Failed to save mailer:', error);
+            throw error;
+        }
+    };
+
+    const deleteMailer = async (id: string) => {
+        try {
+            await apiService.deletePlanningMailer(id);
+            await fetchData();
+        } catch (error) {
+            console.error('Failed to delete mailer:', error);
+            throw error;
+        }
+    };
+
+    const initializeWeeks = async () => {
+        try {
+            await apiService.initializePlanningSchedules();
+            await fetchData();
+        } catch (error) {
+            console.error('Failed to initialize schedules:', error);
+            throw error;
+        }
+    };
+
+    const importFromImage = async (base64Image: string) => {
+        try {
+            const data = await apiService.importPlanningFromImage(base64Image);
+            return data;
+        } catch (error) {
+            console.error('Failed to import from image:', error);
+            throw error;
         }
     };
 
@@ -117,6 +177,12 @@ export const usePlanningData = () => {
         isAdmin,
         fetchData,
         fetchHistory,
-        fetchPresets
+        fetchPresets,
+        saveTeam,
+        deleteTeam,
+        saveMailer,
+        deleteMailer,
+        initializeWeeks,
+        importFromImage
     };
 };

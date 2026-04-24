@@ -166,6 +166,7 @@ export interface DataService {
   getPlanningSchedulesCurrent: () => Promise<any[]>;
   getPlanningSchedulesHistory: () => Promise<any[]>;
   initializePlanningSchedules: () => Promise<any>;
+  importPlanningFromImage: (base64Image: string) => Promise<any[]>;
   // Proxies
   getProxies: (entityId: string) => Promise<any[]>;
   saveProxy: (entityId: string, proxy: any) => Promise<any>;

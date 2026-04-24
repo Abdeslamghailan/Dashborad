@@ -298,11 +298,15 @@ const ListCategoryCard: React.FC<{
     const handleGenerate = async () => {
         const data = {
             reportingType: name.trim() || cat.name,
+            reporting_type: name.trim() || cat.name,
             entity: entity.name,
             content: content.trim(),
             isV2: isV2,
+            is_v2: isV2,
             extraEntities: extraEntities,
+            extra_entities: extraEntities,
             replaceFrom: parseInt(String(replaceFrom)) || 1,
+            replace_from: parseInt(String(replaceFrom)) || 1,
             users: users.split('\n').map(u => u.trim()).filter(u => u)
         };
 
@@ -498,7 +502,7 @@ const ListCategoryCard: React.FC<{
 };
 
 // ─── Lists From Task Today  ───────────────────────────────────────────────────
-const ListsFromTaskToday: React.FC<{ entity: Entity | null; entityName: string }> = ({ entity, entityName }) => {
+const ListsFromTaskToday: React.FC<{ entity: Entity | null; entityName: string; methodFilter: string }> = ({ entity, entityName, methodFilter }) => {
     const [dayPlan, setDayPlan] = useState<Record<string, any>>({});
     const [loading, setLoading] = useState(false);
     const [mailerUsers, setMailerUsers] = useState<string>('');
@@ -525,13 +529,28 @@ const ListsFromTaskToday: React.FC<{ entity: Entity | null; entityName: string }
 
     if (!entity) return null;
 
-    // Collect all categories from all methods with method info
-    const allCats: any[] = [];
-    Object.entries(entity.methodsData || {}).forEach(([methodName, m]: [string, any]) => {
-        (m.parentCategories || []).forEach((cat: any) => {
-            allCats.push({ ...cat, method: methodName, defaultUsers: mailerUsers });
+    const allCats = useMemo(() => {
+        const cats: any[] = [];
+        const seenIds = new Set<string>();
+
+        Object.entries(entity.methodsData || {}).forEach(([methodName, m]: [string, any]) => {
+            (m.parentCategories || []).forEach((cat: any) => {
+                if (seenIds.has(cat.id)) return;
+                seenIds.add(cat.id);
+                cats.push({ ...cat, method: methodName, defaultUsers: mailerUsers });
+            });
         });
-    });
+        return cats.filter(cat => {
+            const matchesMethod = methodFilter === 'all' || cat.method?.toLowerCase() === methodFilter.toLowerCase();
+            if (!matchesMethod) return false;
+
+            // Fix for backend leak: only show categories belonging to this entity
+            if (cat.entityId && String(cat.entityId) !== String(entity.id)) return false;
+            if (cat.entity_id && String(cat.entity_id) !== String(entity.id)) return false;
+
+            return true;
+        });
+    }, [entity.methodsData, mailerUsers, methodFilter]);
 
     if (loading) return (
         <div className="h-full flex flex-col items-center justify-center gap-4">
@@ -570,6 +589,7 @@ export const DropFlow: React.FC = () => {
     const [filter, setFilter] = useState('all');
     const [loading, setLoading] = useState(true);
     const [entityLoading, setEntityLoading] = useState(false);
+    const [methodFilter, setMethodFilter] = useState('all');
 
     // ── Load sidebar entities + Flask entities (independently) ───────────────
     const refreshData = async () => {
@@ -599,6 +619,15 @@ export const DropFlow: React.FC = () => {
     };
 
     useEffect(() => { refreshData(); }, []);
+
+    const availableMethods = useMemo(() => {
+        if (!fullEntity?.methodsData) return ['all'];
+        const methods = Object.keys(fullEntity.methodsData).filter(m => {
+            const data = (fullEntity.methodsData as any)[m];
+            return data?.parentCategories && data.parentCategories.length > 0;
+        });
+        return ['all', ...methods];
+    }, [fullEntity]);
     
     // Auto-select first entity
     useEffect(() => {
@@ -654,6 +683,7 @@ export const DropFlow: React.FC = () => {
         const dash = dashboardEntities.find(e => e.name === selectedEntityName);
         if (!dash) { setFullEntity(null); return; }
 
+        setFullEntity(null);
         setEntityLoading(true);
         service.getEntity(dash.id)
             .then(e => setFullEntity(e ?? null))
@@ -890,8 +920,11 @@ export const DropFlow: React.FC = () => {
         if (!rt) return;
         try {
             const res = await cmhwApi.createSessionToken({
-                reportingType: rt.name, entity: entityName, content: rt.content,
-                isV2: rt.is_v2, extraEntities: rt.extra_entities || [], replaceFrom: rt.replace_from || 1
+                reportingType: rt.name, reporting_type: rt.name,
+                entity: entityName, content: rt.content,
+                isV2: rt.is_v2, is_v2: rt.is_v2,
+                extraEntities: rt.extra_entities || [], extra_entities: rt.extra_entities || [],
+                replaceFrom: rt.replace_from || 1, replace_from: rt.replace_from || 1
             });
             window.open(`http://95.216.72.6:90/seed/email/sessions#CMHW-MANAGER|${res.token}`, '_blank');
         } catch (e) { console.error('Generate failed', e); alert('Generate failed'); }
@@ -968,6 +1001,22 @@ export const DropFlow: React.FC = () => {
                     </div>
 
                     <div className="flex items-center gap-6 shrink-0">
+                        {selectedEntityName && (
+                            <div className="flex items-center bg-slate-100/90 p-1 rounded-[16px] border border-slate-200/50 shadow-inner overflow-hidden">
+                                {availableMethods.map(m => (
+                                    <button
+                                        key={m}
+                                        onClick={() => setMethodFilter(m)}
+                                        className={`px-4 py-2 rounded-[12px] text-[10px] font-black uppercase tracking-widest transition-all duration-300 ${methodFilter === m 
+                                            ? 'bg-white text-slate-900 shadow-md ring-1 ring-slate-100/50' 
+                                            : 'text-slate-400 hover:text-slate-600 hover:bg-white/40'}`}
+                                    >
+                                        {m}
+                                    </button>
+                                ))}
+                            </div>
+                        )}
+
                         {/* Lists action button */}
                         {flaskEntity && (
                             <button
@@ -1003,6 +1052,7 @@ export const DropFlow: React.FC = () => {
                         <ListsFromTaskToday
                             entity={fullEntity}
                             entityName={selectedEntityName!}
+                            methodFilter={methodFilter}
                         />
                     )}
                 </div>

@@ -405,6 +405,13 @@ export const apiService: DataService = {
       method: 'POST'
     });
   },
+  
+  importPlanningFromImage: async (base64Image: string) => {
+    return await apiCall('/planning/import-image', {
+      method: 'POST',
+      body: JSON.stringify({ image: base64Image })
+    });
+  },
 
   // Proxies
   getProxies: async (entityId: string) => {

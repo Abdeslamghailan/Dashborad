@@ -50,7 +50,7 @@ export const usePlanningActions = (schedules: PlanningSchedule[], setSchedules: 
         });
 
         try {
-            const results = await apiService.bulkUpdateAssignments(updates);
+            const results = await apiService.savePlanningAssignmentsBulk(updates);
             if (results) {
                 // Update local state
                 const newSchedules = schedules.map(s => {
@@ -75,6 +75,33 @@ export const usePlanningActions = (schedules: PlanningSchedule[], setSchedules: 
         }
     };
 
+    const applyBulkAssignments = async (assignments: any[]) => {
+        if (!assignments || assignments.length === 0) return;
+        try {
+            const results = await apiService.savePlanningAssignmentsBulk(assignments);
+            if (results) {
+                const newSchedules = schedules.map(s => {
+                    const scheduleUpdates = results.filter((r: any) => r.scheduleId === s.id);
+                    if (scheduleUpdates.length === 0) return s;
+
+                    const newAssignments = [...s.assignments];
+                    scheduleUpdates.forEach((update: any) => {
+                        const idx = newAssignments.findIndex(a => 
+                            a.mailerId === update.mailerId && a.dayOfWeek === update.dayOfWeek
+                        );
+                        if (idx >= 0) newAssignments[idx] = update;
+                        else newAssignments.push(update);
+                    });
+                    return { ...s, assignments: newAssignments };
+                });
+                setSchedules(newSchedules);
+            }
+        } catch (error) {
+            console.error('Import apply failed:', error);
+            throw error;
+        }
+    };
+
     return {
         selectedCells,
         setSelectedCells,
@@ -88,6 +115,7 @@ export const usePlanningActions = (schedules: PlanningSchedule[], setSchedules: 
         isAiGenerating,
         setIsAiGenerating,
         handleCellMouseDown,
-        applyPresetToSelectedCells
+        applyPresetToSelectedCells,
+        applyBulkAssignments
     };
 };

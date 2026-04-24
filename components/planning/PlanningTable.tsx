@@ -15,6 +15,13 @@ interface PlanningTableProps {
     onDrop: (mailerId: string, dayOfWeek: number, e: React.DragEvent) => void;
 }
 
+const TEAM_COLORS: Record<string, string> = {
+    'DESKTOP': 'linear-gradient(135deg, #4f46e5 0%, #3730a3 100%)', // Indigo
+    'WEBAUTOMAT': 'linear-gradient(135deg, #0ea5e9 0%, #0369a1 100%)', // Sky Blue
+    'YAHOO': 'linear-gradient(135deg, #8b5cf6 0%, #6d28d9 100%)', // Violet
+    'HOTMAIL': 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)', // Amber
+};
+
 export const PlanningTable: React.FC<PlanningTableProps> = ({
     schedule,
     teams,
@@ -48,10 +55,14 @@ export const PlanningTable: React.FC<PlanningTableProps> = ({
                                     {mIdx === 0 && (
                                         <td
                                             rowSpan={team.mailers.length}
-                                            className="px-4 py-3 text-xs font-black text-gray-900 sticky left-0 bg-white z-10 border-r border-gray-300 align-top shadow-sm"
-                                            style={{ color: team.color || 'inherit' }}
+                                            className="px-4 py-8 text-center sticky left-0 z-10 border-r border-gray-300 align-middle shadow-sm"
+                                            style={{
+                                                background: TEAM_COLORS[team.name] || TEAM_COLORS[team.displayName] || (team.color ? `linear-gradient(135deg, ${team.color} 0%, ${team.color}dd 100%)` : '#4f46e5'),
+                                            }}
                                         >
-                                            {team.displayName}
+                                            <span className="text-[15px] font-black text-white uppercase tracking-[0.2em] block leading-tight">
+                                                {team.displayName}
+                                            </span>
                                         </td>
                                     )}
                                     <td className="px-4 py-3 text-xs font-semibold text-gray-700 sticky left-[160px] bg-white z-10 border-r border-gray-300 shadow-sm whitespace-nowrap">

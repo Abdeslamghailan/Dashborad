@@ -6,6 +6,7 @@ interface PlanningHeaderProps {
     onHistoryToggle: () => void;
     showHistory: boolean;
     onManageToggle: () => void;
+    onImageImportToggle: () => void;
     selectedCellsCount: number;
     onBulkUpdateToggle: () => void;
 }
@@ -16,6 +17,7 @@ export const PlanningHeader: React.FC<PlanningHeaderProps> = ({
     onHistoryToggle,
     showHistory,
     onManageToggle,
+    onImageImportToggle,
     selectedCellsCount,
     onBulkUpdateToggle
 }) => {
@@ -56,6 +58,13 @@ export const PlanningHeader: React.FC<PlanningHeaderProps> = ({
                                 className="flex items-center gap-2 px-3 h-9 bg-white border border-gray-200 text-gray-600 hover:bg-indigo-50 hover:text-indigo-700 hover:border-indigo-200 rounded-lg font-medium transition-all duration-200 shadow-sm active:scale-95 text-xs"
                             >
                                 <span>⚙️</span> Manage
+                            </button>
+
+                            <button
+                                onClick={onImageImportToggle}
+                                className="flex items-center gap-2 px-3 h-9 bg-indigo-600 text-white hover:bg-indigo-700 rounded-lg font-bold transition-all duration-200 shadow-md active:scale-95 text-xs"
+                            >
+                                <span>📸</span> Smart Import
                             </button>
 
                             {selectedCellsCount > 0 && (

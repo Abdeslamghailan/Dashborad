@@ -11,6 +11,7 @@ import { QuickAssign } from './planning/QuickAssign';
 import { PlanningTable } from './planning/PlanningTable';
 import { BulkUpdateModal } from './planning/PlanningModals';
 import { PlanningSettings } from './planning/PlanningSettings';
+import { PlanningImageImport } from './planning/PlanningImageImport';
 
 // Utils
 import { exportPlanningToXLSX } from '../utils/planningExport';
@@ -27,7 +28,12 @@ export const TeamPlanning: React.FC = () => {
         setShowHistory,
         isAdmin,
         fetchHistory,
-        initializeWeeks // This should be returned from the hook as well
+        initializeWeeks, // This should be returned from the hook as well
+        saveTeam,
+        deleteTeam,
+        saveMailer,
+        deleteMailer,
+        importFromImage
     } = usePlanningData();
 
     const {
@@ -38,7 +44,8 @@ export const TeamPlanning: React.FC = () => {
         copiedCell,
         isAiGenerating,
         handleCellMouseDown,
-        applyPresetToSelectedCells
+        applyPresetToSelectedCells,
+        applyBulkAssignments
     } = usePlanningActions(schedules, setSchedules);
 
     const {
@@ -50,6 +57,11 @@ export const TeamPlanning: React.FC = () => {
 
     const [showBulkUpdateModal, setShowBulkUpdateModal] = useState(false);
     const [showManageModal, setShowManageModal] = useState(false);
+    const [showImageImportModal, setShowImageImportModal] = useState(false);
+    const [expandedWeeks, setExpandedWeeks] = useState<Record<string, boolean>>({
+        currentWeek: false,
+        nextWeek: false
+    });
 
     if (loading) {
         return (
@@ -76,6 +88,7 @@ export const TeamPlanning: React.FC = () => {
                 }}
                 showHistory={showHistory}
                 onManageToggle={() => setShowManageModal(true)}
+                onImageImportToggle={() => setShowImageImportModal(true)}
                 selectedCellsCount={selectedCells.size}
                 onBulkUpdateToggle={() => setShowBulkUpdateModal(true)}
             />
@@ -107,31 +120,45 @@ export const TeamPlanning: React.FC = () => {
                             filters[weekKey].status,
                             filters[weekKey].task
                         );
-
                         return (
-                            <div key={schedule.id} className="space-y-4">
+                            <div key={schedule.id} className="space-y-4 bg-white p-6 rounded-2xl border border-gray-100 shadow-sm transition-all hover:shadow-md">
                                 <div className="flex items-center justify-between">
-                                    <h2 className="text-xl font-bold text-gray-800">
-                                        {idx === 0 ? 'Current Week' : 'Next Week'} ({schedule.weekStart})
-                                    </h2>
-                                    <button
-                                        onClick={() => exportPlanningToXLSX(schedule, filteredTeams, weekKey)}
-                                        className="text-xs bg-emerald-500 text-white px-3 py-1.5 rounded-lg hover:bg-emerald-600 font-bold"
-                                    >
-                                        Export XLSX
-                                    </button>
+                                    <div className="flex items-center gap-4">
+                                        <button 
+                                            onClick={() => setExpandedWeeks(prev => ({ ...prev, [weekKey]: !prev[weekKey] }))}
+                                            className="w-10 h-10 flex items-center justify-center bg-gray-50 rounded-xl hover:bg-gray-100 transition-colors text-xl"
+                                        >
+                                            {expandedWeeks[weekKey] ? '👇' : '👉'}
+                                        </button>
+                                        <h2 className="text-xl font-bold text-gray-800">
+                                            {idx === 0 ? 'Current Week' : 'Next Week'} ({new Date(schedule.weekStart).toLocaleDateString('fr-FR').replace(/\//g, '-')} To {new Date(schedule.weekEnd).toLocaleDateString('fr-FR').replace(/\//g, '-')})
+                                        </h2>
+                                    </div>
+                                    <div className="flex gap-3">
+                                        <button
+                                            onClick={() => exportPlanningToXLSX(schedule, filteredTeams, weekKey)}
+                                            className="text-xs bg-emerald-500 text-white px-4 py-2 rounded-xl hover:bg-emerald-600 font-bold shadow-sm transition-all active:scale-95"
+                                        >
+                                            Export XLSX
+                                        </button>
+                                    </div>
                                 </div>
-                                <PlanningTable
-                                    schedule={schedule}
-                                    teams={filteredTeams}
-                                    isAdmin={isAdmin}
-                                    selectedCells={selectedCells}
-                                    onCellMouseDown={(mId, dIdx, e) => handleCellMouseDown(schedule.id, mId, dIdx, e)}
-                                    onCellMouseEnter={() => { }}
-                                    onCellClick={() => { }}
-                                    onCellDoubleClick={() => { }}
-                                    onDrop={() => { }}
-                                />
+                                
+                                {expandedWeeks[weekKey] && (
+                                    <div className="animate-in fade-in slide-in-from-top-2 duration-300">
+                                        <PlanningTable
+                                            schedule={schedule}
+                                            teams={filteredTeams}
+                                            isAdmin={isAdmin}
+                                            selectedCells={selectedCells}
+                                            onCellMouseDown={(mId, dIdx, e) => handleCellMouseDown(schedule.id, mId, dIdx, e)}
+                                            onCellMouseEnter={() => { }}
+                                            onCellClick={() => { }}
+                                            onCellDoubleClick={() => { }}
+                                            onDrop={() => { }}
+                                        />
+                                    </div>
+                                )}
                             </div>
                         );
                     })}
@@ -153,10 +180,20 @@ export const TeamPlanning: React.FC = () => {
                 isOpen={showManageModal}
                 onClose={() => setShowManageModal(false)}
                 teams={teams}
-                onSaveTeam={() => { }}
-                onDeleteTeam={() => { }}
-                onSaveMailer={() => { }}
-                onDeleteMailer={() => { }}
+                onSaveTeam={saveTeam}
+                onDeleteTeam={deleteTeam}
+                onSaveMailer={saveMailer}
+                onDeleteMailer={deleteMailer}
+            />
+
+            <PlanningImageImport 
+                isOpen={showImageImportModal}
+                onClose={() => setShowImageImportModal(false)}
+                onImport={importFromImage}
+                onApplySuggestions={async (assignments) => {
+                    await applyBulkAssignments(assignments);
+                    setShowImageImportModal(false);
+                }}
             />
         </div>
     );
