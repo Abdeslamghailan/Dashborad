@@ -413,6 +413,10 @@ export const apiService: DataService = {
     });
   },
 
+  resetPlanningSchedules: async () => {
+    return await apiCall('/planning/reset', { method: 'POST' });
+  },
+
   // Proxies
   getProxies: async (entityId: string) => {
     return await apiCall(`/proxies/${entityId}`);

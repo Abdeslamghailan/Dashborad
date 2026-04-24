@@ -9,6 +9,7 @@ interface PlanningHeaderProps {
     onImageImportToggle: () => void;
     selectedCellsCount: number;
     onBulkUpdateToggle: () => void;
+    onReset: () => void;
 }
 
 export const PlanningHeader: React.FC<PlanningHeaderProps> = ({
@@ -19,7 +20,8 @@ export const PlanningHeader: React.FC<PlanningHeaderProps> = ({
     onManageToggle,
     onImageImportToggle,
     selectedCellsCount,
-    onBulkUpdateToggle
+    onBulkUpdateToggle,
+    onReset
 }) => {
     return (
         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 px-8 py-8 mb-8 transition-all hover:shadow-md">
@@ -58,6 +60,17 @@ export const PlanningHeader: React.FC<PlanningHeaderProps> = ({
                                 className="flex items-center gap-2 px-3 h-9 bg-white border border-gray-200 text-gray-600 hover:bg-indigo-50 hover:text-indigo-700 hover:border-indigo-200 rounded-lg font-medium transition-all duration-200 shadow-sm active:scale-95 text-xs"
                             >
                                 <span>⚙️</span> Manage
+                            </button>
+
+                            <button
+                                onClick={() => {
+                                    if (window.confirm('Are you sure you want to clear ALL planning for the current and next weeks? This cannot be undone.')) {
+                                        onReset();
+                                    }
+                                }}
+                                className="flex items-center gap-2 px-3 h-9 bg-white border border-gray-200 text-red-600 hover:bg-red-50 hover:border-red-200 rounded-lg font-medium transition-all duration-200 shadow-sm active:scale-95 text-xs"
+                            >
+                                <span>🗑️</span> Reset
                             </button>
 
                             <button

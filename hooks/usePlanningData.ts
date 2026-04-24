@@ -157,6 +157,16 @@ export const usePlanningData = () => {
         }
     };
 
+    const resetSchedules = async () => {
+        try {
+            await apiService.resetPlanningSchedules();
+            await fetchData();
+        } catch (error) {
+            console.error('Failed to reset schedules:', error);
+            throw error;
+        }
+    };
+
     useEffect(() => {
         fetchData();
     }, []);
@@ -183,6 +193,7 @@ export const usePlanningData = () => {
         saveMailer,
         deleteMailer,
         initializeWeeks,
-        importFromImage
+        importFromImage,
+        resetSchedules
     };
 };

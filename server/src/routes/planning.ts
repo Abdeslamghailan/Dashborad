@@ -418,9 +418,37 @@ router.post('/schedules', authenticateToken, async (req, res) => {
       description: `${existing ? 'Updated' : 'Created'} schedule for Week ${weekNumber}, ${year}`,
       newValue: schedule
     });
+// Reset planning (Admin only)
+router.post('/reset', authenticateToken, async (req: AuthRequest, res) => {
+  if (!isAdmin(req)) {
+    return res.status(403).json({ error: 'Admin access required' });
+  }
+
+  try {
+    // We clear assignments for current and next weeks
+    const schedules = await prisma.planningSchedule.findMany({
+      where: { OR: [{ isCurrent: true }, { isNext: true }] }
+    });
+
+    const scheduleIds = schedules.map(s => s.id);
+
+    await prisma.planningAssignment.deleteMany({
+      where: {
+        scheduleId: { in: scheduleIds }
+      }
+    });
+
+    await logChange(req, {
+      entityType: 'PlanningSchedule',
+      entityId: 'all',
+      changeType: 'delete',
+      description: 'Reset all planning assignments for current and next weeks'
+    });
+
+    res.json({ success: true, message: 'All planning assignments cleared.' });
   } catch (error) {
-    console.error('Error creating/updating schedule:', error);
-    res.status(500).json({ error: 'Failed to create/update schedule' });
+    console.error('Error resetting planning:', error);
+    res.status(500).json({ error: 'Failed to reset planning' });
   }
 });
 

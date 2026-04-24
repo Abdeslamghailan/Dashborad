@@ -33,7 +33,8 @@ export const TeamPlanning: React.FC = () => {
         deleteTeam,
         saveMailer,
         deleteMailer,
-        importFromImage
+        importFromImage,
+        resetSchedules
     } = usePlanningData();
 
     const {
@@ -104,6 +105,7 @@ export const TeamPlanning: React.FC = () => {
                 onImageImportToggle={() => setShowImageImportModal(true)}
                 selectedCellsCount={selectedCells.size}
                 onBulkUpdateToggle={() => setShowBulkUpdateModal(true)}
+                onReset={resetSchedules}
             />
 
             {!showHistory && isAdmin && (
