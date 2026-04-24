@@ -97,6 +97,9 @@ if (process.env.RAILWAY_PUBLIC_DOMAIN) {
 if (process.env.URL) {
   allowedOrigins.push(process.env.URL);
 }
+if (process.env.DEPLOY_PRIME_URL) {
+  allowedOrigins.push(process.env.DEPLOY_PRIME_URL);
+}
 
 // Development-only ngrok support
 if (!isProduction && process.env.NGROK_URL) {
@@ -109,7 +112,8 @@ app.use(cors({
     // Allow requests with no origin (mobile apps, Postman, etc.)
     if (!origin) return callback(null, true);
     
-    const isAllowed = allowedOrigins.includes(origin) || 
+    const isNetlify = /\.netlify\.app$/.test(origin);
+    const isAllowed = allowedOrigins.includes(origin) || isNetlify ||
       (!isProduction && /\.ngrok-free\.dev$/.test(origin));
     
     if (isAllowed) {
