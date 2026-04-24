@@ -527,9 +527,10 @@ const ListsFromTaskToday: React.FC<{ entity: Entity | null; entityName: string; 
         }).catch(console.error);
     }, [entity]);
 
-    if (!entity) return null;
+
 
     const allCats = useMemo(() => {
+        if (!entity) return [];
         const cats: any[] = [];
         const seenIds = new Set<string>();
 
@@ -550,7 +551,9 @@ const ListsFromTaskToday: React.FC<{ entity: Entity | null; entityName: string; 
 
             return true;
         });
-    }, [entity.methodsData, mailerUsers, methodFilter]);
+    }, [entity, mailerUsers, methodFilter]);
+
+    if (!entity) return null;
 
     if (loading) return (
         <div className="h-full flex flex-col items-center justify-center gap-4">
