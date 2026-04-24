@@ -17,6 +17,8 @@ export const usePlanningActions = (schedules: PlanningSchedule[], setSchedules: 
         const key = getCellKey(scheduleId, mailerId, dayOfWeek);
         setIsMultiSelecting(true);
 
+        const isModifierPressed = event.ctrlKey || event.metaKey || event.shiftKey;
+
         if (event.ctrlKey || event.metaKey) {
             const newSelection = new Set(selectedCells);
             if (newSelection.has(key)) newSelection.delete(key);
@@ -29,10 +31,14 @@ export const usePlanningActions = (schedules: PlanningSchedule[], setSchedules: 
             newSelection.add(key);
             setSelectedCells(newSelection);
         } else {
+            // If a preset is selected and no modifiers are pressed, apply it immediately (Click-to-fill)
+            if (selectedPreset && !isModifierPressed) {
+                applyPresetToSelectedCells(selectedPreset);
+            }
             setSelectedCells(new Set([key]));
         }
         setLastSelectedCell({ scheduleId, mailerId, dayOfWeek });
-    }, [selectedCells, lastSelectedCell]);
+    }, [selectedCells, lastSelectedCell, selectedPreset, applyPresetToSelectedCells]);
 
     const applyPresetToSelectedCells = async (presetToApply?: EntityPreset) => {
         const preset = presetToApply || selectedPreset;
@@ -62,8 +68,12 @@ export const usePlanningActions = (schedules: PlanningSchedule[], setSchedules: 
                         const idx = newAssignments.findIndex(a => 
                             a.mailerId === update.mailerId && a.dayOfWeek === update.dayOfWeek
                         );
-                        if (idx >= 0) newAssignments[idx] = update;
-                        else newAssignments.push(update);
+                        if (update.status === 'deleted' || update.status === 'not_found') {
+                            if (idx >= 0) newAssignments.splice(idx, 1);
+                        } else {
+                            if (idx >= 0) newAssignments[idx] = update;
+                            else newAssignments.push(update);
+                        }
                     });
                     return { ...s, assignments: newAssignments };
                 });
@@ -89,8 +99,12 @@ export const usePlanningActions = (schedules: PlanningSchedule[], setSchedules: 
                         const idx = newAssignments.findIndex(a => 
                             a.mailerId === update.mailerId && a.dayOfWeek === update.dayOfWeek
                         );
-                        if (idx >= 0) newAssignments[idx] = update;
-                        else newAssignments.push(update);
+                        if (update.status === 'deleted' || update.status === 'not_found') {
+                            if (idx >= 0) newAssignments.splice(idx, 1);
+                        } else {
+                            if (idx >= 0) newAssignments[idx] = update;
+                            else newAssignments.push(update);
+                        }
                     });
                     return { ...s, assignments: newAssignments };
                 });

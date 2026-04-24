@@ -74,6 +74,19 @@ export const TeamPlanning: React.FC = () => {
         );
     }
 
+    // Add Enter key listener for Quick Assign
+    React.useEffect(() => {
+        const handleKeyDown = (e: KeyboardEvent) => {
+            if (e.key === 'Enter' && selectedPreset && selectedCells.size > 0) {
+                // Prevent Enter from triggering other things
+                e.preventDefault();
+                applyPresetToSelectedCells();
+            }
+        };
+        window.addEventListener('keydown', handleKeyDown);
+        return () => window.removeEventListener('keydown', handleKeyDown);
+    }, [selectedPreset, selectedCells, applyPresetToSelectedCells]);
+
     const currentWeek = schedules.find(s => s.isCurrent);
     const nextWeek = schedules.find(s => s.isNext);
 
