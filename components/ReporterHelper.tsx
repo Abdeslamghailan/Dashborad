@@ -15,7 +15,7 @@ import { Entity } from '../types';
 import { useAuth } from '../contexts/AuthContext';
 
 // --- Types ---
-type SubTab = 'analyzer' | 'recheck';
+type SubTab = 'analyzer' | 'recheck' | 'move' | 'proxyMove';
 
 interface BlockedEmail {
     session: string;
@@ -24,8 +24,6 @@ interface BlockedEmail {
     email: string;
     date: string;
 }
-
-
 
 // --- Excel-style Components ---
 
@@ -102,8 +100,6 @@ export const ReporterHelper: React.FC = () => {
         return { groups, chartData, total };
     }, [analyzerResults]);
 
-
-
     // --- Feature 3: Recheck State ---
     const [recheckInput, setRecheckInput] = useState('');
     const [recheckGroups, setRecheckGroups] = useState<Record<string, string[][]>>({});
@@ -132,6 +128,88 @@ export const ReporterHelper: React.FC = () => {
         });
 
         setRecheckGroups(grouped);
+    };
+
+    // --- Feature 4: Move Analyse State ---
+    const [moveInput, setMoveInput] = useState('');
+    const [moveProxiesInput, setMoveProxiesInput] = useState('');
+    const [moveResults, setMoveResults] = useState<{ id: string, email: string, proxy: string, status: string }[]>([]);
+
+    const handleMoveAnalyze = () => {
+        const dataLines = moveInput.split('\n').filter(l => l.trim());
+        const proxyLines = moveProxiesInput.split('\n').filter(l => l.trim());
+
+        const proxyMap: Record<string, string> = {};
+        proxyLines.forEach(line => {
+            const parts = line.split(/[\s\t,]+/).map(p => p.trim());
+            if (parts.length >= 2) {
+                proxyMap[parts[0]] = parts[1];
+            }
+        });
+
+        const parsed = dataLines.map(line => {
+            const parts = line.split(',').map(p => p.trim().replace(/"/g, ''));
+            const id = parts[1] || '0';
+            const email = parts[3] || 'Unknown';
+            const status = parts[2] || 'Unknown';
+            const proxy = proxyMap[id] || 'No Proxy';
+            return { id, email, proxy, status };
+        });
+
+        setMoveResults(parsed);
+    };
+
+    const handleMoveGlobalCopy = () => {
+        const spam = moveResults.filter(it => it.status.toLowerCase() === 'has_spam_messages');
+        const disconnected = moveResults.filter(it => it.status.toLowerCase() === 'disconnected');
+        
+        const all = [...spam, ...disconnected];
+        if (all.length === 0) return;
+        
+        const text = all.map(it => `${it.id}\t${it.email}\t${it.proxy}`).join('\n');
+        copyToClipboard(text);
+    };
+
+    const moveStats = useMemo(() => {
+        const groups: Record<string, typeof moveResults> = {};
+        moveResults.forEach(item => {
+            if (!groups[item.status]) groups[item.status] = [];
+            groups[item.status].push(item);
+        });
+        return groups;
+    }, [moveResults]);
+
+    // --- Feature 5: Analyse Proxy Move State ---
+    const [proxyMoveZone1, setProxyMoveZone1] = useState('');
+    const [proxyMoveZone2, setProxyMoveZone2] = useState('');
+    const [proxyMoveResults, setProxyMoveResults] = useState<string[]>([]);
+
+    const handleProxyMovePurge = () => {
+        const zone1Lines = proxyMoveZone1.split('\n').map(l => l.trim()).filter(Boolean);
+        const zone2Lines = proxyMoveZone2.split('\n').map(l => l.trim()).filter(Boolean);
+
+        // Build a Set of /24 prefixes from Zone 1
+        const zone1Classes = new Set(zone1Lines.map(ip => {
+            const parts = ip.split('.');
+            return parts.length >= 3 ? parts.slice(0, 3).join('.') : ip;
+        }));
+
+        // Filter Zone 2 lines whose IP prefix is in zone1Classes
+        const matched = zone2Lines.filter(line => {
+            const parts = line.split(/[,\s\t]+/);
+            const ip = parts.length > 1 ? parts[1] : parts[0];
+            if (!ip) return false;
+            const prefix = ip.split('.').slice(0, 3).join('.');
+            return !zone1Classes.has(prefix);
+        });
+
+        setProxyMoveResults(matched);
+    };
+
+    const clearProxyMove = () => {
+        setProxyMoveZone1('');
+        setProxyMoveZone2('');
+        setProxyMoveResults([]);
     };
 
     const COLORS = ['#5c7cfa', '#f03e3e', '#37b24d', '#fcc419', '#7048e8'];
@@ -168,11 +246,29 @@ export const ReporterHelper: React.FC = () => {
                             <RefreshCw size={18} />
                             Recheck Blocked
                         </button>
+
+                        <button
+                            onClick={() => setActiveSubTab('proxyMove')}
+                            className={`flex items-center justify-center gap-2 px-4 sm:px-6 py-2.5 rounded-xl text-xs sm:text-sm font-bold transition-all ${activeSubTab === 'proxyMove' ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-100' : 'text-gray-500 hover:bg-gray-50'}`}
+                        >
+                            <Search size={18} />
+                            Analyse Proxy Move
+                        </button>
+
+                        <button
+                            onClick={() => setActiveSubTab('move')}
+                            className={`flex items-center justify-center gap-2 px-4 sm:px-6 py-2.5 rounded-xl text-xs sm:text-sm font-bold transition-all ${activeSubTab === 'move' ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-100' : 'text-gray-500 hover:bg-gray-50'}`}
+                        >
+                            <Target size={18} />
+                            Move Analyse
+                        </button>
                     </div>
                 </div>
 
                 {/* Content Area */}
                 <div className="space-y-6">
+
+                    {/* ── TAB 1: Blocked Analyzer ── */}
                     {activeSubTab === 'analyzer' && (
                         <div className="space-y-6">
                             <ExcelCard>
@@ -292,8 +388,7 @@ export const ReporterHelper: React.FC = () => {
                         </div>
                     )}
 
-
-
+                    {/* ── TAB 2: Recheck Blocked ── */}
                     {activeSubTab === 'recheck' && (
                         <div className="space-y-6">
                             <ExcelCard>
@@ -342,7 +437,6 @@ export const ReporterHelper: React.FC = () => {
                                                     {(chunks as string[][]).flat().length} PROFILES
                                                 </span>
                                             </div>
-
                                             <div className="space-y-4">
                                                 {(chunks as string[][]).map((chunk, idx) => (
                                                     <div key={idx} className="bg-gray-50 rounded-xl p-4 border border-gray-100">
@@ -357,7 +451,6 @@ export const ReporterHelper: React.FC = () => {
                                                     </div>
                                                 ))}
                                             </div>
-
                                             <div className="mt-6 space-y-2">
                                                 <button
                                                     onClick={() => copyToClipboard((chunks as string[][]).flat().join('\n'))}
@@ -372,6 +465,227 @@ export const ReporterHelper: React.FC = () => {
                             )}
                         </div>
                     )}
+
+                    {/* ── TAB 3: Move Analyse ── */}
+                    {activeSubTab === 'move' && (
+                        <div className="space-y-6">
+                            <div className="grid grid-cols-1 lg:grid-cols-[1fr_400px] gap-6">
+                                <ExcelCard>
+                                    <ExcelSectionTitle icon={AlignLeft}>Data Input</ExcelSectionTitle>
+                                    <textarea
+                                        value={moveInput}
+                                        onChange={(e) => setMoveInput(e.target.value)}
+                                        placeholder='"CMH1_P_IP_5,2704,Disconnected,email@gmail.com,email@gmail.com ,27-01-2026 11-5"'
+                                        className="w-full h-48 p-4 text-sm font-medium text-gray-600 border border-gray-200 rounded-xl focus:outline-none focus:border-indigo-500 resize-none bg-white placeholder-gray-300 leading-relaxed mb-4"
+                                    />
+                                    <div className="flex justify-center">
+                                        <Button
+                                            onClick={handleMoveAnalyze}
+                                            className="bg-indigo-600 hover:bg-indigo-700 px-8 py-2.5 h-auto text-sm font-bold w-full sm:w-auto"
+                                            leftIcon={<Zap size={18} />}
+                                        >
+                                            Analyze for Move
+                                        </Button>
+                                    </div>
+                                </ExcelCard>
+
+                                <ExcelCard className="border-red-100 bg-red-50/30">
+                                    <div className="flex justify-between items-center mb-4">
+                                        <ExcelSectionTitle icon={Globe}>Profiles Proxies</ExcelSectionTitle>
+                                        <button
+                                            onClick={() => setMoveProxiesInput('')}
+                                            className="text-red-400 hover:text-red-600 transition-colors"
+                                        >
+                                            <Trash2 size={16} />
+                                        </button>
+                                    </div>
+                                    <textarea
+                                        value={moveProxiesInput}
+                                        onChange={(e) => setMoveProxiesInput(e.target.value)}
+                                        placeholder="Paste IDs and Proxies here... (e.g. 2704 1.1.1.1)"
+                                        className="w-full h-48 p-4 text-xs font-mono text-red-600 border border-red-100 rounded-xl focus:outline-none focus:border-red-300 resize-none bg-white placeholder-red-200 leading-relaxed"
+                                    />
+                                </ExcelCard>
+                            </div>
+
+                            {moveResults.length > 0 && (
+                                <div className="space-y-6">
+                                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                                        {Object.entries(moveStats).map(([status, items]) => (
+                                            <div key={status} className="bg-white p-4 rounded-2xl border border-gray-100 shadow-sm">
+                                                <div className="text-[10px] font-black uppercase text-gray-400 mb-1">{status}</div>
+                                                <div className="text-2xl font-black text-indigo-600">{items.length}</div>
+                                            </div>
+                                        ))}
+                                        <div className="flex flex-col gap-2">
+                                            <div className="bg-indigo-600 p-4 rounded-2xl shadow-lg ring-4 ring-indigo-50">
+                                                <div className="text-[10px] font-black uppercase text-white/70 mb-1">Total Processed</div>
+                                                <div className="text-2xl font-black text-white">{moveResults.length}</div>
+                                            </div>
+                                            <button
+                                                onClick={handleMoveGlobalCopy}
+                                                className="w-full py-2 bg-indigo-500 hover:bg-indigo-600 text-white rounded-xl text-[10px] font-black uppercase flex items-center justify-center gap-2 shadow-sm transition-all transform active:scale-95 border border-indigo-400"
+                                            >
+                                                <Copy size={14} /> Global Copy (Conn + Disc)
+                                            </button>
+                                        </div>
+                                    </div>
+
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                        {Object.entries(moveStats).map(([status, items]) => (
+                                            <ExcelCard key={status} className={`border-t-4 ${status === 'Disconnected' ? 'border-t-red-500' : status === 'Connected' ? 'border-t-emerald-500' : 'border-t-indigo-500'}`}>
+                                                <div className="flex justify-between items-center mb-4">
+                                                    <h4 className="font-bold text-gray-700 uppercase text-sm flex items-center gap-2">
+                                                        <Activity size={16} className={status === 'Disconnected' ? 'text-red-500' : 'text-emerald-500'} />
+                                                        {status} Profiles
+                                                    </h4>
+                                                    <span className={`px-2 py-0.5 rounded-lg text-xs font-bold ${status === 'Disconnected' ? 'bg-red-50 text-red-600' : 'bg-emerald-50 text-emerald-600'}`}>
+                                                        {items.length}
+                                                    </span>
+                                                </div>
+
+                                                <div className="h-64 overflow-y-auto bg-gray-50 rounded-xl p-3 font-mono text-[10px] text-gray-500 space-y-1 mb-4 border border-gray-100">
+                                                    {items.map((it, idx) => (
+                                                        <div key={idx} className="flex gap-4 items-center p-1.5 hover:bg-white rounded transition-colors group">
+                                                            <span className="text-indigo-600 font-bold w-8">{it.id}</span>
+                                                            <span className="flex-1 text-gray-700">{it.email}</span>
+                                                            <span className="text-gray-400">{it.proxy}</span>
+                                                            <button
+                                                                onClick={() => copyToClipboard(`${it.id}\t${it.email}\t${it.proxy}`)}
+                                                                className="opacity-0 group-hover:opacity-100 text-[#5c7cfa]"
+                                                            >
+                                                                <Copy size={10} />
+                                                            </button>
+                                                        </div>
+                                                    ))}
+                                                </div>
+
+                                                <button
+                                                    onClick={() => copyToClipboard(items.map(it => `${it.id}\t${it.email}\t${it.proxy}`).join('\n'))}
+                                                    className="w-full py-2.5 bg-gray-900 text-white rounded-xl text-[10px] font-bold uppercase flex items-center justify-center gap-2 hover:bg-gray-800 transition-all shadow-sm"
+                                                >
+                                                    <Copy size={14} /> Copy {status} List
+                                                </button>
+                                            </ExcelCard>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    )}
+
+                    {/* ── TAB 4: Analyse Proxy Move ── */}
+                    {activeSubTab === 'proxyMove' && (
+                        <div className="space-y-6">
+                            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                                {/* Zone 1 */}
+                                <ExcelCard>
+                                    <div className="flex justify-between items-center mb-4">
+                                        <div className="flex items-center gap-2">
+                                            <div className="p-2 bg-red-50 rounded-lg">
+                                                <ShieldAlert size={18} className="text-red-500" />
+                                            </div>
+                                            <h3 className="text-sm font-black text-gray-700 uppercase tracking-wider">Zone 1: IPS of Classes/24</h3>
+                                        </div>
+                                        <span className="text-[10px] font-bold text-gray-400 bg-gray-50 px-2 py-1 rounded-md">
+                                            {proxyMoveZone1.split('\n').filter(Boolean).length} Count
+                                        </span>
+                                    </div>
+                                    <textarea
+                                        value={proxyMoveZone1}
+                                        onChange={(e) => setProxyMoveZone1(e.target.value)}
+                                        placeholder={"170.62.105.59\n94.176.215.135\n94.176.215.25"}
+                                        className="w-full h-[350px] p-4 text-xs font-mono text-gray-500 border border-gray-100 rounded-2xl focus:outline-none focus:border-indigo-500 resize-none bg-[#fafbfc] placeholder-gray-300 leading-relaxed"
+                                    />
+                                </ExcelCard>
+
+                                {/* Zone 2 */}
+                                <ExcelCard>
+                                    <div className="flex justify-between items-center mb-4">
+                                        <div className="flex items-center gap-2">
+                                            <div className="p-2 bg-indigo-50 rounded-lg">
+                                                <FileText size={18} className="text-indigo-500" />
+                                            </div>
+                                            <h3 className="text-sm font-black text-gray-700 uppercase tracking-wider">Log Proxies</h3>
+                                        </div>
+                                        <span className="text-[10px] font-bold text-gray-400 bg-gray-50 px-2 py-1 rounded-md">
+                                            {proxyMoveZone2.split('\n').filter(Boolean).length} Lines
+                                        </span>
+                                    </div>
+                                    <textarea
+                                        value={proxyMoveZone2}
+                                        onChange={(e) => setProxyMoveZone2(e.target.value)}
+                                        placeholder={"1,170.130.16.205\n2,148.135.117.212\n3,170.62.105.59"}
+                                        className="w-full h-[350px] p-4 text-xs font-mono text-gray-500 border border-gray-100 rounded-2xl focus:outline-none focus:border-indigo-500 resize-none bg-[#fafbfc] placeholder-gray-300 leading-relaxed"
+                                    />
+                                </ExcelCard>
+                            </div>
+
+                            {/* Action Buttons */}
+                            <div className="flex flex-col sm:flex-row justify-center items-center gap-4">
+                                <Button
+                                    onClick={handleProxyMovePurge}
+                                    className="bg-indigo-600 hover:bg-indigo-700 px-12 py-3 h-auto text-sm font-black rounded-2xl shadow-xl shadow-indigo-100 transform active:scale-95 transition-all"
+                                    leftIcon={<Zap size={18} />}
+                                >
+                                    Purge Lines
+                                </Button>
+                                <Button
+                                    onClick={clearProxyMove}
+                                    variant="outline"
+                                    className="border-gray-200 text-gray-500 hover:bg-gray-50 px-8 py-3 h-auto text-sm font-bold rounded-2xl"
+                                    leftIcon={<RefreshCw size={18} />}
+                                >
+                                    Clear All
+                                </Button>
+                            </div>
+
+                            {/* Results */}
+                            {proxyMoveResults.length > 0 && (
+                                <ExcelCard className="border-t-4 border-t-indigo-500">
+                                    <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
+                                        <div>
+                                            <h3 className="text-lg font-black text-gray-800">Proxies NOT in Classes /24</h3>
+                                            <p className="text-xs text-gray-500 font-medium italic">Found {proxyMoveResults.length} non-matching lines</p>
+                                        </div>
+                                        <div className="flex gap-2 w-full sm:w-auto">
+                                            <button
+                                                onClick={() => copyToClipboard(proxyMoveResults.join('\n'))}
+                                                className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-5 py-2.5 bg-gray-900 text-white rounded-xl text-xs font-bold hover:bg-gray-800 transition-all shadow-sm"
+                                            >
+                                                <Copy size={14} /> Copy All
+                                            </button>
+                                            <button
+                                                onClick={() => {
+                                                    const profiles = proxyMoveResults.map(r => r.split(/[,\s\t]+/)[0]).join('\n');
+                                                    copyToClipboard(profiles);
+                                                }}
+                                                className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-5 py-2.5 bg-indigo-600 text-white rounded-xl text-xs font-bold hover:bg-indigo-500 transition-all shadow-sm"
+                                            >
+                                                <Target size={14} /> Copy Profiles
+                                            </button>
+                                        </div>
+                                    </div>
+
+                                    <div className="h-[400px] overflow-y-auto bg-gray-50 rounded-2xl p-4 font-mono text-xs text-gray-600 space-y-1 border border-gray-100">
+                                        {proxyMoveResults.map((line, idx) => (
+                                            <div key={idx} className="flex gap-4 items-center px-3 py-2 hover:bg-white rounded-lg transition-colors border border-transparent hover:border-gray-100 group">
+                                                <span className="text-gray-300 font-bold w-6 text-right">{idx + 1}</span>
+                                                <span className="flex-1 text-gray-700">{line}</span>
+                                                <button
+                                                    onClick={() => copyToClipboard(line)}
+                                                    className="opacity-0 group-hover:opacity-100 text-indigo-500 hover:text-indigo-700 transition-all"
+                                                >
+                                                    <Copy size={13} />
+                                                </button>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </ExcelCard>
+                            )}
+                        </div>
+                    )}
+
                 </div>
             </div>
         </div>
