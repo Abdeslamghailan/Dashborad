@@ -213,6 +213,7 @@ export const ReporterHelper: React.FC = () => {
     };
 
     // --- Feature 6: Prepare Upload State (Admin only) ---
+    const [prepareMode, setPrepareMode] = useState<'replace' | 'interval'>('replace');
     const [prepareProfilesInput, setPrepareProfilesInput] = useState('');
     const [prepareIPsInput, setPrepareIPsInput] = useState('');
     const [prepareResults, setPrepareResults] = useState<string[]>([]);
@@ -760,7 +761,27 @@ export const ReporterHelper: React.FC = () => {
                     {/* ── TAB 5: Prepare Upload (Admin only) ── */}
                     {activeSubTab === 'prepareUpload' && isAdmin && (
                         <div className="space-y-6">
-                            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                            {/* Sub-Switch for Prepare Upload */}
+                            <div className="flex justify-center mb-6">
+                                <div className="bg-white p-1 rounded-xl border border-gray-100 shadow-sm flex gap-1">
+                                    <button
+                                        onClick={() => setPrepareMode('replace')}
+                                        className={`px-6 py-2 rounded-lg text-xs font-black uppercase tracking-wider transition-all ${prepareMode === 'replace' ? 'bg-emerald-600 text-white shadow-md' : 'text-gray-400 hover:bg-gray-50'}`}
+                                    >
+                                        Replace Proxies
+                                    </button>
+                                    <button
+                                        onClick={() => setPrepareMode('interval')}
+                                        className={`px-6 py-2 rounded-lg text-xs font-black uppercase tracking-wider transition-all ${prepareMode === 'interval' ? 'bg-violet-600 text-white shadow-md' : 'text-gray-400 hover:bg-gray-50'}`}
+                                    >
+                                        Upload by Interval
+                                    </button>
+                                </div>
+                            </div>
+
+                            {prepareMode === 'replace' ? (
+                                <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
+                                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                                 {/* Zone 1: Profiles */}
                                 <ExcelCard>
                                     <div className="flex justify-between items-center mb-4">
@@ -848,131 +869,220 @@ export const ReporterHelper: React.FC = () => {
                                                     onClick={() => copyToClipboard(line)}
                                                     className="opacity-0 group-hover:opacity-100 text-emerald-500 hover:text-emerald-700 transition-all shrink-0"
                                                 >
-                                                    <Copy size={13} />
+                                        {/* Zone 1: Profiles */}
+                                        <ExcelCard>
+                                            <div className="flex justify-between items-center mb-4">
+                                                <div className="flex items-center gap-2">
+                                                    <div className="p-2 bg-indigo-50 rounded-lg">
+                                                        <ClipboardList size={18} className="text-indigo-500" />
+                                                    </div>
+                                                    <h3 className="text-sm font-black text-gray-700 uppercase tracking-wider">Zone 1: Profiles Data</h3>
+                                                </div>
+                                                <span className="text-[10px] font-bold text-gray-400 bg-gray-50 px-2 py-1 rounded-md">
+                                                    {prepareProfilesInput.split('\n').filter(Boolean).length} Lines
+                                                </span>
+                                            </div>
+                                            <textarea
+                                                value={prepareProfilesInput}
+                                                onChange={(e) => setPrepareProfilesInput(e.target.value)}
+                                                placeholder={`1#email1@gmail.com#170.62.105.59:92\n2#email2@gmail.com#94.176.215.135:92\n3#email3@gmail.com#94.176.215.25:92`}
+                                                className="w-full h-[350px] p-4 text-xs font-mono text-gray-600 border border-gray-100 rounded-2xl focus:outline-none focus:border-indigo-500 resize-none bg-[#fafbfc] placeholder-gray-300 leading-relaxed"
+                                            />
+                                        </ExcelCard>
+
+                                        {/* Zone 2: New IPs */}
+                                        <ExcelCard>
+                                            <div className="flex justify-between items-center mb-4">
+                                                <div className="flex items-center gap-2">
+                                                    <div className="p-2 bg-emerald-50 rounded-lg">
+                                                        <Globe size={18} className="text-emerald-500" />
+                                                    </div>
+                                                    <h3 className="text-sm font-black text-gray-700 uppercase tracking-wider">Zone 2: New IPs</h3>
+                                                </div>
+                                                <span className="text-[10px] font-bold text-gray-400 bg-gray-50 px-2 py-1 rounded-md">
+                                                    {prepareIPsInput.split('\n').filter(Boolean).length} IPs
+                                                </span>
+                                            </div>
+                                            <textarea
+                                                value={prepareIPsInput}
+                                                onChange={(e) => setPrepareIPsInput(e.target.value)}
+                                                placeholder={`195.178.137.95\n64.44.195.217\n194.180.37.219`}
+                                                className="w-full h-[350px] p-4 text-xs font-mono text-gray-600 border border-gray-100 rounded-2xl focus:outline-none focus:border-emerald-500 resize-none bg-[#fafbfc] placeholder-gray-300 leading-relaxed"
+                                            />
+                                        </ExcelCard>
+                                    </div>
+
+                                    {/* Action Buttons */}
+                                    <div className="flex flex-col sm:flex-row justify-center items-center gap-4">
+                                        <Button
+                                            onClick={handlePrepareUpload}
+                                            className="bg-emerald-600 hover:bg-emerald-700 px-12 py-3 h-auto text-sm font-black rounded-2xl shadow-xl shadow-emerald-100 transform active:scale-95 transition-all"
+                                            leftIcon={<Zap size={18} />}
+                                        >
+                                            Replace Proxies
+                                        </Button>
+                                        <Button
+                                            onClick={clearPrepareUpload}
+                                            variant="outline"
+                                            className="border-gray-200 text-gray-500 hover:bg-gray-50 px-8 py-3 h-auto text-sm font-bold rounded-2xl"
+                                            leftIcon={<RefreshCw size={18} />}
+                                        >
+                                            Clear All
+                                        </Button>
+                                    </div>
+
+                                    {/* Results */}
+                                    {prepareResults.length > 0 && (
+                                        <ExcelCard className="border-t-4 border-t-emerald-500">
+                                            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
+                                                <div>
+                                                    <h3 className="text-lg font-black text-gray-800">Ready to Upload</h3>
+                                                    <p className="text-xs text-gray-500 font-medium italic">{prepareResults.length} profiles with replaced proxies</p>
+                                                </div>
+                                                <button
+                                                    onClick={() => copyToClipboard(prepareResults.join('\n'))}
+                                                    className="flex items-center justify-center gap-2 px-6 py-2.5 bg-gray-900 text-white rounded-xl text-xs font-bold hover:bg-gray-800 transition-all shadow-sm"
+                                                >
+                                                    <Copy size={14} /> Copy All
                                                 </button>
                                             </div>
-                                        ))}
-                                    </div>
-                                </ExcelCard>
-                            )}
-                        </div>
-                    )}
 
-                    {/* ── Upload by Interval (inside Prepare Upload, Admin only) ── */}
-                    {activeSubTab === 'prepareUpload' && isAdmin && (
-                        <div className="mt-2 space-y-6">
-                            <ExcelCard className="border-t-4 border-t-violet-500">
-                                <div className="flex items-center gap-3 mb-6">
-                                    <div className="p-2 bg-violet-50 rounded-lg">
-                                        <Layers size={18} className="text-violet-500" />
-                                    </div>
-                                    <div>
-                                        <h3 className="text-sm font-black text-gray-800 uppercase tracking-wider">Upload by Interval</h3>
-                                        <p className="text-[10px] text-gray-400 font-medium">Auto-number profiles using a custom ID range</p>
-                                    </div>
-                                </div>
-
-                                {/* Interval inputs */}
-                                <div className="flex flex-wrap items-center gap-4 mb-6">
-                                    <div className="flex items-center gap-3 bg-gray-50 border border-gray-200 rounded-2xl px-5 py-3">
-                                        <span className="text-xs font-black text-gray-500 uppercase tracking-wider">From</span>
-                                        <input
-                                            type="number"
-                                            min={1}
-                                            value={intervalFrom}
-                                            onChange={(e) => setIntervalFrom(e.target.value === '' ? '' : Number(e.target.value))}
-                                            placeholder="1"
-                                            className="w-20 text-center text-sm font-black text-violet-600 bg-transparent focus:outline-none"
-                                        />
-                                    </div>
-                                    <span className="text-gray-300 font-black text-lg">—</span>
-                                    <div className="flex items-center gap-3 bg-gray-50 border border-gray-200 rounded-2xl px-5 py-3">
-                                        <span className="text-xs font-black text-gray-500 uppercase tracking-wider">To</span>
-                                        <input
-                                            type="number"
-                                            min={1}
-                                            value={intervalTo}
-                                            onChange={(e) => setIntervalTo(e.target.value === '' ? '' : Number(e.target.value))}
-                                            placeholder="100"
-                                            className="w-20 text-center text-sm font-black text-violet-600 bg-transparent focus:outline-none"
-                                        />
-                                    </div>
-                                    {intervalFrom !== '' && intervalTo !== '' && (
-                                        <span className="text-[11px] font-bold text-gray-400 bg-gray-50 px-3 py-1.5 rounded-xl border border-gray-100">
-                                            {Math.max(0, Number(intervalTo) - Number(intervalFrom) + 1)} slots
-                                        </span>
+                                            <div className="h-[400px] overflow-y-auto bg-gray-50 rounded-2xl p-4 font-mono text-xs text-gray-600 space-y-1 border border-gray-100">
+                                                {prepareResults.map((line, idx) => (
+                                                    <div key={idx} className="flex gap-4 items-center px-3 py-2 hover:bg-white rounded-lg transition-colors border border-transparent hover:border-gray-100 group">
+                                                        <span className="text-gray-300 font-bold w-6 text-right shrink-0">{idx + 1}</span>
+                                                        <span className="flex-1 text-gray-700 break-all">{line}</span>
+                                                        <button
+                                                            onClick={() => copyToClipboard(line)}
+                                                            className="opacity-0 group-hover:opacity-100 text-emerald-500 hover:text-emerald-700 transition-all shrink-0"
+                                                        >
+                                                            <Copy size={13} />
+                                                        </button>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </ExcelCard>
                                     )}
                                 </div>
-
-                                {/* Data input */}
-                                <div className="mb-5">
-                                    <div className="flex justify-between items-center mb-2">
-                                        <label className="text-[11px] font-black text-gray-500 uppercase tracking-wider">Upload Data (email + IP, tab-separated)</label>
-                                        <span className="text-[10px] font-bold text-gray-400 bg-gray-50 px-2 py-1 rounded-md">
-                                            {intervalDataInput.split('\n').filter(Boolean).length} rows
-                                        </span>
-                                    </div>
-                                    <textarea
-                                        value={intervalDataInput}
-                                        onChange={(e) => setIntervalDataInput(e.target.value)}
-                                        placeholder={`email1@gmail.com\t195.178.137.9\nemail2@gmail.com\t64.44.195.217\nemail3@gmail.com\t194.180.37.219`}
-                                        className="w-full h-[280px] p-4 text-xs font-mono text-gray-600 border border-gray-100 rounded-2xl focus:outline-none focus:border-violet-400 resize-none bg-[#fafbfc] placeholder-gray-300 leading-relaxed"
-                                    />
-                                </div>
-
-                                {/* Action buttons */}
-                                <div className="flex flex-wrap gap-3">
-                                    <Button
-                                        onClick={handleIntervalUpload}
-                                        className="bg-violet-600 hover:bg-violet-700 px-10 py-3 h-auto text-sm font-black rounded-2xl shadow-lg shadow-violet-100 transform active:scale-95 transition-all"
-                                        leftIcon={<Zap size={16} />}
-                                    >
-                                        Generate
-                                    </Button>
-                                    <Button
-                                        onClick={clearIntervalUpload}
-                                        variant="outline"
-                                        className="border-gray-200 text-gray-500 hover:bg-gray-50 px-8 py-3 h-auto text-sm font-bold rounded-2xl"
-                                        leftIcon={<RefreshCw size={16} />}
-                                    >
-                                        Clear
-                                    </Button>
-                                </div>
-                            </ExcelCard>
-
-                            {/* Interval Results */}
-                            {intervalResults.length > 0 && (
-                                <ExcelCard className="border-t-4 border-t-violet-500">
-                                    <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
-                                        <div>
-                                            <h3 className="text-lg font-black text-gray-800">Interval Result</h3>
-                                            <p className="text-xs text-gray-500 font-medium italic">
-                                                IDs {intervalFrom} → {intervalTo} · {intervalResults.length} profiles generated
-                                            </p>
-                                        </div>
-                                        <button
-                                            onClick={() => copyToClipboard(intervalResults.join('\n'))}
-                                            className="flex items-center justify-center gap-2 px-6 py-2.5 bg-gray-900 text-white rounded-xl text-xs font-bold hover:bg-gray-800 transition-all shadow-sm shrink-0"
-                                        >
-                                            <Copy size={14} /> Copy All
-                                        </button>
-                                    </div>
-
-                                    <div className="h-[380px] overflow-y-auto bg-gray-50 rounded-2xl p-4 font-mono text-xs text-gray-600 space-y-1 border border-gray-100">
-                                        {intervalResults.map((line, idx) => (
-                                            <div key={idx} className="flex gap-4 items-center px-3 py-2 hover:bg-white rounded-lg transition-colors border border-transparent hover:border-gray-100 group">
-                                                <span className="text-violet-400 font-bold w-6 text-right shrink-0">{Number(intervalFrom) + idx}</span>
-                                                <span className="flex-1 text-gray-700 break-all">{line}</span>
-                                                <button
-                                                    onClick={() => copyToClipboard(line)}
-                                                    className="opacity-0 group-hover:opacity-100 text-violet-500 hover:text-violet-700 transition-all shrink-0"
-                                                >
-                                                    <Copy size={13} />
-                                                </button>
+                            ) : (
+                                <div className="animate-in fade-in slide-in-from-bottom-2 duration-300">
+                                    {/* ── Upload by Interval (inside Prepare Upload, Admin only) ── */}
+                                    <div className="space-y-6">
+                                        <ExcelCard className="border-t-4 border-t-violet-500">
+                                            <div className="flex items-center gap-3 mb-6">
+                                                <div className="p-2 bg-violet-50 rounded-lg">
+                                                    <Layers size={18} className="text-violet-500" />
+                                                </div>
+                                                <div>
+                                                    <h3 className="text-sm font-black text-gray-800 uppercase tracking-wider">Upload by Interval</h3>
+                                                    <p className="text-[10px] text-gray-400 font-medium">Auto-number profiles using a custom ID range</p>
+                                                </div>
                                             </div>
-                                        ))}
+
+                                            {/* Interval inputs */}
+                                            <div className="flex flex-wrap items-center gap-4 mb-6">
+                                                <div className="flex items-center gap-3 bg-gray-50 border border-gray-200 rounded-2xl px-5 py-3">
+                                                    <span className="text-xs font-black text-gray-500 uppercase tracking-wider">From</span>
+                                                    <input
+                                                        type="number"
+                                                        min={1}
+                                                        value={intervalFrom}
+                                                        onChange={(e) => setIntervalFrom(e.target.value === '' ? '' : Number(e.target.value))}
+                                                        placeholder="1"
+                                                        className="w-20 text-center text-sm font-black text-violet-600 bg-transparent focus:outline-none"
+                                                    />
+                                                </div>
+                                                <span className="text-gray-300 font-black text-lg">—</span>
+                                                <div className="flex items-center gap-3 bg-gray-50 border border-gray-200 rounded-2xl px-5 py-3">
+                                                    <span className="text-xs font-black text-gray-500 uppercase tracking-wider">To</span>
+                                                    <input
+                                                        type="number"
+                                                        min={1}
+                                                        value={intervalTo}
+                                                        onChange={(e) => setIntervalTo(e.target.value === '' ? '' : Number(e.target.value))}
+                                                        placeholder="100"
+                                                        className="w-20 text-center text-sm font-black text-violet-600 bg-transparent focus:outline-none"
+                                                    />
+                                                </div>
+                                                {intervalFrom !== '' && intervalTo !== '' && (
+                                                    <span className="text-[11px] font-bold text-gray-400 bg-gray-50 px-3 py-1.5 rounded-xl border border-gray-100">
+                                                        {Math.max(0, Number(intervalTo) - Number(intervalFrom) + 1)} slots
+                                                    </span>
+                                                )}
+                                            </div>
+
+                                            {/* Data input */}
+                                            <div className="mb-5">
+                                                <div className="flex justify-between items-center mb-2">
+                                                    <label className="text-[11px] font-black text-gray-500 uppercase tracking-wider">Upload Data (email + IP, tab-separated)</label>
+                                                    <span className="text-[10px] font-bold text-gray-400 bg-gray-50 px-2 py-1 rounded-md">
+                                                        {intervalDataInput.split('\n').filter(Boolean).length} rows
+                                                    </span>
+                                                </div>
+                                                <textarea
+                                                    value={intervalDataInput}
+                                                    onChange={(e) => setIntervalDataInput(e.target.value)}
+                                                    placeholder={`email1@gmail.com\t195.178.137.9\nemail2@gmail.com\t64.44.195.217\nemail3@gmail.com\t194.180.37.219`}
+                                                    className="w-full h-[280px] p-4 text-xs font-mono text-gray-600 border border-gray-100 rounded-2xl focus:outline-none focus:border-violet-400 resize-none bg-[#fafbfc] placeholder-gray-300 leading-relaxed"
+                                                />
+                                            </div>
+
+                                            {/* Action buttons */}
+                                            <div className="flex flex-wrap gap-3">
+                                                <Button
+                                                    onClick={handleIntervalUpload}
+                                                    className="bg-violet-600 hover:bg-violet-700 px-10 py-3 h-auto text-sm font-black rounded-2xl shadow-lg shadow-violet-100 transform active:scale-95 transition-all"
+                                                    leftIcon={<Zap size={16} />}
+                                                >
+                                                    Generate
+                                                </Button>
+                                                <Button
+                                                    onClick={clearIntervalUpload}
+                                                    variant="outline"
+                                                    className="border-gray-200 text-gray-500 hover:bg-gray-50 px-8 py-3 h-auto text-sm font-bold rounded-2xl"
+                                                    leftIcon={<RefreshCw size={16} />}
+                                                >
+                                                    Clear
+                                                </Button>
+                                            </div>
+                                        </ExcelCard>
+
+                                        {/* Interval Results */}
+                                        {intervalResults.length > 0 && (
+                                            <ExcelCard className="border-t-4 border-t-violet-500">
+                                                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
+                                                    <div>
+                                                        <h3 className="text-lg font-black text-gray-800">Interval Result</h3>
+                                                        <p className="text-xs text-gray-500 font-medium italic">
+                                                            IDs {intervalFrom} → {intervalTo} · {intervalResults.length} profiles generated
+                                                        </p>
+                                                    </div>
+                                                    <button
+                                                        onClick={() => copyToClipboard(intervalResults.join('\n'))}
+                                                        className="flex items-center justify-center gap-2 px-6 py-2.5 bg-gray-900 text-white rounded-xl text-xs font-bold hover:bg-gray-800 transition-all shadow-sm shrink-0"
+                                                    >
+                                                        <Copy size={14} /> Copy All
+                                                    </button>
+                                                </div>
+
+                                                <div className="h-[380px] overflow-y-auto bg-gray-50 rounded-2xl p-4 font-mono text-xs text-gray-600 space-y-1 border border-gray-100">
+                                                    {intervalResults.map((line, idx) => (
+                                                        <div key={idx} className="flex gap-4 items-center px-3 py-2 hover:bg-white rounded-lg transition-colors border border-transparent hover:border-gray-100 group">
+                                                            <span className="text-violet-400 font-bold w-6 text-right shrink-0">{Number(intervalFrom) + idx}</span>
+                                                            <span className="flex-1 text-gray-700 break-all">{line}</span>
+                                                            <button
+                                                                onClick={() => copyToClipboard(line)}
+                                                                className="opacity-0 group-hover:opacity-100 text-violet-500 hover:text-violet-700 transition-all shrink-0"
+                                                            >
+                                                                <Copy size={13} />
+                                                            </button>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            </ExcelCard>
+                                        )}
                                     </div>
-                                </ExcelCard>
+                                </div>
                             )}
                         </div>
                     )}
