@@ -7,7 +7,7 @@ import {
     ShieldAlert, Activity, RefreshCw, FileText, Download, Trash2, Copy, Check,
     ChevronLeft, ChevronRight, LayoutDashboard, PieChart as PieIcon, List,
     ClipboardList, Send, Trash, Globe, Settings, Save, AlertCircle, Zap,
-    Target, BarChart3, Layers, Search, Filter, AlignLeft, Eraser, Type, LayoutGrid
+    Target, BarChart3, Layers, Search, Filter, AlignLeft, Eraser, Type, LayoutGrid, Upload
 } from 'lucide-react';
 import { Button } from './ui/Button';
 import { service } from '../services';
@@ -15,7 +15,7 @@ import { Entity } from '../types';
 import { useAuth } from '../contexts/AuthContext';
 
 // --- Types ---
-type SubTab = 'analyzer' | 'recheck' | 'move' | 'proxyMove';
+type SubTab = 'analyzer' | 'recheck' | 'move' | 'proxyMove' | 'prepareUpload';
 
 interface BlockedEmail {
     session: string;
@@ -212,6 +212,34 @@ export const ReporterHelper: React.FC = () => {
         setProxyMoveResults([]);
     };
 
+    // --- Feature 6: Prepare Upload State (Admin only) ---
+    const [prepareProfilesInput, setPrepareProfilesInput] = useState('');
+    const [prepareIPsInput, setPrepareIPsInput] = useState('');
+    const [prepareResults, setPrepareResults] = useState<string[]>([]);
+
+    const handlePrepareUpload = () => {
+        const profileLines = prepareProfilesInput.split('\n').map(l => l.trim()).filter(Boolean);
+        const ipLines = prepareIPsInput.split('\n').map(l => l.trim()).filter(Boolean);
+
+        const results = profileLines.map((line, idx) => {
+            const newIP = ipLines[idx];
+            if (!newIP) return line; // keep original if no replacement IP
+            // Split on '#', replace last part (proxy) with newIP:92
+            const parts = line.split('#');
+            if (parts.length < 3) return line;
+            parts[parts.length - 1] = `${newIP}:92`;
+            return parts.join('#');
+        });
+
+        setPrepareResults(results);
+    };
+
+    const clearPrepareUpload = () => {
+        setPrepareProfilesInput('');
+        setPrepareIPsInput('');
+        setPrepareResults([]);
+    };
+
     const COLORS = ['#5c7cfa', '#f03e3e', '#37b24d', '#fcc419', '#7048e8'];
 
     return (
@@ -262,6 +290,16 @@ export const ReporterHelper: React.FC = () => {
                             <Target size={18} />
                             Move Analyse
                         </button>
+
+                        {isAdmin && (
+                            <button
+                                onClick={() => setActiveSubTab('prepareUpload')}
+                                className={`flex items-center justify-center gap-2 px-4 sm:px-6 py-2.5 rounded-xl text-xs sm:text-sm font-bold transition-all ${activeSubTab === 'prepareUpload' ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-100' : 'text-gray-500 hover:bg-gray-50'}`}
+                            >
+                                <Upload size={18} />
+                                Prepare Upload
+                            </button>
+                        )}
                     </div>
                 </div>
 
@@ -675,6 +713,107 @@ export const ReporterHelper: React.FC = () => {
                                                 <button
                                                     onClick={() => copyToClipboard(line)}
                                                     className="opacity-0 group-hover:opacity-100 text-indigo-500 hover:text-indigo-700 transition-all"
+                                                >
+                                                    <Copy size={13} />
+                                                </button>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </ExcelCard>
+                            )}
+                        </div>
+                    )}
+
+                    {/* ── TAB 5: Prepare Upload (Admin only) ── */}
+                    {activeSubTab === 'prepareUpload' && isAdmin && (
+                        <div className="space-y-6">
+                            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                                {/* Zone 1: Profiles */}
+                                <ExcelCard>
+                                    <div className="flex justify-between items-center mb-4">
+                                        <div className="flex items-center gap-2">
+                                            <div className="p-2 bg-indigo-50 rounded-lg">
+                                                <ClipboardList size={18} className="text-indigo-500" />
+                                            </div>
+                                            <h3 className="text-sm font-black text-gray-700 uppercase tracking-wider">Zone 1: Profiles Data</h3>
+                                        </div>
+                                        <span className="text-[10px] font-bold text-gray-400 bg-gray-50 px-2 py-1 rounded-md">
+                                            {prepareProfilesInput.split('\n').filter(Boolean).length} Lines
+                                        </span>
+                                    </div>
+                                    <textarea
+                                        value={prepareProfilesInput}
+                                        onChange={(e) => setPrepareProfilesInput(e.target.value)}
+                                        placeholder={`1#email1@gmail.com#170.62.105.59:92\n2#email2@gmail.com#94.176.215.135:92\n3#email3@gmail.com#94.176.215.25:92`}
+                                        className="w-full h-[350px] p-4 text-xs font-mono text-gray-600 border border-gray-100 rounded-2xl focus:outline-none focus:border-indigo-500 resize-none bg-[#fafbfc] placeholder-gray-300 leading-relaxed"
+                                    />
+                                </ExcelCard>
+
+                                {/* Zone 2: New IPs */}
+                                <ExcelCard>
+                                    <div className="flex justify-between items-center mb-4">
+                                        <div className="flex items-center gap-2">
+                                            <div className="p-2 bg-emerald-50 rounded-lg">
+                                                <Globe size={18} className="text-emerald-500" />
+                                            </div>
+                                            <h3 className="text-sm font-black text-gray-700 uppercase tracking-wider">Zone 2: New IPs</h3>
+                                        </div>
+                                        <span className="text-[10px] font-bold text-gray-400 bg-gray-50 px-2 py-1 rounded-md">
+                                            {prepareIPsInput.split('\n').filter(Boolean).length} IPs
+                                        </span>
+                                    </div>
+                                    <textarea
+                                        value={prepareIPsInput}
+                                        onChange={(e) => setPrepareIPsInput(e.target.value)}
+                                        placeholder={`195.178.137.95\n64.44.195.217\n194.180.37.219`}
+                                        className="w-full h-[350px] p-4 text-xs font-mono text-gray-600 border border-gray-100 rounded-2xl focus:outline-none focus:border-emerald-500 resize-none bg-[#fafbfc] placeholder-gray-300 leading-relaxed"
+                                    />
+                                </ExcelCard>
+                            </div>
+
+                            {/* Action Buttons */}
+                            <div className="flex flex-col sm:flex-row justify-center items-center gap-4">
+                                <Button
+                                    onClick={handlePrepareUpload}
+                                    className="bg-emerald-600 hover:bg-emerald-700 px-12 py-3 h-auto text-sm font-black rounded-2xl shadow-xl shadow-emerald-100 transform active:scale-95 transition-all"
+                                    leftIcon={<Zap size={18} />}
+                                >
+                                    Replace Proxies
+                                </Button>
+                                <Button
+                                    onClick={clearPrepareUpload}
+                                    variant="outline"
+                                    className="border-gray-200 text-gray-500 hover:bg-gray-50 px-8 py-3 h-auto text-sm font-bold rounded-2xl"
+                                    leftIcon={<RefreshCw size={18} />}
+                                >
+                                    Clear All
+                                </Button>
+                            </div>
+
+                            {/* Results */}
+                            {prepareResults.length > 0 && (
+                                <ExcelCard className="border-t-4 border-t-emerald-500">
+                                    <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
+                                        <div>
+                                            <h3 className="text-lg font-black text-gray-800">Ready to Upload</h3>
+                                            <p className="text-xs text-gray-500 font-medium italic">{prepareResults.length} profiles with replaced proxies</p>
+                                        </div>
+                                        <button
+                                            onClick={() => copyToClipboard(prepareResults.join('\n'))}
+                                            className="flex items-center justify-center gap-2 px-6 py-2.5 bg-gray-900 text-white rounded-xl text-xs font-bold hover:bg-gray-800 transition-all shadow-sm"
+                                        >
+                                            <Copy size={14} /> Copy All
+                                        </button>
+                                    </div>
+
+                                    <div className="h-[400px] overflow-y-auto bg-gray-50 rounded-2xl p-4 font-mono text-xs text-gray-600 space-y-1 border border-gray-100">
+                                        {prepareResults.map((line, idx) => (
+                                            <div key={idx} className="flex gap-4 items-center px-3 py-2 hover:bg-white rounded-lg transition-colors border border-transparent hover:border-gray-100 group">
+                                                <span className="text-gray-300 font-bold w-6 text-right shrink-0">{idx + 1}</span>
+                                                <span className="flex-1 text-gray-700 break-all">{line}</span>
+                                                <button
+                                                    onClick={() => copyToClipboard(line)}
+                                                    className="opacity-0 group-hover:opacity-100 text-emerald-500 hover:text-emerald-700 transition-all shrink-0"
                                                 >
                                                     <Copy size={13} />
                                                 </button>
