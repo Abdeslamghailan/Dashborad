@@ -240,6 +240,39 @@ export const ReporterHelper: React.FC = () => {
         setPrepareResults([]);
     };
 
+    // --- Feature 7: Upload by Interval ---
+    const [intervalFrom, setIntervalFrom] = useState<number | ''>('');
+    const [intervalTo, setIntervalTo] = useState<number | ''>('');
+    const [intervalDataInput, setIntervalDataInput] = useState('');
+    const [intervalResults, setIntervalResults] = useState<string[]>([]);
+
+    const handleIntervalUpload = () => {
+        const from = Number(intervalFrom);
+        const to = Number(intervalTo);
+        if (!from || !to || from > to) return;
+
+        const lines = intervalDataInput.split('\n').map(l => l.trim()).filter(Boolean);
+        const results: string[] = [];
+        let id = from;
+
+        for (let i = 0; i < lines.length && id <= to; i++, id++) {
+            // Support tab, comma, or space as separator
+            const parts = lines[i].split(/\t|,|\s{2,}/).map(p => p.trim());
+            const email = parts[0] || '';
+            const ip = parts[1] || '';
+            results.push(`${id}#${email}#${ip}:92`);
+        }
+
+        setIntervalResults(results);
+    };
+
+    const clearIntervalUpload = () => {
+        setIntervalFrom('');
+        setIntervalTo('');
+        setIntervalDataInput('');
+        setIntervalResults([]);
+    };
+
     const COLORS = ['#5c7cfa', '#f03e3e', '#37b24d', '#fcc419', '#7048e8'];
 
     return (
@@ -814,6 +847,125 @@ export const ReporterHelper: React.FC = () => {
                                                 <button
                                                     onClick={() => copyToClipboard(line)}
                                                     className="opacity-0 group-hover:opacity-100 text-emerald-500 hover:text-emerald-700 transition-all shrink-0"
+                                                >
+                                                    <Copy size={13} />
+                                                </button>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </ExcelCard>
+                            )}
+                        </div>
+                    )}
+
+                    {/* ── Upload by Interval (inside Prepare Upload, Admin only) ── */}
+                    {activeSubTab === 'prepareUpload' && isAdmin && (
+                        <div className="mt-2 space-y-6">
+                            <ExcelCard className="border-t-4 border-t-violet-500">
+                                <div className="flex items-center gap-3 mb-6">
+                                    <div className="p-2 bg-violet-50 rounded-lg">
+                                        <Layers size={18} className="text-violet-500" />
+                                    </div>
+                                    <div>
+                                        <h3 className="text-sm font-black text-gray-800 uppercase tracking-wider">Upload by Interval</h3>
+                                        <p className="text-[10px] text-gray-400 font-medium">Auto-number profiles using a custom ID range</p>
+                                    </div>
+                                </div>
+
+                                {/* Interval inputs */}
+                                <div className="flex flex-wrap items-center gap-4 mb-6">
+                                    <div className="flex items-center gap-3 bg-gray-50 border border-gray-200 rounded-2xl px-5 py-3">
+                                        <span className="text-xs font-black text-gray-500 uppercase tracking-wider">From</span>
+                                        <input
+                                            type="number"
+                                            min={1}
+                                            value={intervalFrom}
+                                            onChange={(e) => setIntervalFrom(e.target.value === '' ? '' : Number(e.target.value))}
+                                            placeholder="1"
+                                            className="w-20 text-center text-sm font-black text-violet-600 bg-transparent focus:outline-none"
+                                        />
+                                    </div>
+                                    <span className="text-gray-300 font-black text-lg">—</span>
+                                    <div className="flex items-center gap-3 bg-gray-50 border border-gray-200 rounded-2xl px-5 py-3">
+                                        <span className="text-xs font-black text-gray-500 uppercase tracking-wider">To</span>
+                                        <input
+                                            type="number"
+                                            min={1}
+                                            value={intervalTo}
+                                            onChange={(e) => setIntervalTo(e.target.value === '' ? '' : Number(e.target.value))}
+                                            placeholder="100"
+                                            className="w-20 text-center text-sm font-black text-violet-600 bg-transparent focus:outline-none"
+                                        />
+                                    </div>
+                                    {intervalFrom !== '' && intervalTo !== '' && (
+                                        <span className="text-[11px] font-bold text-gray-400 bg-gray-50 px-3 py-1.5 rounded-xl border border-gray-100">
+                                            {Math.max(0, Number(intervalTo) - Number(intervalFrom) + 1)} slots
+                                        </span>
+                                    )}
+                                </div>
+
+                                {/* Data input */}
+                                <div className="mb-5">
+                                    <div className="flex justify-between items-center mb-2">
+                                        <label className="text-[11px] font-black text-gray-500 uppercase tracking-wider">Upload Data (email + IP, tab-separated)</label>
+                                        <span className="text-[10px] font-bold text-gray-400 bg-gray-50 px-2 py-1 rounded-md">
+                                            {intervalDataInput.split('\n').filter(Boolean).length} rows
+                                        </span>
+                                    </div>
+                                    <textarea
+                                        value={intervalDataInput}
+                                        onChange={(e) => setIntervalDataInput(e.target.value)}
+                                        placeholder={`email1@gmail.com\t195.178.137.9\nemail2@gmail.com\t64.44.195.217\nemail3@gmail.com\t194.180.37.219`}
+                                        className="w-full h-[280px] p-4 text-xs font-mono text-gray-600 border border-gray-100 rounded-2xl focus:outline-none focus:border-violet-400 resize-none bg-[#fafbfc] placeholder-gray-300 leading-relaxed"
+                                    />
+                                </div>
+
+                                {/* Action buttons */}
+                                <div className="flex flex-wrap gap-3">
+                                    <Button
+                                        onClick={handleIntervalUpload}
+                                        className="bg-violet-600 hover:bg-violet-700 px-10 py-3 h-auto text-sm font-black rounded-2xl shadow-lg shadow-violet-100 transform active:scale-95 transition-all"
+                                        leftIcon={<Zap size={16} />}
+                                    >
+                                        Generate
+                                    </Button>
+                                    <Button
+                                        onClick={clearIntervalUpload}
+                                        variant="outline"
+                                        className="border-gray-200 text-gray-500 hover:bg-gray-50 px-8 py-3 h-auto text-sm font-bold rounded-2xl"
+                                        leftIcon={<RefreshCw size={16} />}
+                                    >
+                                        Clear
+                                    </Button>
+                                </div>
+                            </ExcelCard>
+
+                            {/* Interval Results */}
+                            {intervalResults.length > 0 && (
+                                <ExcelCard className="border-t-4 border-t-violet-500">
+                                    <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
+                                        <div>
+                                            <h3 className="text-lg font-black text-gray-800">Interval Result</h3>
+                                            <p className="text-xs text-gray-500 font-medium italic">
+                                                IDs {intervalFrom} → {intervalTo} · {intervalResults.length} profiles generated
+                                            </p>
+                                        </div>
+                                        <button
+                                            onClick={() => copyToClipboard(intervalResults.join('\n'))}
+                                            className="flex items-center justify-center gap-2 px-6 py-2.5 bg-gray-900 text-white rounded-xl text-xs font-bold hover:bg-gray-800 transition-all shadow-sm shrink-0"
+                                        >
+                                            <Copy size={14} /> Copy All
+                                        </button>
+                                    </div>
+
+                                    <div className="h-[380px] overflow-y-auto bg-gray-50 rounded-2xl p-4 font-mono text-xs text-gray-600 space-y-1 border border-gray-100">
+                                        {intervalResults.map((line, idx) => (
+                                            <div key={idx} className="flex gap-4 items-center px-3 py-2 hover:bg-white rounded-lg transition-colors border border-transparent hover:border-gray-100 group">
+                                                <span className="text-violet-400 font-bold w-6 text-right shrink-0">{Number(intervalFrom) + idx}</span>
+                                                <span className="flex-1 text-gray-700 break-all">{line}</span>
+                                                <button
+                                                    onClick={() => copyToClipboard(line)}
+                                                    className="opacity-0 group-hover:opacity-100 text-violet-500 hover:text-violet-700 transition-all shrink-0"
                                                 >
                                                     <Copy size={13} />
                                                 </button>
